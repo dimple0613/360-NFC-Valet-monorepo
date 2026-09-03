@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "360 NFC Valet",
+    "slug": "360-nfc-valet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1C2B46"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "icon": "./assets/icon.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F4531F"
+      },
+      "package": "com.valet.threesixtynfc",
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["android.permission.NFC"],
+      "usesCleartextTraffic": true,
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1C2B46"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Allow 360 NFC Valet to read NFC cards for valet check-in.",
+          "includeNdefEntitlement": false
+        }
+      ]
+    ]
+  }
+}

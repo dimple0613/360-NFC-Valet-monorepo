@@ -1,0 +1,290 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>360 NFC VALET — The Card Knows the Car</title>
+<meta name="description" content="360 NFC VALET. Tap your card, we park your car, and when you tap again we bring it back. No app, no account, no waiting. Live in Dubai hotels today.">
+<meta name="theme-color" content="#1C2B46">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@300;400;500;600;700&family=Inter:wght@300;400;500&family=Instrument+Serif:ital@1&display=swap">
+
+<link rel="stylesheet" href="./assets/vendor/lenis.css">
+<link rel="stylesheet" href="./style.css">
+<script>document.documentElement.className = document.documentElement.className.replace('no-js','js');</script>
+</head>
+<body>
+
+<!-- ══════════ PRELOADER ══════════ -->
+<div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading 360 NFC VALET">
+  <div class="pre-inner">
+    <div class="pre-meta">
+      <span class="pre-mark">VALET</span>
+      <span class="pre-tag">SMART VALET — READY WHEN YOU ARE</span>
+    </div>
+    <div class="pre-num"><span id="preCount">0</span><i>%</i></div>
+    <div class="pre-rail"><span class="pre-fill" id="preFill"></span><span class="pre-sweep"></span></div>
+    <p class="pre-status" id="preStatus">WAKING THE SYSTEM</p>
+  </div>
+  <div class="pre-shutter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+</div>
+
+<!-- ══════════ CURSOR ══════════ -->
+<div class="cursor" aria-hidden="true">
+  <div class="cursor-ring" id="cursorRing"><span class="cursor-label" id="cursorLabel"></span></div>
+  <div class="cursor-dot" id="cursorDot"></div>
+</div>
+
+<!-- ══════════ HUD ══════════ -->
+<div class="hud" aria-hidden="true">
+  <div class="hud-progress"><span class="hud-progress-fill" id="hudProgress"></span></div>
+  <span class="hud-edge hud-edge--l">360 NFC VALET — EST. 2026 / DUBAI</span>
+  <span class="hud-edge hud-edge--r">SCROLL TO UNVEIL</span>
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#top" data-cursor="TOP" aria-label="360 NFC VALET — back to top">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 8a7 7 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M9.5 5.5a11 11 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 3a15 15 0 0 1 0 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="brand-word">NFC VALET</span>
+  </a>
+  <nav class="topnav" aria-label="Primary">
+    <a href="#specs" data-cursor="VIEW">Spec</a>
+    <a href="#drive" data-cursor="VIEW">Drive</a>
+    <a href="#gallery" data-cursor="VIEW">Detail</a>
+    <a class="topnav-cta" href="#reserve" data-cursor="HOLD">Reserve</a>
+  </nav>
+</header>
+
+<button class="idle" id="idleToggle" type="button" aria-pressed="true" data-cursor="TOGGLE">
+  <span class="idle-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+  <span class="idle-text">MOTOR IDLE <b id="idleState">ON</b></span>
+</button>
+
+<main id="top">
+
+  <!-- ══════════ 01 · SHEET REVEAL ══════════ -->
+  <section class="reveal" id="reveal" aria-labelledby="revealTitle">
+    <div class="reveal-stage" id="revealStage">
+      <div class="stage-media" data-media="reveal">
+        <img data-draftly-asset-id="hero-image" data-draftly-default-src="./assets/img/vanta-hero.jpg" class="stage-plate stage-plate--under" src="./assets/img/vanta-hero.jpg?v=20260827" alt="Matte black car revealed in a blacked-out garage, red tail lights lit.">
+        <img data-draftly-asset-id="img-1" data-draftly-default-src="./assets/img/vanta-veiled.jpg" class="stage-plate stage-plate--veil" id="veilPlate" src="./assets/img/vanta-veiled.jpg?v=20260827" alt="The car beneath a silk dust sheet, lit by two crossing light bars.">
+<video data-draftly-asset-id="hero-video" data-draftly-default-src="./assets/vendor/vanta-reveal.mp4" class="stage-video" id="revealVideo" playsinline muted preload="auto"
+               data-src="./assets/vendor/vanta-reveal.mp4"
+
+               poster="./assets/img/vanta-veiled.jpg" tabindex="-1" aria-hidden="true"></video>
+        <div class="stage-vig" aria-hidden="true"></div>
+      </div>
+
+      <div class="reveal-copy">
+        <p class="kicker" data-anim="kicker"><i class="dot"></i>A GUEST TAPS CARD 70147 AT JW MARRIOTT MARQUIS</p>
+        <h1 class="display display--hero" id="revealTitle">
+          <span class="line" data-split>THE CARD</span>
+          <span class="line line--mix" data-split><em>brings</em> THE CAR</span>
+        </h1>
+        <p class="lede" data-anim="lede">Tap your card at the gate, hand us the keys, and we park the car. Tap again when you're ready and we bring it back to you. No app. No account. No queue.</p>
+      </div>
+
+      <ul class="edge-stats" aria-hidden="true">
+        <li class="edge-stat edge-stat--tl"><b>16</b><span>ADMIN SCREENS</span></li>
+        <li class="edge-stat edge-stat--tr"><b>15</b><span>DRIVER SCREENS</span></li>
+        <li class="edge-stat edge-stat--bl"><b>6</b><span>GUEST PAGES</span></li>
+      </ul>
+
+      <div class="reveal-trio" aria-hidden="true">
+        <span>TAP</span><span>PARK</span><span>RETURN</span>
+      </div>
+
+      <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 · SPEC STRIP ══════════ -->
+  <section class="specs" id="specs" aria-labelledby="specsTitle">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker"><i class="dot"></i>02 — DASHBOARD</p>
+        <h2 class="sec-title" id="specsTitle">Real numbers,<br><em>no</em> sales talk.</h2>
+        <p class="sec-note">These numbers are live from our system today. No pitch deck, no rounding.</p>
+      </div>
+      <ol class="spec-row">
+        <li class="spec">
+          <span class="spec-idx">01</span>
+          <b class="spec-fig"><span class="count" data-count="6" data-dec="0">0</span><i>×</i></b>
+          <span class="spec-unit">ORDER STAGES</span>
+          <span class="spec-label">Drop off, park, ask for it, fetch it, hand it back.</span>
+        </li>
+        <li class="spec">
+          <span class="spec-idx">02</span>
+          <b class="spec-fig"><span class="count" data-count="580" data-dec="0">0</span></b>
+          <span class="spec-unit">CARDS</span>
+          <span class="spec-label">Chip number and printed 4-digit number — either one works.</span>
+        </li>
+        <li class="spec">
+          <span class="spec-idx">03</span>
+          <b class="spec-fig"><span class="count" data-count="41" data-dec="0">0</span></b>
+          <span class="spec-unit">API ROUTES</span>
+          <span class="spec-label">The app and the server talk through secure, tested connections.</span>
+        </li>
+        <li class="spec">
+          <span class="spec-idx">04</span>
+          <b class="spec-fig"><span class="count" data-count="248" data-dec="0">0</span></b>
+          <span class="spec-unit">DROP-OFFS TODAY</span>
+          <span class="spec-label">Cars parked today — JW 112, Atlantis 86, Address 50.</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ══════════ 03 · DESERT DRIVE ══════════ -->
+  <section class="drive" id="drive" aria-labelledby="driveTitle">
+    <div class="drive-stage" id="driveStage">
+      <div class="stage-media" data-media="drive">
+        <img data-draftly-asset-id="img-2" data-draftly-default-src="./assets/img/vanta-desert.jpg" class="stage-plate" id="drivePlate" src="./assets/img/vanta-desert.jpg?v=20260827" alt="A car tearing across a moonlit lot, throwing a wall of dust.">
+<video data-draftly-asset-id="video-1" data-draftly-default-src="./assets/vendor/vanta-drive.mp4" class="stage-video" id="driveVideo" playsinline muted preload="auto"
+               data-src="./assets/vendor/vanta-drive.mp4"
+
+               poster="./assets/img/vanta-desert.jpg" tabindex="-1" aria-hidden="true"></video>
+      </div>
+
+      <!-- giant wordmark, occluded by the car plate above it -->
+      <h2 class="drive-word" id="driveWord" aria-hidden="true"><span>VALET</span></h2>
+      <canvas class="drive-occluder" id="driveOccluder" aria-hidden="true"></canvas>
+      <h2 class="sr-only" id="driveTitle">360 NFC VALET running the night floor</h2>
+      <div class="stage-vig stage-vig--soft" aria-hidden="true"></div>
+
+      <div class="drive-cards" id="driveCards">
+        <article class="gcard">
+          <p class="gcard-k">TAP</p>
+          <b class="gcard-fig">2</b>
+          <p class="gcard-sub">Tap the card or type the 4-digit number printed on it. Either one works.</p>
+        </article>
+        <article class="gcard">
+          <p class="gcard-k">ETA</p>
+          <b class="gcard-fig">5–30<i>min</i></b>
+          <p class="gcard-sub">Choose 5 to 30 minutes and we fetch your car on time — watch it count down.</p>
+        </article>
+        <article class="gcard">
+          <p class="gcard-k">DRIVERS</p>
+          <b class="gcard-fig">22</b>
+          <p class="gcard-sub">Drivers on tonight's team, ready to bring cars back.</p>
+        </article>
+      </div>
+
+      <p class="drive-caption" aria-hidden="true">JW MARRIOTT MARQUIS — 23:41 — SHIFT A</p>
+    </div>
+  </section>
+
+  <!-- ══════════ 04 · DETAIL GALLERY ══════════ -->
+  <section class="gallery" id="gallery" aria-labelledby="galleryTitle">
+    <div class="gallery-pin" id="galleryPin">
+      <div class="gallery-head">
+        <p class="kicker"><i class="dot"></i>04 — RECORDS</p>
+        <h2 class="sec-title sec-title--sm" id="galleryTitle">Every tap,<br><em>accounted</em> for.</h2>
+      </div>
+      <div class="gallery-track" id="galleryTrack">
+        <figure class="slab">
+          <span class="slab-idx">01</span>
+          <div class="slab-img"><img data-draftly-asset-id="img-3" data-draftly-default-src="./assets/img/gallery-01-duallookup.jpg" src="./assets/img/gallery-01-duallookup.jpg" alt="Valet attendant presenting a black contactless card to a guest at a Dubai hotel gate at night." loading="lazy"></div>
+          <figcaption><b>NFC DUAL LOOKUP</b><span>Chip number or the 4-digit number printed on the card — either one opens the gate.</span></figcaption>
+        </figure>
+        <figure class="slab">
+          <span class="slab-idx">02</span>
+          <div class="slab-img"><img data-draftly-asset-id="img-4" data-draftly-default-src="./assets/img/gallery-02-anpr.jpg" src="./assets/img/gallery-02-anpr.jpg" alt="Plate recognition camera scanning the front number plate of a black car at a Dubai valet entrance." loading="lazy"></div>
+          <figcaption><b>ANPR CAMERA</b><span>We read your number plate by photo or by typing it — that ties your car to the card.</span></figcaption>
+        </figure>
+        <figure class="slab">
+          <span class="slab-idx">03</span>
+          <div class="slab-img"><img data-draftly-asset-id="img-5" data-draftly-default-src="./assets/img/gallery-03-livestatus.jpg" src="./assets/img/gallery-03-livestatus.jpg" alt="Guest holding a phone with a glowing countdown ring while the driver brings the car at a Dubai hotel." loading="lazy"></div>
+          <figcaption><b>LIVE STATUS</b><span>Tap to bring your car — the next free driver picks it up and you watch the countdown.</span></figcaption>
+        </figure>
+        <figure class="slab">
+          <span class="slab-idx">04</span>
+          <div class="slab-img"><img data-draftly-asset-id="img-6" data-draftly-default-src="./assets/img/gallery-04-offernet.jpg" src="./assets/img/gallery-04-offernet.jpg" alt="Phone on a hotel table showing dining and spa deal cards over brunch, lobby blurred behind." loading="lazy"></div>
+          <figcaption><b>OFFER NET</b><span>Dining, spa, gym and stay deals sit right on your tap page, and staff check a simple code.</span></figcaption>
+        </figure>
+      </div>
+      <div class="gallery-rail" aria-hidden="true"><span id="galleryRailFill"></span></div>
+    </div>
+  </section>
+
+  <!-- ══════════ 05 · TRACKED OUTRO ══════════ -->
+  <section class="outro" id="outro" aria-labelledby="outroTitle">
+    <div class="outro-pin" id="outroPin">
+      <div class="outro-bg" id="outroBg">
+        <img data-draftly-asset-id="img-8" data-draftly-default-src="./assets/img/outro-bg.jpg" src="./assets/img/outro-bg.jpg?v=20260827" alt="" aria-hidden="true">
+      </div>
+      <div class="stage-vig" aria-hidden="true"></div>
+      <p class="outro-kicker" aria-hidden="true">NO APPS — NO QUEUES</p>
+      <h2 class="outro-word" id="outroTitle"><span class="sr-only">Tracked</span><span class="outro-letters" id="outroLetters" aria-hidden="true">TRACKED</span></h2>
+      <p class="outro-sub">Every card is logged and every number plate is on file, and every return is timed from tap to curb. No lost keys, no guesswork.</p>
+    </div>
+  </section>
+
+  <!-- ══════════ 06 · RESERVE ══════════ -->
+  <section class="reserve" id="reserve" aria-labelledby="reserveTitle">
+    <div class="wrap reserve-wrap">
+      <p class="kicker"><i class="dot"></i>06 — ROLLOUT</p>
+      <h2 class="sec-title" id="reserveTitle">One card.<br><em>Then</em> your car comes back.</h2>
+      <p class="sec-note">No app to download, no account to make, no queue to join. A hotel can be up and running within the week.</p>
+      <a class="bigcta" href="#reserve" data-cursor="HOLD">
+        <span class="bigcta-l">RESERVE&nbsp;YOURS</span>
+        <span class="bigcta-a" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+        </span>
+      </a>
+      <ul class="reserve-meta">
+        <li><b>CARDS</b><span>580, dual UID</span></li>
+        <li><b>PROPERTIES</b><span>3, live in Dubai</span></li>
+        <li><b>TRIAL</b><span>14 days, on us</span></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track" id="marqueeTrack">
+      <span>TAP IN <i>◆</i> TAP OUT <i>◆</i> NO QUEUES <i>◆</i> 360 NFC VALET <i>◆</i> </span>
+      <span>TAP IN <i>◆</i> TAP OUT <i>◆</i> NO QUEUES <i>◆</i> 360 NFC VALET <i>◆</i> </span>
+    </div>
+  </div>
+  <div class="wrap foot-grid">
+    <div class="foot-col">
+      <p class="foot-mark">360 NFC VALET</p>
+      <p class="foot-fine">Valet parking run on one tap card — a control panel for the hotel, an app for the drivers, and a simple page for the guests. Live in Dubai hotels today.</p>
+    </div>
+    <nav class="foot-col" aria-label="Footer">
+      <p class="foot-h">System</p>
+      <a href="#specs" data-cursor="VIEW">Ritual</a>
+      <a href="#drive" data-cursor="VIEW">The floor</a>
+    </nav>
+    <div class="foot-col">
+      <p class="foot-h">Contact</p>
+      <a href="#reserve" data-cursor="HOLD">info@360nfcvalet.com</a>
+      <a href="#reserve" data-cursor="HOLD">+971 4 555 0000</a>
+    </div>
+    <div class="foot-col foot-col--end">
+      <p class="foot-h">Legal</p>
+      <p class="foot-fine">Every number on this page is real and taken from the system itself. No invented figures for marketing.</p>
+      <p class="foot-fine foot-fine--dim">© 2026 360 NFC VALET</p>
+    </div>
+  </div>
+</footer>
+
+<script src="./assets/vendor/gsap.min.js"></script>
+<script src="./assets/vendor/ScrollTrigger.min.js"></script>
+<script src="./assets/vendor/ScrollToPlugin.min.js"></script>
+<script src="./assets/vendor/CustomEase.min.js"></script>
+<script src="./assets/vendor/lenis.min.js"></script>
+<script src="./assets/vendor/split-type.min.js"></script>
+<script src="./assets/script.js"></script>
+</body>
+</html>

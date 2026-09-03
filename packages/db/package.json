@@ -1,0 +1,41 @@
+{
+  "name": "@saasclaude/db",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"no lint config yet\" && exit 0",
+    "test": "vitest run",
+    "seed": "tsx prisma/seed.ts",
+    "latency-check": "tsx scripts/latency-check.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@oslojs/encoding": "^1.1.0",
+    "@prisma/client": "^6.1.0",
+    "arctic": "^3.7.0",
+    "ioredis": "^6.0.0",
+    "nodemailer": "^7.0.9",
+    "otpauth": "^9.5.1",
+    "stripe": "^22.4.0"
+  },
+  "devDependencies": {
+    "@saasclaude/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^7.0.4",
+    "prisma": "^6.1.0",
+    "tsx": "^4.8.1",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  }
+}

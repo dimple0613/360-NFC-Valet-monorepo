@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Turborepo
+.turbo/
+
+# Next.js
+.next/
+out/
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Prisma
+packages/db/generated/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor/OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Playwright MCP browser-snapshot cache (ephemeral debugging artifacts)
+.playwright-mcp/
+
+# Vercel
+.vercel
+
+# Broader safety net alongside the specific .env/.env.local/.env.*.local
+# rules above (Vercel CLI's `vercel link` added this) — explicitly un-ignore
+# .env.example since that's the checked-in template, never real secrets.
+.env*
+!.env.example
+
+# Local-only design reference material — mockups/screenshots/canvases used
+# for UI inspiration, never part of the codebase.
+/360 NFC Valet System/
+/ss/
+/svg]
+
+# Unused screenshots / scratch files — never pushed
+/unused-assets/
+
+# Monorepo sub-projects
+
+# Expo / React Native app
+apps/app/google-services.json
+
+# Redis local runtime dump (super admin repo root) — not source
+dump.rdb

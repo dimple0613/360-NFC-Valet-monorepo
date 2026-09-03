@@ -1,0 +1,1309 @@
+// Prisma schema for saasclaude core.
+// Phase 1A: Organization + a flat membership model (FR-105/FR-106 — an
+// earlier nested Team/Workspace sub-structure was built and then removed;
+// membership is deliberately flat, users belong directly to an organization)
+// + the User model it depends on. RBAC (Role/Permission/RolePermission/UserRole)
+// and the tenant-scoping enforcement layer are separate Phase 1A tasks — see TASKS.md.
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
+  // "native" alone only generates an engine binary matching whatever OS ran
+  // `prisma generate` (Vercel's own build machine) — that doesn't reliably
+  // match the actual Vercel Functions (Lambda) runtime the deployed code
+  // executes on, a well-documented Prisma+Vercel gotcha. rhel-openssl-3.0.x
+  // is the current Vercel Functions target.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Global entity — a User is not itself tenant-scoped, since one user can
+// belong to multiple organizations (FR-105) and switch the active one.
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // FR-220: null until a Local-provider account sets a password — a user who
+  // only ever authenticates via a future non-local provider never gets one.
+  passwordHash       String?
+  emailVerifiedAt    DateTime?
+  // FR-222: mfaEnabled only flips true once enrollment is confirmed with a
+  // valid code (see authentication.ts) — mfaSecretEncrypted can be non-null
+  // with mfaEnabled still false mid-enrollment. Encrypted (reversible), not
+  // hashed: verifying a TOTP code requires recovering the actual secret.
+  mfaEnabled         Boolean   @default(false)
+  mfaSecretEncrypted String?
+
+  memberships          OrganizationMembership[]
+  userRoles            UserRole[]
+  platformUserRoles    PlatformUserRole[]
+  settings             UserSetting[]
+  sessions             Session[]
+  verificationTokens   VerificationToken[]
+  mfaRecoveryCodes     MfaRecoveryCode[]
+  featureOverrides     UserFeatureOverride[]
+  oauthAccounts        OAuthAccount[]
+  inAppNotifications   InAppNotification[]
+
+  @@map("users")
+}
+
+// FR-220: one row per linked OAuth identity — a user can hold both a
+// passwordHash (Local) and one or more of these, so signing in with Google
+// today and linking Apple later doesn't need a schema change. providerUserId
+// (the provider's own stable subject id, e.g. Google/Apple's `sub` claim) is
+// the durable link, not email — a user's email can change on the provider
+// side without breaking the connection.
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+// The tenant. FR-131: company info/branding/contact/tax fields land as those
+// features are built (Phase 1C+); this is the root record they'll hang off.
+model Organization {
+  id                   String             @id @default(cuid())
+  name                 String
+  slug                 String             @unique
+  status               OrganizationStatus @default(ACTIVE)
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  archivedAt           DateTime?
+  // FR-132: set when deletion is requested, cleared if cancelled during the grace
+  // period. Once past, the org is actually purged (row gone) — the historical
+  // record of that lives in the audit log (organization.deleted), not a
+  // deletedAt marker here, since there'd be nothing left to mark it on.
+  deletionScheduledFor DateTime?
+
+  // FR-131's "contact" slice, first piece actually built — all optional (an
+  // org has none of this at signup). Plain typed columns, not `metadata`
+  // Json, since these are real fields with their own edit form (Tenant
+  // Admin's own profile page + the Super Admin org detail page), not
+  // free-form data.
+  contactEmail String?
+  contactPhone String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  region       String?
+  postalCode   String?
+  country      String?
+
+  memberships         OrganizationMembership[]
+  roles               Role[]
+  settings            OrganizationSetting[]
+  invites             OrganizationInvite[]
+  resourceUsageEvents ResourceUsageEvent[]
+  subscriptions       Subscription[]
+  featureOverrides    OrganizationFeatureOverride[]
+  invoices            Invoice[]
+  creditNotes         CreditNote[]
+  apiKeys             ApiKey[]
+  inAppNotifications  InAppNotification[]
+
+  @@map("organizations")
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+  PENDING_DELETION
+}
+
+// Join model for FR-105 (multi-org membership) — also the anchor point every
+// tenant-scoped query joins through once the scoping layer lands.
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+// --- RBAC (FR-113, FR-150–FR-154) ---
+//
+// Two entirely separate role systems, per FR-113: PlatformRole/PlatformRolePermission/
+// PlatformUserRole for the Super Admin portal (no organizationId anywhere — a platform
+// role isn't scoped to any tenant), and Role/RolePermission/UserRole for the Tenant
+// Admin portal, where every Role belongs to exactly one organization and tenant admins
+// can build custom roles from the registered permissions (FR-122). Both pick from the
+// same Permission catalog, which modules populate at install time (FR-152) — Phase 1's
+// only registrant is core itself (see the permission registry service, a separate task).
+
+enum PermissionScope {
+  PLATFORM
+  TENANT
+}
+
+// Not tenant-scoped: the catalog is global, shared by every org's custom roles and by
+// platform roles alike. `scope` says which of the two role systems may reference it —
+// enforced by the permission registry/role services (not a DB constraint, to avoid a
+// trigger just to cross-check a join; see those services once built).
+model Permission {
+  id          String          @id @default(cuid())
+  key         String          @unique
+  module      String
+  scope       PermissionScope
+  description String?
+  createdAt   DateTime        @default(now())
+
+  rolePermissions         RolePermission[]
+  platformRolePermissions PlatformRolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model PlatformRole {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions PlatformRolePermission[]
+  userRoles   PlatformUserRole[]
+
+  @@map("platform_roles")
+}
+
+model PlatformRolePermission {
+  id             String   @id @default(cuid())
+  platformRoleId String
+  permissionId   String
+  createdAt      DateTime @default(now())
+
+  platformRole PlatformRole @relation(fields: [platformRoleId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([platformRoleId, permissionId])
+  @@index([platformRoleId])
+  @@index([permissionId])
+  @@map("platform_role_permissions")
+}
+
+model PlatformUserRole {
+  id             String   @id @default(cuid())
+  userId         String
+  platformRoleId String
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformRole PlatformRole @relation(fields: [platformRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platformRoleId])
+  @@index([userId])
+  @@index([platformRoleId])
+  @@map("platform_user_roles")
+}
+
+// Tenant-scoped: every Role belongs to exactly one organization (FR-150). RolePermission
+// and UserRole denormalize organizationId the same way the membership join tables above
+// do, so the automatic tenant-scoping extension can filter them directly.
+// organizationId is nullable: a role with organizationId = null is a GLOBAL
+// role (Super Admin-managed, usable by every org — see roles.ts's
+// listGlobalRoles/createGlobalRole) rather than one org's own custom role.
+// This is a deliberate carve-out from this model's normal tenant scoping —
+// global-role reads/writes go through prismaWithoutTenantScoping explicitly
+// (never the tenant-scoped `db` client, which forces organizationId equality
+// and would never see them) and every permission-resolution call site
+// (authorization.ts) checks "this org's role OR a global role", never just
+// the org id alone, so a global role can grant permissions in any org's
+// context without ever letting a custom role leak across orgs.
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  slug           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  userRoles    UserRole[]
+  invites      OrganizationInvite[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model RolePermission {
+  id             String   @id @default(cuid())
+  organizationId String?
+  roleId         String
+  permissionId   String
+  createdAt      DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([organizationId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// FR-280/FR-282, FR-104: immutable audit trail. Tenant-scoped like the models
+// above (FR-102 explicitly lists audit logs among the things scoped
+// automatically) — an org's own activity, including cross-tenant access
+// attempts made by its own users, lands in its own audit trail. Immutability
+// is enforced in the scoping extension itself (see tenant-scoping.ts): unlike
+// the other tenant-scoped models, update/delete on AuditLog always throws.
+// `action`/`resourceType` are free-form strings, not enums, so modules can log
+// their own event vocabulary without touching core (no hardcoded action list).
+// organizationId/actorUserId are deliberately plain columns, not FK relations:
+// an audit trail should survive deletion of the org or user it references
+// (org delete-with-grace-period per FR-132, user deletion under GDPR) rather
+// than cascading away the very record that proves what happened.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  module         String
+  action         String
+  resourceType   String?
+  resourceId     String?
+  before         Json?
+  after          Json?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([actorUserId])
+  @@index([module, action])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// --- Settings (FR-270, FR-271) ---
+//
+// Three separate models rather than one polymorphic table with a nullable
+// organizationId/userId — matches how PlatformRole/Role were kept separate
+// rather than one Role table with a nullable organizationId, and sidesteps a
+// real Postgres gotcha: a unique constraint on a nullable column treats every
+// NULL as distinct, so a single-table design couldn't actually enforce "one
+// platform-scope row per key" the way `@@unique([key])` here does.
+//
+// `category` is a free-form string, not FR-270's fixed category list as an
+// enum — matches "everything configuration-driven"; a module (FR-272,
+// unstarted) registering its own settings shouldn't need a core enum change to
+// pick a category. `value` is a JSON-serialized string; when `isSensitive` is
+// true it's ciphertext (encryption.ts) instead of plaintext JSON — encrypted
+// at rest per FR-271. OrganizationSetting is tenant-scoped like everything
+// else in this file; PlatformSetting/UserSetting are not (no single
+// organization owns a platform-wide or cross-org-personal setting).
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  category    String
+  key         String   @unique
+  value       String
+  isSensitive Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@map("platform_settings")
+}
+
+model OrganizationSetting {
+  id             String   @id @default(cuid())
+  organizationId String
+  category       String
+  key            String
+  value          String
+  isSensitive    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@index([category])
+  @@map("organization_settings")
+}
+
+model UserSetting {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String
+  key         String
+  value       String
+  isSensitive Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@index([category])
+  @@map("user_settings")
+}
+
+// --- Auth (Phase 1B, FR-220, FR-222, FR-223) ---
+//
+// Not tenant-scoped — a user account and its sessions/tokens/recovery codes
+// aren't owned by any one organization, same as User itself (FR-105: one user,
+// many orgs). None of these go in the tenant-scoping extension's model list.
+
+// One-shot tokens for email verification and password reset (FR-220) share
+// this shape exactly: generate, hash, email (placeholder — no notification
+// framework yet, see authentication.ts), user submits the raw token, we hash
+// it and look up by tokenHash, check expiry/unused, consume. `purpose` is a
+// free-form string, not an enum, so a future purpose (e.g. invite acceptance)
+// doesn't need a migration. Only the hash is stored — a DB leak alone can't
+// let someone claim a still-valid reset/verification link.
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+// FR-222: recovery codes are hashed (one-way, like a password), not encrypted
+// — unlike the TOTP secret, we only ever need to verify a submitted code
+// matches, never redisplay it. Each row is one single-use code.
+model MfaRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_codes")
+}
+
+// FR-223: active session/device list, revocation, configurable lifetime.
+// One row doubles as both "session" and "device" entry — the fields that
+// identify a device (userAgent/ipAddress) live directly on the session rather
+// than a separate Device model, since Phase 1B has no concept of a device
+// persisting across separate login sessions to justify splitting them apart.
+// organizationId is the FR-105/FR-103 "current organization" that travels
+// with the session across requests — nullable because it isn't set until the
+// user actually switches into an org after login.
+model Session {
+  id                 String    @id @default(cuid())
+  userId             String
+  tokenHash          String    @unique
+  organizationId     String?
+  ipAddress          String?
+  userAgent          String?
+  createdAt          DateTime  @default(now())
+  lastUsedAt         DateTime  @default(now())
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  // FR-112: set when a Super Admin is impersonating — userId is the impersonated
+  // organization admin (so the rest of the app just works as that user), this is
+  // who's REALLY behind the wheel. Presence of this field is what "visibly
+  // indicated" (the impersonation banner) keys off; expiresAt is set far shorter
+  // than a normal session for the "time-boxed" requirement.
+  impersonatorUserId String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// FR-122/DoD "invite a user": deliberately NOT in the tenant-scoping extension's
+// model list, even though it carries organizationId and conceptually belongs to
+// one org — acceptance (organization-invites.ts) looks a row up by raw token
+// alone, before any tenant context exists, the same reason Session and
+// VerificationToken sit outside the extension too. Listing/managing invites
+// from inside the Tenant Admin portal filters by organizationId explicitly
+// instead of relying on automatic scoping.
+model OrganizationInvite {
+  id              String    @id @default(cuid())
+  organizationId  String
+  email           String
+  roleId          String?
+  invitedByUserId String?
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("organization_invites")
+}
+
+// --- Billing foundation (Phase 1C) ---
+
+enum ResourceAggregation {
+  COUNTER
+  GAUGE
+  METERED
+}
+
+enum ResourceResetCycle {
+  NEVER
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  BILLING_CYCLE
+}
+
+enum ResourceOveragePolicy {
+  BLOCK
+  ALLOW
+  BILL
+}
+
+// FR-170–172: resource types are a registry, not a schema change per type —
+// the same self-registration pattern as Permission (permission-registry.ts).
+// Not tenant-scoped: the catalog is global, shared by every org's plans and
+// consumption tracking.
+model ResourceType {
+  id            String                @id @default(cuid())
+  key           String                @unique
+  module        String
+  displayName   String
+  unit          String
+  aggregation   ResourceAggregation
+  resetCycle    ResourceResetCycle
+  overagePolicy ResourceOveragePolicy
+  description   String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([module])
+  @@map("resource_types")
+}
+
+// FR-173: consumption tracked as an append-only ledger of usage deltas rather
+// than a running-total row per period — a (organizationId, resourceTypeKey,
+// userId, period) unique constraint would hit the same nullable-column
+// gotcha as OrganizationSetting/UserSetting: Postgres treats every NULL as
+// distinct, so an optional userId wouldn't actually dedupe. Current usage for
+// a period is the SUM of amounts recorded since the period start — works
+// uniformly for COUNTER (cumulative), GAUGE (net of +/- deltas), and METERED
+// aggregations alike.
+model ResourceUsageEvent {
+  id              String   @id @default(cuid())
+  organizationId  String
+  resourceTypeKey String
+  userId          String?
+  amount          Decimal
+  recordedAt      DateTime @default(now())
+  metadata        Json?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, resourceTypeKey, recordedAt])
+  @@map("resource_usage_events")
+}
+
+enum PlanType {
+  FREE
+  TRIAL
+  MONTHLY
+  YEARLY
+  LIFETIME
+  ENTERPRISE
+  USAGE_BASED
+  CUSTOM_PRICING
+  INVITE_ONLY
+  HIDDEN
+}
+
+enum PlanVisibility {
+  PUBLIC
+  INVITE_ONLY
+  HIDDEN
+  ARCHIVED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+// FR-180–183: Plans are global (platform-defined, not tenant-scoped) and
+// versioned. `key` groups versions of "the same plan" together (e.g. "pro");
+// `version` increments each time pricing/terms change. Only one version per
+// key is `isCurrent` (what new subscriptions get) — service-layer enforced
+// (plans.ts never exposes an update, only createPlanVersion, which flips the
+// previous isCurrent off atomically) rather than a DB constraint, since a
+// genuine mutable field (isCurrent) coexists with fields that must never
+// change post-creation (price, terms) and the tenant-scoping extension's
+// blanket immutability mechanism doesn't apply to a non-tenant-scoped model
+// anyway. Old versions are never deleted, so existing Subscriptions can keep
+// referencing exactly the terms they subscribed under (FR-182).
+model Plan {
+  id              String         @id @default(cuid())
+  key             String
+  version         Int            @default(1)
+  isCurrent       Boolean        @default(true)
+  name            String
+  description     String?
+  type            PlanType
+  visibility      PlanVisibility @default(PUBLIC)
+  priceCents      Int?
+  currency        String         @default("usd")
+  billingCycle    BillingCycle?
+  trialDays       Int?
+  gracePeriodDays Int            @default(0)
+  // Free-form for Phase 1: upgrade/downgrade policy, renewal/cancellation
+  // rules, integrations. Promote to real columns once a UI needs to query
+  // on them specifically rather than just display them.
+  metadata        Json?
+  // The subscriber's terms-of-service acceptance text for this plan version —
+  // disabled by default (termsOfServiceDisabled true) since most plans won't
+  // set one; when enabled, termsOfService holds the accepted rich-text HTML.
+  termsOfService         String?  @db.Text
+  termsOfServiceDisabled Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  resources     PlanResource[]
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@unique([key, version])
+  @@index([key])
+  @@map("plans")
+}
+
+// A basic multi-currency registry (FR-111/FR-144/FR-200/FR-250) — global,
+// platform-wide, not tenant-scoped (like Plan/ResourceType/Permission).
+// `format` is a display template with a {PRICE} placeholder (e.g. "${PRICE}",
+// "₹{PRICE}") so a plan's price can render in whichever currency it's priced
+// in without hardcoding symbol placement. Deliberately NOT wired as a foreign
+// key from Plan.currency (still a free-text code) — this registry is the
+// picker's source of truth, not a schema-enforced constraint, matching how
+// visibility/features/resources are all "registered, not hardcoded" without
+// necessarily being FK-enforced everywhere they're referenced.
+model Currency {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  format    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("currencies")
+}
+
+// A basic tax engine (REQUIREMENTS.md §2.17/FR-260-261) — deliberately
+// minimal (a default rate + per-country overrides), not the full VAT/GST/
+// exemption/reverse-charge system FR-260 describes; ROADMAP.md defers that
+// as its own initiative. This covers just enough to compute Invoice.taxCents.
+// The global enabled/default-rate values live in PlatformSetting (category
+// "tax") since they're a single toggle+number, not a list — this model is
+// only for the actual list: one rate per country code.
+model TaxRate {
+  id          String   @id @default(cuid())
+  countryCode String   @unique
+  ratePercent Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tax_rates")
+}
+
+model PlanResource {
+  id              String   @id @default(cuid())
+  planId          String
+  resourceTypeKey String
+  /// null = unlimited
+  limit           Int?
+  createdAt       DateTime @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, resourceTypeKey])
+  @@map("plan_resources")
+}
+
+model PlanFeature {
+  id        String   @id @default(cuid())
+  planId    String
+  featureId String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@map("plan_features")
+}
+
+// FR-183: the add-on catalog — what's purchasable. Attaching one to a
+// Subscription is that model's job (a later Phase 1C task), not this one's.
+model AddOn {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  priceCents  Int?
+  currency    String   @default("usd")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  resources          AddOnResource[]
+  features           AddOnFeature[]
+  subscriptionAddOns SubscriptionAddOn[]
+
+  @@map("add_ons")
+}
+
+model AddOnResource {
+  id              String @id @default(cuid())
+  addOnId         String
+  resourceTypeKey String
+  grantAmount     Int
+
+  addOn AddOn @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@unique([addOnId, resourceTypeKey])
+  @@map("add_on_resources")
+}
+
+model AddOnFeature {
+  id        String @id @default(cuid())
+  addOnId   String
+  featureId String
+
+  addOn   AddOn   @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([addOnId, featureId])
+  @@map("add_on_features")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAUSED
+  PAST_DUE
+  CANCELED
+  TERMINATED
+  EXPIRED
+}
+
+// FR-160–163: subscriptions are generic (not tied to a payment provider) and
+// belong to exactly one organization. Provider-specific ids (Stripe
+// subscription/customer id) live in nullable columns here rather than a
+// separate table — Phase 1 has exactly one provider (Stripe, per
+// DECISIONS.md D-004), so a dedicated join table would be premature; add one
+// if/when a second provider needs its own external-id shape. "Usage
+// statistics, resource allocation, resource consumption" (FR-161) are
+// deliberately NOT columns here — they're derived by joining this row's Plan
+// (allocation) with ResourceUsageEvent (consumption), not duplicated data.
+model Subscription {
+  id                   String             @id @default(cuid())
+  organizationId       String
+  planId               String
+  status               SubscriptionStatus @default(TRIALING)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  trialEndsAt          DateTime?
+  /// scheduled cancellation date (cancel-at-period-end); null if not scheduled
+  cancelAt             DateTime?
+  canceledAt           DateTime?
+  terminatedAt         DateTime?
+  pausedAt             DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  /// PayPal Subscriptions API id (proving the payment-provider adapter framework's second provider) — same one-column-per-provider convention as stripeCustomerId/stripeSubscriptionId above, not a generic providerSubscriptionId, since a real second provider (Razorpay, Paddle, etc. — deferred, see TASKS.md) may not even have an equivalent single id.
+  paypalSubscriptionId String?            @unique
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan                @relation(fields: [planId], references: [id])
+  addOns       SubscriptionAddOn[]
+  events       SubscriptionEvent[]
+  invoices     Invoice[]
+
+  @@index([organizationId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model SubscriptionAddOn {
+  id             String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  addOnId        String
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  addOn        AddOn        @relation(fields: [addOnId], references: [id])
+
+  @@unique([subscriptionId, addOnId])
+  @@index([organizationId])
+  @@map("subscription_add_ons")
+}
+
+// FR-161's "upgrade/downgrade/cancellation/... history" as one append-only,
+// immutable ledger filtered by `type`, rather than a separate table per
+// history kind — same free-form-string-over-hardcoded-enum reasoning as
+// AuditLog.action, and the same immutability treatment (this model joins
+// resourceUsageEvent/auditLog in tenant-scoping.ts's immutable list).
+model SubscriptionEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  type           String
+  fromPlanId     String?
+  toPlanId       String?
+  actorUserId    String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, subscriptionId, createdAt])
+  @@map("subscription_events")
+}
+
+// FR-191: modules self-register available features — same registry pattern
+// as Permission/ResourceType. Not tenant-scoped: the catalog is global.
+// `defaultEnabled` is the "global" rung of FR-190's precedence ladder
+// (global -> plan -> org -> user, most specific wins); the other three rungs
+// are PlanFeature (already exists), OrganizationFeatureOverride, and
+// UserFeatureOverride below.
+model Feature {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  module         String
+  name           String
+  description    String?
+  defaultEnabled Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  planFeatures          PlanFeature[]
+  addOnFeatures         AddOnFeature[]
+  organizationOverrides OrganizationFeatureOverride[]
+  userOverrides         UserFeatureOverride[]
+
+  @@index([module])
+  @@map("features")
+}
+
+model OrganizationFeatureOverride {
+  id             String   @id @default(cuid())
+  organizationId String
+  featureId      String
+  enabled        Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature      Feature      @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, featureId])
+  @@index([organizationId])
+  @@map("organization_feature_overrides")
+}
+
+// Not tenant-scoped — a user-level override isn't owned by one organization,
+// same reasoning as UserSetting.
+model UserFeatureOverride {
+  id        String   @id @default(cuid())
+  userId    String
+  featureId String
+  enabled   Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureId])
+  @@index([userId])
+  @@map("user_feature_overrides")
+}
+
+// FR-213: webhooks must be idempotent/replayable — a provider retries
+// delivery on failure or timeout, so the same event can arrive more than
+// once. Not tenant-scoped: this is provider-level bookkeeping, not org data
+// (organizationId is a plain nullable column, not a scoped FK — a Super
+// Admin billing view reads across every org's events at once, which is
+// exactly what the tenant-scoping extension exists to prevent for real
+// tenant data). organizationId/eventType/payload were added for that
+// Super Admin billing surface (view-only raw provider-event history per
+// org) — resolved from the event's own metadata before this row is
+// written, same as how the org is resolved for business-logic handling
+// in stripe-provider.ts's handleWebhookEvent switch. null organizationId
+// means the event's metadata didn't carry one (an event type/shape this
+// adapter doesn't recognize) — still recorded for the idempotency guard,
+// just not attributable to an org.
+model ProcessedWebhookEvent {
+  id              String   @id @default(cuid())
+  provider        String
+  providerEventId String
+  organizationId  String?
+  eventType       String?
+  payload         Json?
+  processedAt     DateTime @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, processedAt])
+  @@map("processed_webhook_events")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  VOID
+}
+
+// FR-200–201: an Invoice is mutable (line items can be added/removed) only
+// while DRAFT — issuing it (DRAFT -> ISSUED) is the one-way door. From then
+// on it's immutable, same principle as AuditLog, but expressed at the
+// service layer (invoices.ts is the only place that writes Invoice rows)
+// rather than via the blanket tenant-scoping extension, since that
+// mechanism has no notion of "immutable after a certain state" — it's
+// all-or-nothing from creation. Corrections to an issued/paid invoice are a
+// new CreditNote row, never an edit to this one (FR-201). Single currency
+// per invoice is enforced; multi-currency (FR-202) needs only a currency
+// column, already here.
+model Invoice {
+  id              String        @id @default(cuid())
+  organizationId  String
+  subscriptionId  String?
+  // Sequential per organization, not globally — @@unique below scopes it so
+  // two orgs' first invoice can both legitimately be "INV-000001".
+  number          String?
+  status          InvoiceStatus @default(DRAFT)
+  currency        String        @default("usd")
+  subtotalCents   Int           @default(0)
+  taxCents        Int           @default(0)
+  totalCents      Int           @default(0)
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  issuedAt        DateTime?
+  dueAt           DateTime?
+  paidAt          DateTime?
+  voidedAt        DateTime?
+  stripeInvoiceId String?       @unique
+  /// PayPal's capture id for the payment that produced this invoice (mirrors stripeInvoiceId's idempotency role for recordPaidInvoice's PayPal equivalent).
+  paypalCaptureId String?       @unique
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription Subscription?     @relation(fields: [subscriptionId], references: [id])
+  lineItems    InvoiceLineItem[]
+  creditNotes  CreditNote[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([subscriptionId])
+  @@map("invoices")
+}
+
+// organizationId is denormalized here (not just reachable via invoiceId),
+// same pattern as SubscriptionAddOn — every tenant-owned table carries its
+// own scoping column so the tenant-scoping extension can enforce it
+// uniformly. Only ever created/updated/deleted through Invoice's own service
+// functions while the parent is DRAFT — never touched directly once the
+// invoice is issued, enforced the same way (service-layer gate, not a DB
+// constraint, matching Invoice's own immutability-after-issue).
+model InvoiceLineItem {
+  id              String   @id @default(cuid())
+  organizationId  String
+  invoiceId       String
+  description     String
+  quantity        Int      @default(1)
+  unitAmountCents Int
+  amountCents     Int
+  resourceTypeKey String?
+  createdAt       DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+// FR-201: the correction mechanism for an issued/paid Invoice — append-only,
+// same immutable-ledger pattern as AuditLog/SubscriptionEvent (see
+// IMMUTABLE_TENANT_SCOPED_MODELS in tenant-scoping.ts).
+model CreditNote {
+  id             String   @id @default(cuid())
+  organizationId String
+  invoiceId      String
+  // Sequential per organization, same reasoning as Invoice.number above.
+  number         String?
+  reason         String
+  amountCents    Int
+  currency       String   @default("usd")
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, number])
+  @@index([organizationId, invoiceId])
+  @@map("credit_notes")
+}
+
+// FR-322: API keys are the credential for the versioned REST API (FR-103's
+// "header/token" side, previously a documented placeholder that trusted a
+// bare X-Organization-Id header with no verification). Deliberately NOT in
+// the tenant-scoping extension's model list — same reasoning as Session and
+// VerificationToken: a raw API request carries only the key itself, so it
+// has to be resolvable (by keyHash) *before* any tenant context exists.
+// Once resolved, the key's own organizationId becomes that context; service
+// functions that manage keys from inside the tenant admin portal (where
+// organizationId is already known) filter by it explicitly themselves,
+// same pattern session.ts and organization-invites.ts already use.
+model ApiKey {
+  id              String    @id @default(cuid())
+  organizationId  String
+  name            String
+  // First few characters of the raw key, stored in plaintext so the admin
+  // UI can show "sk_a1b2c3d4..." to help distinguish keys in a list —
+  // never enough of the key to be useful for anything else.
+  keyPrefix       String
+  // SHA-256, not Argon2id: this is a high-entropy random token verified on
+  // every API request (needs to be fast), not a low-entropy human-chosen
+  // secret needing deliberately-slow hashing — same reasoning as Session
+  // and VerificationToken's tokenHash.
+  keyHash         String    @unique
+  // Permission-catalog keys (same `key` format as Permission.key) this key
+  // is allowed to act with — checked directly against the key, since an API
+  // key has no User/UserRole behind it to resolve permissions through.
+  scopes          String[]
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("api_keys")
+}
+
+// --- Notifications (REQUIREMENTS.md §2.14) ---
+//
+// The notification-channel adapter framework (email/webhook/in-app this
+// round; SMS/push/WhatsApp/Slack/Teams/Discord/Telegram deferred — see
+// TASKS.md) mirrors the OAuth/payment-provider adapter frameworks exactly:
+// contract (notifications/channel.ts) + in-process registry
+// (notifications/channel-registry.ts) + Settings-backed per-channel config
+// (notifications/channel-config.ts). Neither the channel contract nor its
+// registry needs new tables — they're pure code + PlatformSetting rows, same
+// as the OAuth/payment frameworks. The two tables below back the two pieces
+// that genuinely are data, not code:
+//
+// NotificationKind is a registry of notification "kinds" business logic can
+// trigger (e.g. "org.invite_sent") — same self-registering,
+// idempotent-upsert-by-key pattern as Permission/ResourceType
+// (permission-registry.ts/resource-types.ts) — so a subject/body template
+// lives in one place per kind instead of being hand-written inline at every
+// call site. Deliberately core-agnostic key names only (no CRM/ERP-specific
+// event names), per CLAUDE.md's "zero business-domain functionality in core."
+model NotificationKind {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  module          String
+  description     String?
+  subjectTemplate String
+  bodyTemplate    String
+  /// Matches a settings/notifications preference category key ("security_alerts",
+  /// "billing", "member_activity" — see web's categories.ts) so sendNotification
+  /// can honor a user's opt-out. "general" (the default) has no matching
+  /// preference toggle and is never gated — a kind stays always-on until a
+  /// module deliberately opts it into a real category.
+  category        String   @default("general")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("notification_kinds")
+}
+
+// The "in-app" channel's own storage — a minimal, real notification a user
+// can see in the product, not a stub. Tenant-scoped (organizationId) per
+// CLAUDE.md's "tenant context travels with async work... including
+// notifications" — added to tenant-scoping.ts's model list. Deliberately no
+// readAt/read-state column this round: the brief scopes this to "prove
+// notifications land somewhere a user can see them," not read/unread
+// badges/filters — see TASKS.md.
+model InAppNotification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  kind           String
+  subject        String
+  body           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("in_app_notifications")
+}
+
+// ─── 360 Valet business tables (merged from the legacy valet DB into this
+// single platform database) ───────────────────────────────────────────────────
+// Only the business data behind the tenant-admin console pages (Dashboard,
+// Live Queue, Locations, Drivers, NFC Cards, Offers, Reports) is merged here.
+// Auth + multi-tenancy reuse the platform tables above — the legacy valet
+// `tenants` / `roles` / `role_permissions` / `admins` / `password_resets`
+// tables are deliberately NOT created.
+// IDs stay Int autoincrement to preserve the numeric-ID contract the existing
+// tenant-admin pages and APIs already use.
+
+model Property {
+  id             Int       @id @default(autoincrement())
+  tenantId       Int?      @map("tenant_id")
+  organizationId String?                          @map("organization_id")
+  name           String
+  area       String
+  city       String   @default("Dubai")           @map("city")
+  slug       String   @unique
+  zonesCount Int      @default(4)                 @map("zones_count")
+  slotsCount Int      @default(160)               @map("slots_count")
+  cardPool   Int      @default(200)               @map("card_pool")
+  uidStart   BigInt   @default(7001)              @map("uid_start")
+  phone      String?
+  imageUrl   String?                              @map("image_url")
+  createdAt  DateTime @default(now())             @map("created_at")
+
+  zones   Zone[]
+  drivers Driver[]
+  cards   NfcCard[]
+  offers  Offer[]
+  orders  Order[]
+
+  @@index([organizationId])
+  @@map("properties")
+}
+
+model Zone {
+  id         Int    @id @default(autoincrement())
+  propertyId Int                              @map("property_id")
+  code       String
+  slotCount  Int    @default(45)              @map("slot_count")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, code])
+  @@index([propertyId])
+  @@map("zones")
+}
+
+model Driver {
+  id               Int       @id @default(autoincrement())
+  organizationId   String?                        @map("organization_id")
+  valetId          String    @unique              @map("valet_id")
+  fullName         String                        @map("full_name")
+  initials         String
+  avatarColor      String    @default("#1C2B46")  @map("avatar_color")
+  email            String?   @unique
+  phone            String?
+  emiratesId       String?                        @map("emirates_id")
+  licenseNumber    String?                        @map("license_number")
+  nationality      String?
+  emergencyContact String?                        @map("emergency_contact")
+  pin              String?
+  passwordHash     String?                        @map("password_hash")
+  propertyId       Int?                           @map("property_id")
+  status           String    @default("off_duty")
+  shiftStartedAt   DateTime?                      @map("shift_started_at")
+  role             String    @default("driver")
+  tokenVersion     Int       @default(0)          @map("token_version")
+  pushToken        String?                        @map("push_token")
+  createdAt        DateTime  @default(now())      @map("created_at")
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  orders   Order[]
+
+  @@index([propertyId])
+  @@index([organizationId])
+  @@map("drivers")
+}
+
+model NfcCard {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique
+  physicalUid String?                         @map("physical_uid")
+  cardNumber  String?                         @map("card_number")
+  propertyId  Int                             @map("property_id")
+  status      String   @default("ready")
+  usesCount   Int      @default(0)            @map("uses_count")
+  lostAt      DateTime?                       @map("lost_at")
+  createdAt   DateTime @default(now())        @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([propertyId])
+  @@index([physicalUid])
+  @@map("nfc_cards")
+}
+
+model Offer {
+  id             Int       @id @default(autoincrement())
+  propertyId     Int                              @map("property_id")
+  title          String
+  category       String
+  price          Decimal   @db.Decimal(10, 2)
+  wasPrice       Decimal?  @db.Decimal(10, 2)     @map("was_price")
+  description    String?
+  featured       Int?
+  live           Boolean   @default(false)
+  draft          Boolean   @default(false)
+  validatesValet Boolean   @default(true)         @map("validates_valet")
+  endsOn         DateTime?                        @map("ends_on")
+  views7d        Int       @default(0)            @map("views_7d")
+  rating         Decimal   @default(0) @db.Decimal(2, 1)
+  reviews        Int       @default(0)
+  level          String?
+  opensAt        DateTime?                        @map("opens_at")
+  closesAt       DateTime?                        @map("closes_at")
+  staffCode      String?                          @map("staff_code")
+  dealTag        String?                          @map("deal_tag")
+  imageUrl       String?                          @map("image_url")
+  menuUrl        String?                          @map("menu_url")
+  createdAt      DateTime  @default(now())        @map("created_at")
+
+  property   Property?     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  validations Validation[]
+
+  @@index([propertyId])
+  @@map("offers")
+}
+
+model Order {
+  id         Int       @id @default(autoincrement())
+  propertyId Int                              @map("property_id")
+  cardId     Int?                             @map("card_id")
+  driverId   Int?                             @map("driver_id")
+  plate      String
+  carMake    String?                          @map("car_make")
+  carModel   String?                          @map("car_model")
+  carColor   String?                          @map("car_color")
+  zone       String?
+  slot       String?
+  status     String    @default("active")
+  createdAt  DateTime  @default(now())        @map("created_at")
+  droppedAt  DateTime?                        @map("dropped_at")
+  returnedAt DateTime?                        @map("returned_at")
+  guestEta   DateTime?                        @map("guest_eta")
+
+  property Property @relation(fields: [propertyId], references: [id])
+  card     NfcCard? @relation(fields: [cardId], references: [id])
+  driver   Driver?  @relation(fields: [driverId], references: [id])
+
+  validations Validation[]
+
+  @@index([propertyId, status])
+  @@index([createdAt])
+  @@index([returnedAt])
+  @@map("orders")
+}
+
+model Validation {
+  id        Int      @id @default(autoincrement())
+  orderId   Int                              @map("order_id")
+  offerId   Int?                             @map("offer_id")
+  outlet    String?
+  qty       Int      @default(1)
+  amount    Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt DateTime @default(now())         @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id])
+  offer Offer? @relation(fields: [offerId], references: [id])
+
+  @@index([createdAt])
+  @@map("validations")
+}

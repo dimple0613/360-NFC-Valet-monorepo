@@ -1,0 +1,1132 @@
+﻿@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * saasclaude design system tokens.
+ * Brand: Sunset (primary/action), Deep Navy (text/navigation), Slate (secondary
+ * text), Mist (surfaces). See /design.md for the full reference and usage
+ * rules â€” this file is the single source of truth for token *values*.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plus-jakarta-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Elevation â€” navy-tinted shadows read as softer/more premium than pure black. */
+  --shadow-xs: 0 1px 2px 0 rgb(28 43 70 / 0.06);
+  --shadow-sm: 0 1px 3px 0 rgb(28 43 70 / 0.08), 0 1px 2px -1px rgb(28 43 70 / 0.08);
+  --shadow-md: 0 4px 6px -1px rgb(28 43 70 / 0.08), 0 2px 4px -2px rgb(28 43 70 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(28 43 70 / 0.10), 0 4px 6px -4px rgb(28 43 70 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(28 43 70 / 0.12), 0 8px 10px -6px rgb(28 43 70 / 0.08);
+
+  /* Typography scale â€” see design.md "Type scale". Each utility bundles
+     size + line-height + weight so e.g. `text-title` is a single class. */
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.25rem;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.01em;
+
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.625rem;
+  --text-title--font-weight: 800;
+  --text-title--letter-spacing: -0.006em;
+
+  --text-section: 0.9375rem;
+  --text-section--line-height: 1.375rem;
+  --text-section--font-weight: 600;
+
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-body--font-weight: 500;
+
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 1rem;
+  --text-overline--font-weight: 800;
+  --text-overline--letter-spacing: 0.08em;
+}
+
+/* Global input placeholder styling — applies to every input's placeholder text. */
+::placeholder {
+  color: #1c2b46 !important;
+  opacity: 0.3;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+::-webkit-input-placeholder {
+  color: #1c2b46 !important;
+  opacity: 0.3;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+:-moz-placeholder {
+  color: #1c2b46 !important;
+  opacity: 0.3;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+::-moz-placeholder {
+  color: #1c2b46 !important;
+  opacity: 0.3;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+:-ms-input-placeholder {
+  color: #1c2b46 !important;
+  opacity: 0.3;
+  background: none !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+/* Database search inputs (DataTable). The bare global placeholder override above
+   must not recolor these — the table's search pill keeps its own light-gray
+   placeholder (original `placeholder:text-[#9aa6bc]` Tailwind value). Both rules
+   are !important, so the higher-specificity selector here wins for these inputs. */
+.console-dt input::placeholder {
+  color: #9aa6bc !important;
+  opacity: 1 !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+}
+
+:root {
+  /* Raw brand palette â€” reference these from semantic tokens, not from components. */
+  --brand-sunset: #f4531f;
+  --brand-sunset-tint: #feefeb;
+  --brand-navy: #1c2b46;
+  --brand-slate: #6c7a93;
+  --brand-mist: #f6f7f9;
+  --brand-success: #0c9d61;
+  --brand-warning: #e9a23b;
+  --brand-danger: #e23d3d;
+  /* Navy ramp for the auth brand panel's gradient (deep â†’ base â†’ lift). */
+  --brand-navy-deep: #16213a;
+  --brand-navy-lift: #2a3c61;
+
+  --background: var(--brand-mist);
+  --foreground: var(--brand-navy);
+  --card: #ffffff;
+  --card-foreground: var(--brand-navy);
+  --popover: #ffffff;
+  --popover-foreground: var(--brand-navy);
+  --primary: var(--brand-sunset);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-navy);
+  --secondary-foreground: #ffffff;
+  --muted: #eceef2;
+  --muted-foreground: var(--brand-slate);
+  --accent: var(--brand-sunset-tint);
+  --accent-foreground: var(--brand-navy);
+  --destructive: var(--brand-danger);
+  --destructive-foreground: #ffffff;
+  --success: var(--brand-success);
+  --success-foreground: #ffffff;
+  --warning: var(--brand-warning);
+  --warning-foreground: var(--brand-navy);
+  --border: #e2e5eb;
+  --input: #e2e5eb;
+  --ring: var(--brand-sunset);
+  --chart-1: var(--brand-sunset);
+  --chart-2: var(--brand-navy);
+  --chart-3: var(--brand-slate);
+  --chart-4: var(--brand-success);
+  --chart-5: var(--brand-warning);
+  /* 14px base â€” lands inputs (rounded-lg) at ~14px and cards (rounded-xl) at
+     ~20px, matching the design system's "cards 20px radius" spec. Buttons
+     are pill regardless (see button.tsx). */
+  --radius: 0.875rem;
+  --sidebar: var(--brand-navy);
+  --sidebar-foreground: var(--brand-mist);
+  --sidebar-primary: var(--brand-sunset);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #29406a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #32496f;
+  --sidebar-ring: var(--brand-sunset);
+
+  /* Design-pass elevation tokens â€” referenced as shadow-(--shadow-panel) /
+     shadow-(--shadow-glow) so the .dark overrides below actually apply
+     (a plain custom property, not a baked-in @theme utility).
+     `panel`: the resting elevation for a Card â€” hairline + soft wide drop.
+     `glow`: the sunset cast under a primary button, dropped on :active. */
+  --shadow-panel: 0 1px 2px 0 rgb(28 43 70 / 0.04), 0 2px 8px -1px rgb(28 43 70 / 0.06);
+  --shadow-glow: 0 8px 18px -6px color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.dark {
+  --brand-sunset: #f4531f;
+  --brand-sunset-tint: #3a261f;
+  --brand-navy: #1c2b46;
+  --brand-slate: #6c7a93;
+  --brand-mist: #f6f7f9;
+  --brand-success: #17b374;
+  --brand-warning: #f0b15a;
+  --brand-danger: #f2564f;
+  --brand-navy-deep: #16213a;
+  --brand-navy-lift: #2a3c61;
+
+  --background: #10192b;
+  --foreground: var(--brand-mist);
+  --card: var(--brand-navy);
+  --card-foreground: var(--brand-mist);
+  --popover: var(--brand-navy);
+  --popover-foreground: var(--brand-mist);
+  --primary: var(--brand-sunset);
+  --primary-foreground: #ffffff;
+  --secondary: #2a3b5c;
+  --secondary-foreground: var(--brand-mist);
+  --muted: #223251;
+  --muted-foreground: #9aa7bd;
+  --accent: var(--brand-sunset-tint);
+  --accent-foreground: #feefeb;
+  --destructive: var(--brand-danger);
+  --destructive-foreground: #ffffff;
+  --success: var(--brand-success);
+  --success-foreground: #08251a;
+  --warning: var(--brand-warning);
+  --warning-foreground: #2b1c04;
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--brand-sunset);
+  --chart-1: var(--brand-sunset);
+  --chart-2: var(--brand-mist);
+  --chart-3: var(--brand-slate);
+  --chart-4: var(--brand-success);
+  --chart-5: var(--brand-warning);
+  --sidebar: #10192b;
+  --sidebar-foreground: var(--brand-mist);
+  --sidebar-primary: var(--brand-sunset);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #223251;
+  --sidebar-accent-foreground: var(--brand-mist);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: var(--brand-sunset);
+
+  /* Navy-tinted shadows all but vanish on the dark navy ground â€” deepen the
+     two the design pass introduced so cards/buttons still read as lifted. */
+  --shadow-panel: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 4px 14px -2px rgb(0 0 0 / 0.45);
+  --shadow-glow: 0 8px 20px -6px color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Console login parity (mirrors valet/styles/globals.css so the App   */
+/* Router /login looks exactly like /console/login).                   */
+/* ------------------------------------------------------------------ */
+:root {
+  --primary-light: #ff8a50;
+  --primary-dark: #d6430f;
+  --text-primary: #1c2b46;
+  --text-secondary: #6c7a93;
+  --text-muted: #9aa6bc;
+  --text-sidebar: #9fb0cc;
+  --white: #ffffff;
+  --surface: var(--brand-mist);
+  --surface-border: #e7eaf0;
+}
+
+/* scoped to .login-login so these never leak into the rest of the App
+   Router (safe even though the class names weren't used elsewhere). */
+.login-login .login {
+  display: flex;
+  min-height: 100vh;
+}
+.login-login .login-left {
+  flex: 1.1;
+  background: linear-gradient(150deg, #16213a, #1c2b46 55%, #2a3c61);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px 52px;
+}
+.login-login .login-brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.login-login .login-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-login .login-brand-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--white);
+  line-height: normal;
+}
+.login-login .login-headline {
+  font-size: 38px;
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: -1px;
+  line-height: 1.2;
+  max-width: 420px;
+}
+.login-login .login-sub {
+  font-size: 14.5px;
+  color: var(--text-sidebar);
+  font-weight: 500;
+  margin-top: 16px;
+  line-height: 1.7;
+  max-width: 420px;
+}
+.login-login .login-stats {
+  display: flex;
+  gap: 28px;
+  margin-top: 34px;
+}
+.login-login .login-stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--primary-light);
+  line-height: normal;
+}
+.login-login .login-stat-label {
+  font-size: 11.5px;
+  color: var(--text-sidebar);
+  font-weight: 600;
+  line-height: normal;
+}
+.login-login .login-footer {
+  font-size: 11.5px;
+  color: #5e6f8f;
+  font-weight: 600;
+  line-height: normal;
+}
+.login-login .login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: var(--white);
+}
+.login-login .login-form {
+  width: 380px;
+  max-width: 100%;
+}
+.login-login .login-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: normal;
+}
+.login-login .login-desc {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: 6px;
+  line-height: normal;
+}
+.login-login .login-fields {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.login-login .login-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+.login-login .checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+.login-login .checkbox-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--surface-border);
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.login-login .checkbox-box svg {
+  opacity: 0;
+}
+.login-login .checkbox-box.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.login-login .checkbox-box.checked svg {
+  opacity: 1;
+  color: #fff;
+}
+.login-login .checkbox-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #48566e;
+  line-height: normal;
+}
+.login-login .checkbox-box.checked + .checkbox-label {
+  color: #16213a;
+}
+.login-login .forgot {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: normal;
+}
+.login-login .btn-login {
+  margin-top: 26px;
+  padding: 15px;
+  border-radius: 99px;
+  background: var(--primary);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  width: 100%;
+  line-height: normal;
+  box-shadow: 0 10px 22px rgba(244, 83, 31, 0.3);
+  cursor: pointer;
+  border: none;
+}
+.login-login .btn-login:hover {
+  background: var(--primary-dark);
+}
+.login-login .btn-login:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.login-login .btn-sso {
+  margin-top: 16px;
+  padding: 13px;
+  border-radius: 99px;
+  border: 1.5px solid var(--surface-border);
+  color: #48566e;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+  line-height: normal;
+  background: var(--white);
+  cursor: pointer;
+  text-decoration: none;
+}
+.login-login .login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.login-login .login-divider::before,
+.login-login .login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--surface-border);
+}
+.login-login .login-create {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.login-login .login-fields > div:has(.login-field) {
+  display: flex;
+  flex-direction: column;
+}
+.login-login .login-fields .login-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--surface-border);
+  border-radius: 14px;
+  padding: 12px 17px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.login-login .login-fields .login-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(244, 83, 31, 0.12);
+}
+.login-login .login-field-error {
+  border-color: var(--brand-danger) !important;
+}
+.login-login .login-field-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  line-height: normal;
+}
+.login-login .login-field-input {
+  width: 100%;
+  margin-top: 2px;
+  border: none;
+  background: transparent;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: inherit;
+  outline: none;
+}
+.login-login .login-field-input.dots {
+  letter-spacing: 3px;
+}
+.login-login .login-field-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.login-login .login-field-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+}
+.login-login .icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c7a93;
+}
+.login-login .icon-btn:hover {
+  color: var(--primary);
+}
+.login-login .field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-danger);
+}
+.login-login .login-fields input[aria-invalid="true"] ~ .field-error {
+  display: block;
+}
+/* ---- forgot-password / reset forms (console parity: .field / .field-label
+       / .field-value / .login-success / .back-link) ---- */
+.login-login .field {
+  background: var(--surface);
+  border: 1.5px solid var(--surface-border);
+  border-radius: 14px;
+  padding: 11px 15px;
+}
+.login-login .field-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  line-height: normal;
+}
+.login-login .field-value {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 2px;
+  color: var(--text-primary);
+}
+.login-login .field-value.input {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: normal;
+}
+.login-login .field-value.input::placeholder {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.login-login .login-success {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: #e7f7ef;
+  color: #0a7c4e;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.login-login .reset-link {
+  color: var(--primary);
+  font-weight: 800;
+  margin-top: 4px;
+  display: inline-block;
+}
+.login-login .back-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  text-align: center;
+  border-color: transparent;
+  color: var(--text-secondary) !important;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.login-login .back-link:hover {
+  color: var(--primary) !important;
+}
+
+/* Super Admin sidebar styled to match the 360 Valet console sidebar:
+   muted label rows that lighten on hover and highlight with the sunset
+   accent when active. Scoped to .console-sa so it never leaks into the
+   tenant-admin portal's sidebar. */
+.console-sa {
+  /* Match the console's dark navy ground (#16213a) instead of the default
+     --brand-navy (#1c2b46). */
+  --color-sidebar: var(--brand-navy-deep);
+  --color-sidebar-accent: rgba(255, 255, 255, 0.06);
+}
+.console-sa [data-slot="sidebar-inner"] {
+  background-color: var(--brand-navy-deep);
+  padding: 22px 14px;
+}
+.console-sa [data-slot="sidebar-header"],
+.console-sa [data-slot="sidebar-footer"] {
+  padding: 0;
+  margin-bottom: 0;
+}
+.console-sa [data-slot="sidebar-container"] {
+  border-right: none;
+}
+.console-sa [data-slot="sidebar-menu-button"] {
+  border-radius: 11px;
+  color: var(--text-sidebar);
+  font-size: 13px;
+  font-weight: 700;
+  gap: 11px;
+  padding: 11px 12px;
+  height: auto;
+  min-height: 39px;
+}
+.console-sa [data-slot="sidebar-menu-button"]:hover,
+.console-sa [data-slot="sidebar-menu-button"][data-active]:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+.console-sa [data-slot="sidebar-menu-button"][data-active] {
+  background: rgba(244, 83, 31, 0.16);
+  color: #ff8a50;
+  font-weight: 700;
+}
+.console-sa [data-slot="sidebar-menu-button"] [data-slot="icon"],
+.console-sa [data-slot="sidebar-menu-button"] svg {
+  color: currentColor;
+}
+.console-sa [data-slot="sidebar-group-label"] {
+  color: var(--text-sidebar);
+  opacity: 0.7;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.console-sa .console-sa-brand {
+  color: #ffffff;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  gap: 10px;
+}
+.console-sa .console-sa-brand:hover,
+.console-sa .console-sa-brand[data-active]:hover {
+  background: transparent;
+  color: #ffffff;
+}
+.console-sa [data-slot="sidebar-content"] {
+  margin-top: 28px;
+}
+.console-sa .console-sa-avatar {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 99px;
+  background: linear-gradient(135deg, var(--brand-sunset), #ff8a50);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.console-sa .console-sa-user {
+  color: #fff;
+  border-radius: 11px;
+  gap: 10px;
+  height: auto;
+  min-height: 0;
+  margin-top: auto;
+  padding: 12px 11px;
+}
+.console-sa .console-sa-user:hover,
+.console-sa .console-sa-user[data-active]:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* Super Admin content styled to match the 360 Valet console dashboard's
+   cards: white cards, softer border, larger radius and a gentler shadow.
+   Scoped to .super-console so tenant-admin's shadcn cards are untouched. */
+.super-console [data-slot="card"] {
+  border-radius: 16px;
+  border-color: #e7eaf0;
+  box-shadow: 0 20px 50px rgba(16, 22, 35, 0.06);
+}
+.super-console [data-slot="card"] [data-slot="card-title"] {
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.super-console [data-slot="card-header"] {
+  padding-bottom: 0;
+}
+.super-console .flex.flex-col.divide-y,
+.super-console .divide-y {
+  border-radius: 16px;
+  border-color: #e7eaf0;
+  box-shadow: 0 20px 50px rgba(16, 22, 35, 0.06);
+}
+
+/* Super Admin content styled to match the 360 Valet console dashboard's
+   cards: white cards, softer border, larger radius and a gentler shadow.
+   Scoped to .super-console so tenant-admin's shadcn cards are untouched. */
+.super-console [data-slot="card"] {
+  border-radius: 16px;
+  border-color: #e7eaf0;
+  box-shadow: 0 20px 50px rgba(16, 22, 35, 0.06);
+}
+.super-console [data-slot="card-title"] {
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.super-console > [data-slot="card"] [data-slot="card-header"] {
+  padding-bottom: 0;
+}
+
+/* Super Admin content styled to match the 360 Valet console dashboard's
+   cards: white cards, softer border, larger radius and a gentler shadow.
+   Scoped to .super-console so tenant-admin's shadcn cards are untouched. */
+.super-console [data-slot="card"],
+.super-console [class*="border-border"][class*="bg-card"] {
+  border-radius: 16px;
+  border-color: #e7eaf0;
+  box-shadow: 0 20px 50px rgba(16, 22, 35, 0.06);
+}
+.super-console [data-slot="card-title"] {
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+/* Super Admin data tables styled to match the 360 Valet console list look:
+   each row rendered as a white rounded card, console header strip above.
+   Scoped to .super-console so the tenant-admin (and core) tables are untouched. */
+.super-console [data-slot="table-container"] {
+  overflow-x: visible;
+}
+.super-console [data-slot="table"] {
+  border-collapse: separate;
+  border-spacing: 0 10px;
+  width: 100%;
+}
+.super-console [data-slot="table-header"] {
+  display: table;
+  width: 100%;
+}
+.super-console [data-slot="table-header"] > tr,
+.super-console tbody[data-slot="table-body"] tr[data-slot="table-row"] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: center;
+}
+.super-console [data-slot="table-header"] > tr {
+  padding: 0 18px 6px;
+  border: none;
+}
+.super-console tbody[data-slot="table-body"] {
+  display: block;
+}
+.super-console tbody[data-slot="table-body"] tr[data-slot="table-row"] {
+  background: #ffffff;
+  border: 1px solid #e7eaf0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  margin-bottom: 6px;
+  box-shadow: 0 4px 16px rgba(16, 22, 35, 0.05);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.super-console tbody[data-slot="table-body"] tr[data-slot="table-row"]:hover {
+  border-color: #d7dce5;
+  box-shadow: 0 10px 24px rgba(16, 22, 35, 0.1);
+  transform: translateY(-1px);
+}
+.super-console [data-slot="table-cell"],
+.super-console [data-slot="table-head"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+/* ── Console form look for Super Admin portal ────────────────────────────
+   Matches the 360 Valet console's .field / .field-label / .field-value.input
+   / .field-error / .btn-primary styles. Scoped to .super-console so
+   tenant-admin and core pages are untouched. */
+.super-console .field {
+  background: #f6f7f9;
+  border: 1.5px solid #e7eaf0;
+  border-radius: 13px;
+  padding: 11px 15px;
+  /* Pin a consistent font-size + line-height so the input-wrapper div collapses
+     to the same height on every page. Without both, the field inherits the page
+     root (16px/1.5 = 24px) on some pages but 14px/20px on others — exactly the
+     71.6px-vs-63.6px input-height discrepancy. 14px/20px matches the intended
+     look (and the console's own .field). */
+  font-size: 14px;
+  line-height: 20px;
+}
+.super-console .field-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  color: #6c7a93;
+  text-transform: uppercase;
+  /* Tight, explicit line-height so the label's line box doesn't inherit a
+     page-level line-height (24px on some pages, 20px on others) and inflate the
+     .field row. Mirrors the intended 10px-label look and keeps forms
+     height-consistent across pages. */
+  line-height: 14.2857px;
+}
+.super-console .field-value.input {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c2b46;
+}
+.super-console .field-value.input::placeholder {
+  color: #9fb0cc;
+  font-size: 13px;
+  font-weight: 500;
+}
+.super-console .field-value.input:focus-visible {
+  outline: none;
+}
+.super-console textarea.field-value.input {
+  resize: vertical;
+  min-height: 60px;
+}
+.super-console .field-error {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #e23d3d;
+}
+.super-console button[type="submit"],
+.super-console .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f4531f;
+  color: #ffffff;
+  border: none;
+  border-radius: 99px;
+  padding: 10px 20px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.super-console button[type="submit"]:hover,
+.super-console .btn-primary:hover {
+  background: #d6430f;
+}
+.super-console button[type="submit"]:disabled,
+.super-console .btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Console parity: active/inactive toggle (offers page .toggle / .toggle-knob). */
+.super-console .toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 99px;
+  position: relative;
+  flex: none;
+  display: inline-block;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.super-console .toggle.on {
+  background: #0c9d61;
+}
+.super-console .toggle.off {
+  background: #e7eaf0;
+}
+.super-console .toggle .toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 99px;
+  background: #ffffff;
+  transition: left 0.15s ease, right 0.15s ease;
+}
+.super-console .toggle.on .toggle-knob {
+  right: 3px;
+}
+.super-console .toggle.off .toggle-knob {
+  left: 3px;
+}
+
+/* Console parity: checkbox (login page .checkbox / .checkbox-box.checked). */
+.super-console .checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+.super-console .checkbox-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid #e7eaf0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.super-console .checkbox-box svg {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.super-console .checkbox-box.checked {
+  background: #f4531f;
+  border-color: #f4531f;
+}
+.super-console .checkbox-box.checked svg {
+  opacity: 1;
+}
+.super-console .checkbox-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #48566e;
+  line-height: normal;
+}
+.super-console .checkbox-box.checked + .checkbox-label {
+  color: #16213a;
+}
+
+/* Console parity: native checkbox inputs (useActionState forms rendered in
+   the web app) — reuse the same box styling driven by :checked instead of a
+   React-set .checked class. Input is visually hidden but still focusable. */
+.super-console .checkbox input:checked + .checkbox-box {
+  background: #f4531f;
+  border-color: #f4531f;
+}
+.super-console .checkbox input:checked + .checkbox-box svg {
+  opacity: 1;
+}
+.super-console .checkbox input:checked + .checkbox-box + .checkbox-label {
+  color: #16213a;
+}
+
+/* Console parity: native <select> inside a .field (offers page select.field-value.input). */
+.super-console select.field-value.input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Console parity: shadcn/base-ui Select trigger when rendered inside a .field —
+   strip the shadcn chrome so it looks like the console's field select (bold value,
+   no border/bg, tiny chevron). */
+.super-console .field [data-slot="select-trigger"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: auto !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+  gap: 6px;
+  border-radius: 0;
+}
+/* Keep select fields pixel-identical in height to text inputs (64px) regardless
+   of whether a value or placeholder is shown, so the .field rows align. */
+.super-console .field:has([data-slot="select-trigger"]) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 64px;
+  box-sizing: border-box;
+}
+.super-console .field [data-slot="select-trigger"] [data-slot="select-value"] {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #1c2b46 !important;
+  line-height: 21px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.super-console .field [data-slot="select-trigger"] [data-slot="select-value"][data-placeholder] {
+  color: #9fb0cc !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+.super-console .field [data-slot="select-trigger"] [data-slot="select-icon"],
+.super-console .field [data-slot="select-trigger"] svg[data-slot="select-indicator"] {
+  color: #6c7a93;
+}
+
+/* Console parity: DataTable rows. The super-admin table screens source the
+   shared DataTable (which renders the console toolbar/header/pagination from
+   the component), while the individual <TableCell>/<TableRow> rows come from
+   ui/table.tsx with shadcn defaults. These scoped rules restyle those cells to
+   the console's exact row treatment (padding, weight, colour, divider, hover)
+   without touching pages that use shadcn tables outside the console look. */
+.console-dt [data-slot="table-cell"] {
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2b46;
+  border-bottom: 1px solid #f1f3f6;
+  vertical-align: middle;
+}
+.console-dt [data-slot="table-row"] {
+  border-bottom: none;
+  transition: background 0.12s;
+}
+.console-dt [data-slot="table-row"]:last-child [data-slot="table-cell"] {
+  border-bottom: none;
+}
+.console-dt [data-slot="table-row"]:hover [data-slot="table-cell"] {
+  background: #f8fafc;
+}
+.console-dt [data-slot="table-row"][data-clickable="true"] {
+  cursor: pointer;
+}

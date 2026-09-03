@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "generated/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "@saasclaude/db#lint": {
+      "dependsOn": ["^build", "build"]
+    },
+    "@saasclaude/db#typecheck": {
+      "dependsOn": ["^build", "build"]
+    },
+    "@saasclaude/db#test": {
+      "dependsOn": ["^build", "build"]
+    },
+    "web#test": {
+      "dependsOn": ["^build", "@saasclaude/db#test"]
+    }
+  }
+}

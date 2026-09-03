@@ -1,0 +1,1061 @@
+openapi: 3.1.0
+info:
+  title: saasclaude API
+  version: 0.1.0
+  description: >
+    Versioned REST API for saasclaude. Authenticated with a per-organization
+    API key (FR-322, `@saasclaude/db`'s api-keys.ts) — the organization is
+    derived from the key itself, not a client-supplied header. Keys are
+    issued from the Tenant Admin portal (Security > API Keys) and carry
+    explicit scopes (Permission-catalog keys) plus an optional expiry.
+
+    Phase 2 round 1: CRUD on the organization's own profile, member roster,
+    and custom roles, plus a read-only billing surface
+    (plans/subscription/invoices).
+
+    Phase 2 round 2 adds: org settings CRUD, API-key self-management (with a
+    self-escalation guard — a key can only mint a new key whose scopes are a
+    subset of its own), role-to-user assignment, cursor pagination on the
+    three list endpoints that needed it (members/roles/invoices), real
+    response schemas (round 1 only had prose `description`s, which made the
+    generated types below meaningless — every response was `never`), and this
+    spec now drives a generated TypeScript SDK (`packages/api-client`) rather
+    than being purely descriptive. Still out of scope: API versioning beyond
+    v1, settings/API-keys/roles over REST for the *platform* (Super Admin)
+    side — this spec covers the Tenant-scoped `/api/v1` surface only.
+
+    Phase 2, next round adds: `/sessions` and `/notifications`, both
+    org-scoped rather than "self" — an API key is an organization-level
+    credential with no calling-user concept (ApiKey has no userId), so these
+    list what's active *within the organization*, optionally narrowed with
+    `?userId=`, instead of "my own" the way the cookie-authenticated Tenant
+    Admin settings pages do. Also adds `/members/invites` (list/cancel
+    pending invites) and a read-only `mfaEnabled` field on `Member.user`
+    (exposes existing state, no new MFA logic). Platform-scope provider
+    config (auth/payment/notification-channel adapters, all Super-Admin-UI
+    only) is deliberately not part of this versioned tenant surface.
+servers:
+  - url: /api/v1
+    description: Same-origin, relative to the Next.js app (web/src/app/api/v1/**)
+paths:
+  /organization:
+    get:
+      summary: Get the authenticated organization's profile
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Organization profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Organization" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      summary: Update the authenticated organization's profile
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: Updated organization profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Organization" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /organization/export:
+    get:
+      summary: Export a data-portability snapshot of the organization's own data
+      description: >
+        FR-132/GDPR data portability. A real, if not GDPR-complete, snapshot
+        of what this org's own data looks like today (profile, roles,
+        memberships) — grows as more tenant-scoped models are added. A
+        separate, more sensitive scope than core.organization.read.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Organization data export
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationExport" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /members:
+    get:
+      summary: List the organization's members
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Cursor-paginated member list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members, nextCursor]
+                properties:
+                  members: { type: array, items: { $ref: "#/components/schemas/Member" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Invite a new member by email
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                roleId: { type: string, description: "Pre-assign a Role by id, applied when the invite is accepted." }
+      responses:
+        "201":
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [inviteId]
+                properties:
+                  inviteId: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /members/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: OrganizationMembership id
+    delete:
+      summary: Remove a member (frees the seat they held)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Member removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /members/invites:
+    get:
+      summary: List the organization's pending (unaccepted, unexpired) invites
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Cursor-paginated pending-invite list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invites, nextCursor]
+                properties:
+                  invites: { type: array, items: { $ref: "#/components/schemas/Invite" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /members/invites/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: OrganizationInvite id
+    delete:
+      summary: Cancel a pending invite
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Invite cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /roles:
+    get:
+      summary: List the organization's custom roles
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Cursor-paginated role list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [roles, nextCursor]
+                properties:
+                  roles: { type: array, items: { $ref: "#/components/schemas/Role" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a custom role
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /roles/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Role id
+    get:
+      summary: Get a role, including its granted permission keys
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Role detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleDetail" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      summary: Replace a role's entire permission set
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissionKeys]
+              properties:
+                permissionKeys:
+                  type: array
+                  items: { type: string }
+                  description: Permission catalog keys (e.g. "core.roles.manage"), not raw ids. Replaces the role's full set — omitted keys are removed.
+      responses:
+        "200":
+          description: Updated role detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleDetail" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a role
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Role deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /roles/{id}/assignments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Role id
+    post:
+      summary: Grant a role to a member (idempotent)
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string, description: "Must be an ACTIVE member of this organization." }
+      responses:
+        "204":
+          description: Grant created (or already existed)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No role with that id (including one belonging to another organization)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /roles/{id}/assignments/{userId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Role id
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      summary: Revoke a role from a member
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Grant removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: That role is not assigned to that user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /settings:
+    get:
+      summary: List the organization's own settings (sensitive values redacted)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Setting list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings]
+                properties:
+                  settings: { type: array, items: { $ref: "#/components/schemas/Setting" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /settings/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Get one setting by key (sensitive values redacted, same as the list endpoint)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Setting
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Setting" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Create or update a setting (upsert)
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, value]
+              properties:
+                category: { type: string }
+                value: {}
+                isSensitive: { type: boolean, description: "Encrypted at rest if true; redacted on every subsequent read, including by the caller that set it." }
+      responses:
+        "200":
+          description: Echoes what was just submitted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Setting" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api-keys:
+    get:
+      summary: List the organization's API keys (never the hash, never the raw key)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: API key list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [apiKeys]
+                properties:
+                  apiKeys: { type: array, items: { $ref: "#/components/schemas/ApiKey" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create a new API key
+      description: >
+        Self-escalation guard: the requested `scopes` must be a subset of the
+        calling key's own scopes, or this 403s without creating anything.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, scopes]
+              properties:
+                name: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+                  description: Permission catalog keys; must be a subset of the calling key's own scopes.
+                expiresAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Created key, including the raw key exactly once
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiKeyCreated" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Key is missing the core.api_keys.manage scope, or requested scopes exceed the caller's own (self-escalation guard)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api-keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      summary: Revoke an API key
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Key revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /billing/plans:
+    get:
+      summary: List publicly visible plans (global catalog, not org-owned)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Plan list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plans]
+                properties:
+                  plans: { type: array, items: { $ref: "#/components/schemas/Plan" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /billing/subscription:
+    get:
+      summary: Get the organization's active subscription, if any
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Active subscription, or null if none
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscription]
+                properties:
+                  subscription:
+                    oneOf:
+                      - $ref: "#/components/schemas/Subscription"
+                      - type: "null"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /billing/invoices:
+    get:
+      summary: List the organization's invoices
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Cursor-paginated invoice list (summary fields, no line items)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invoices, nextCursor]
+                properties:
+                  invoices: { type: array, items: { $ref: "#/components/schemas/InvoiceSummary" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /billing/invoices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Invoice id
+    get:
+      summary: Get an invoice with its line items
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvoiceDetail" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /billing/usage:
+    get:
+      summary: Get current usage/limit for every registered resource type
+      description: >
+        One request instead of one per resource type — each entry's `limit`
+        is resolved from the organization's active subscription's plan
+        (null = unlimited: no active subscription, or the plan doesn't
+        allocate that resource type).
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Resource usage summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [usage]
+                properties:
+                  usage: { type: array, items: { $ref: "#/components/schemas/ResourceUsageEntry" } }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /sessions:
+    get:
+      summary: List sessions currently active within the organization
+      description: >
+        An API key has no calling-user concept (unlike a Tenant Admin cookie
+        session), so this is organization-scoped — sessions whose
+        Session.organizationId matches the calling key's org (FR-105's
+        "currently switched into this org") — not a "my own sessions"
+        listing. Narrow to one member with `?userId=`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: userId
+          in: query
+          required: false
+          schema: { type: string }
+          description: Narrow the listing to one member's sessions.
+      responses:
+        "200":
+          description: Cursor-paginated session list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions, nextCursor]
+                properties:
+                  sessions: { type: array, items: { $ref: "#/components/schemas/SessionInfo" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /sessions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Session id
+    delete:
+      summary: Revoke a session (only if currently active within the calling organization)
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: Session revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /notifications:
+    get:
+      summary: List the organization's in-app notification feed
+      description: >
+        Same organization-scoped-not-self reasoning as GET /sessions.
+        Narrow to one member with `?userId=`. No read/unread state exists
+        yet (§2.14's in-app channel is deliberately minimal — see TASKS.md).
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: userId
+          in: query
+          required: false
+          schema: { type: string }
+          description: Narrow the listing to one member's notifications.
+      responses:
+        "200":
+          description: Cursor-paginated in-app notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notifications, nextCursor]
+                properties:
+                  notifications: { type: array, items: { $ref: "#/components/schemas/NotificationInfo" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /features:
+    get:
+      summary: List which feature flags are currently enabled for the organization
+      description: >
+        FR-190-192's resolution precedence (user > organization > plan >
+        global default) collapsed to the enabled-key set — no user context
+        exists for an API key, so this resolves at the organization level.
+        Read-only: no module registers a Feature yet (the catalog can be
+        genuinely empty), and no override-management endpoint exists to
+        pair a write with.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Enabled feature keys
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FeaturesResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /audit-logs:
+    get:
+      summary: List the organization's own audit trail
+      description: >
+        The org-scoped counterpart to the Super Admin cross-org Report/Log
+        viewer. Deliberately a trimmed field set — before/after diffs,
+        ipAddress, userAgent, and metadata stay off the REST surface by
+        default, same as the platform-wide viewer already exposes.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageLimit"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Cursor-paginated audit-log list, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auditLogs, nextCursor]
+                properties:
+                  auditLogs: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
+                  nextCursor: { type: [string, "null"] }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Authorization: Bearer <api key>. Keys are verified against
+        ApiKey.keyHash (SHA-256 of the raw key) and resolve directly to an
+        organizationId — see web/src/lib/tenant/api.ts's withApiTenantContext.
+  parameters:
+    PageLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      description: Page size, clamped to [1, 100]; invalid/absent falls back to the default.
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string }
+      description: Opaque cursor from a previous page's `nextCursor` — omit for the first page.
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Key is missing the required scope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No resource with that id (including one belonging to another organization — FR-104)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Request conflicts with existing state (e.g. already a member, or a pending invite already exists)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Organization:
+      type: object
+      required: [id, name, slug, status, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+    Member:
+      type: object
+      required: [membershipId, status, createdAt, user]
+      properties:
+        membershipId: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        user:
+          type: object
+          required: [id, email, name, mfaEnabled]
+          properties:
+            id: { type: string }
+            email: { type: string, format: email }
+            name: { type: [string, "null"] }
+            mfaEnabled: { type: boolean, description: "Read-only — whether this member has MFA enabled on their account." }
+    Invite:
+      type: object
+      required: [id, email, roleId, invitedByUserId, expiresAt, createdAt]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        roleId: { type: [string, "null"] }
+        invitedByUserId: { type: [string, "null"] }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    SessionInfo:
+      type: object
+      required: [id, userId, ipAddress, userAgent, createdAt, lastUsedAt, expiresAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        ipAddress: { type: [string, "null"] }
+        userAgent: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    NotificationInfo:
+      type: object
+      required: [id, userId, kind, subject, body, createdAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        kind: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    Role:
+      type: object
+      required: [id, name, slug, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        createdAt: { type: string, format: date-time }
+    RoleDetail:
+      allOf:
+        - $ref: "#/components/schemas/Role"
+        - type: object
+          required: [permissionKeys]
+          properties:
+            permissionKeys: { type: array, items: { type: string } }
+    Setting:
+      type: object
+      required: [category, key, isSensitive, value]
+      properties:
+        category: { type: string }
+        key: { type: string }
+        isSensitive: { type: boolean }
+        value: {}
+    ApiKey:
+      type: object
+      required: [id, organizationId, name, keyPrefix, scopes, lastUsedAt, expiresAt, revokedAt, createdByUserId, createdAt]
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        name: { type: string }
+        keyPrefix: { type: string }
+        scopes: { type: array, items: { type: string } }
+        lastUsedAt: { type: [string, "null"], format: date-time }
+        expiresAt: { type: [string, "null"], format: date-time }
+        revokedAt: { type: [string, "null"], format: date-time }
+        createdByUserId: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+    ApiKeyCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiKey"
+        - type: object
+          required: [rawKey]
+          properties:
+            rawKey: { type: string, description: "Shown exactly once — never recoverable after this response." }
+    Plan:
+      type: object
+      required: [key, name, type, priceCents, currency, billingCycle, resources, features]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        type: { type: string }
+        priceCents: { type: [integer, "null"] }
+        currency: { type: string }
+        billingCycle: { type: [string, "null"] }
+        resources:
+          type: array
+          items:
+            type: object
+            required: [resourceTypeKey, limit]
+            properties:
+              resourceTypeKey: { type: string }
+              limit: { type: [integer, "null"] }
+        features:
+          type: array
+          items:
+            type: object
+            required: [featureId, enabled]
+            properties:
+              featureId: { type: string }
+              enabled: { type: boolean }
+    Subscription:
+      type: object
+      required: [id, status, planKey, planName, currentPeriodStart, currentPeriodEnd, trialEndsAt, cancelAt]
+      properties:
+        id: { type: string }
+        status: { type: string }
+        planKey: { type: [string, "null"] }
+        planName: { type: [string, "null"] }
+        currentPeriodStart: { type: string, format: date-time }
+        currentPeriodEnd: { type: string, format: date-time }
+        trialEndsAt: { type: [string, "null"], format: date-time }
+        cancelAt: { type: [string, "null"], format: date-time }
+    InvoiceSummary:
+      type: object
+      required: [id, number, status, currency, totalCents, issuedAt, paidAt, dueAt]
+      properties:
+        id: { type: string }
+        number: { type: [string, "null"] }
+        status: { type: string }
+        currency: { type: string }
+        totalCents: { type: integer }
+        issuedAt: { type: [string, "null"], format: date-time }
+        paidAt: { type: [string, "null"], format: date-time }
+        dueAt: { type: [string, "null"], format: date-time }
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceSummary"
+        - type: object
+          required: [subtotalCents, taxCents, lineItems]
+          properties:
+            subtotalCents: { type: integer }
+            taxCents: { type: integer }
+            lineItems:
+              type: array
+              items:
+                type: object
+                required: [id, description, quantity, unitAmountCents, amountCents]
+                properties:
+                  id: { type: string }
+                  description: { type: string }
+                  quantity: { type: integer }
+                  unitAmountCents: { type: integer }
+                  amountCents: { type: integer }
+    OrganizationExport:
+      type: object
+      required: [organization, roles, memberships, exportedAt]
+      properties:
+        organization: { $ref: "#/components/schemas/Organization" }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [id, organizationId, name, slug, createdAt]
+            properties:
+              id: { type: string }
+              organizationId: { type: string }
+              name: { type: string }
+              slug: { type: string }
+              description: { type: [string, "null"] }
+              createdAt: { type: string, format: date-time }
+        memberships:
+          type: array
+          items:
+            type: object
+            required: [id, organizationId, userId, status, createdAt]
+            properties:
+              id: { type: string }
+              organizationId: { type: string }
+              userId: { type: string }
+              status: { type: string }
+              createdAt: { type: string, format: date-time }
+        exportedAt: { type: string, format: date-time }
+    ResourceUsageEntry:
+      type: object
+      required: [resourceTypeKey, unit, used, limit, overagePolicy]
+      properties:
+        resourceTypeKey: { type: string }
+        unit: { type: string }
+        used: { type: number }
+        limit: { type: [integer, "null"], description: "null = unlimited (no active subscription, or its plan doesn't allocate this resource type)." }
+        overagePolicy: { type: string }
+    FeaturesResponse:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: array
+          items: { type: string }
+          description: Feature keys currently enabled for the organization.
+    AuditLogEntry:
+      type: object
+      required: [id, actorUserId, module, action, resourceType, resourceId, createdAt]
+      properties:
+        id: { type: string }
+        actorUserId: { type: [string, "null"] }
+        module: { type: string }
+        action: { type: string }
+        resourceType: { type: [string, "null"] }
+        resourceId: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
