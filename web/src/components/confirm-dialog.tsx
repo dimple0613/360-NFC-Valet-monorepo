@@ -29,7 +29,7 @@ export function ConfirmDialog({
         showCloseButton={false}
         style={{ borderRadius: 20, padding: 24 }}
       >
-        <div className="flex items-start justify-between gap-4 mb-0">
+        <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-center gap-2 flex-wrap min-w-0" style={{ width: "100%" }}>
             <div
               style={{
@@ -79,7 +79,7 @@ export function ConfirmDialog({
             {message}
           </div>
         </div>
-        <div className="flex justify-center gap-2 mt-0">
+        <div className="flex justify-center gap-2 mt-5">
           <button
             type="button"
             onClick={() => onOpenChange(false)}

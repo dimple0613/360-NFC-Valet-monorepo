@@ -213,7 +213,21 @@ describe("roles service (FR-122 custom role builder)", () => {
       expect(keysOf("Owner").size).toBe(totalTenantPermissionCount);
       expect(keysOf("Admin").has("core.roles.manage")).toBe(false);
       expect(keysOf("Admin").size).toBe(totalTenantPermissionCount - 1);
-      expect(keysOf("Member")).toEqual(new Set(["core.organization.read", "core.organization.read_members"]));
+      expect(
+        keysOf("Member"),
+      ).toEqual(
+        new Set([
+          "core.organization.read",
+          "core.organization.read_members",
+          "valet.dashboard.read",
+          "valet.queue.read",
+          "valet.property.read",
+          "valet.driver.read",
+          "valet.card.read",
+          "valet.offer.read",
+          "valet.reports.read",
+        ]),
+      );
       expect(keysOf("Viewer")).toEqual(new Set(["core.organization.read"]));
     });
   });

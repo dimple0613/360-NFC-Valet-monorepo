@@ -70,7 +70,7 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 
 <div class="header">
 <h1>360 NFC Valet — Monorepo System Audit &amp; Gap Review</h1>
-<div class="subtitle">Comprehensive audit of the merged saasclaude core + valet business monorepo against the legacy build and business flow requirements. Live walkthrough verified Mon 7 Sep 2026.</div>
+<div class="subtitle">Comprehensive audit of the merged saasclaude core + valet business monorepo against the legacy build and business flow requirements. Live walkthrough + full-site Playwright MCP QA sweep verified Mon 7 Sep 2026. Sections 1&#8211;12 = architecture/product review; &#167;13 = Playwright full QA sweep (findings #15&#8211;#46); &#167;14 = legacy build vs merged monorepo flow matrix.</div>
 </div>
 
 <!-- ============================================================ -->
@@ -392,7 +392,118 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 </div>
 
 <!-- ============================================================ -->
-<h2 id="workflow">13. GitHub Issue Workflow</h2>
+<h2 id="qasweep">13. Playwright Full QA Sweep (live, via Playwright MCP browser)</h2>
+
+<div class="card">
+<p>A full-site QA audit was driven through the real dev servers (:3000 web, :3001 guest web) using the Playwright MCP browser, complementing the <code>qa/</code> Playwright suite. Routes were discovered from source (<code>web/src/app/**/page.tsx</code>) and each was classified: unauthenticated access first, then authenticated deep-dive on CRUD / forms / search / filters / dropdowns / pagination. Console was monitored for errors on every page. Evidence: <code>qa/evidence/</code> + <code>.playwright-mcp/*.yml</code>.</p>
+
+<h3>&#167;13.1 Accessibility / auth / route inventory (all PASS)</h3>
+<ul>
+<li><strong>Unauthenticated 401:</strong> <code>/tenant-admin</code>, <code>/super-admin</code>, <code>/tenant-admin/cards</code>, <code>/tenant-admin/settings/api-keys</code>, <code>/super-admin/organizations/[id]</code> all redirect to the 401 gate. Live-verified.</li>
+<li><strong>Guest web:</strong> <code>/</code> loads; <code>/t/7001</code> and <code>/t/7002</code> render property pages; unknown UID shows a friendly "card not recognized" state (no error); no slug route exists (expected &#8212; <code>/t/[uid]</code> only; see #16).</li>
+<li><strong>Super Admin cross-org Billing</strong> is view-only (gated on <code>core.platform.view_billing</code>).</li>
+</ul>
+
+<h3>&#167;13.2 Functional deep-dive (all PASS unless noted)</h3>
+<table>
+<tr><th>Area</th><th>Verified</th></tr>
+<tr><td>Drivers</td><td>List load; Manage &#8594; View details (profile, active orders, activity report, shift history, period picker).</td></tr>
+<tr><td>Cards</td><td>201 cards across 2 properties; search / status+property filters / sort / pagination (14 pages); Manage dropdown context-sensitive (With-guest hides Block; shows Edit UID / Mark lost / Remove); Register cards dialog (Property + Prefix + From/To batch range).</td></tr>
+<tr><td>Offers</td><td>List + category tabs; New offer modal (shadcn combobox category, price/was-price, description, image + menu upload, drag-to-featured guest preview pulling <code>NEXT_PUBLIC_GUEST_BASE</code>); create persisted; preview URL correct (<code>:3001/t/7001</code>).</td></tr>
+<tr><td>Locations</td><td>List render; create succeeds (200-card pool, uid_start 7002 &#8212; #15 fix live-verified); <code>/t/7002</code> property page renders.</td></tr>
+<tr><td>Reports</td><td>Daily rollup + Today row + period total + Outlet spend; Export CSV/PDF button; property filter.</td></tr>
+<tr><td>Queue</td><td>Read-only by design (driver actions live in the driver app); search / filter / sort / tabs / pagination verified; WS :3002 reachable (single dev-noise warning).</td></tr>
+<tr><td>Settings</td><td>Account, General, Security (password + MFA enrollment: QR + manual secret + 6-digit verify), Sessions (14 rows, this-session marker, revoke), Notifications, Team (1 member), Roles, Billing (no active sub), Inbox (0 rows), API keys (create &#8594; one-time secret &#8594; Bearer GET <code>/api/v1/api-keys</code> = HTTP 200), Settings landing.</td></tr>
+<tr><td>Super Admin</td><td>Org detail (Profile/Contact/Users/Subscriptions tabs, Suspend/Archive/Schedule deletion); Users tab (Owner, Impersonate, Add user); cross-org Billing (view-only).</td></tr>
+</table>
+
+<h3>&#167;13.3 Genuine findings filed (label <code>audit</code>, GitHub)</h3>
+<table>
+<tr><th>#</th><th>Title</th><th>Triage</th></tr>
+<tr><td>#15</td><td>BUG create-location 500 (INTEGER tenant_id) &#8212; <strong>root-caused + fixed + live-verified</strong>; kept open for the guest URL/slug change (<code>LocationsManager.tsx:83</code> hardcodes <code>tap.360valet.ae/{slug}</code>)</td><td>Fixed / feature-request open</td></tr>
+<tr><td>#16</td><td>Guest card-identity semantics (no slug route) &#8212; solve later</td><td>Deferred</td></tr>
+<tr><td>#17</td><td>Locations "Card pool" should be a numeric input (not free text)</td><td>Enhancement</td></tr>
+<tr><td>#18</td><td>Locations image upload by URL; offers already upload files &#8212; make consistent</td><td>Enhancement</td></tr>
+<tr><td>#19</td><td>Queue driver filter</td><td>Enhancement</td></tr>
+<tr><td>#20</td><td>New offer modal double-scroll (2 nested scroll containers)</td><td>UI bug</td></tr>
+<tr><td>#21</td><td>Cards table renders literal "null" when car model missing (<code>valet-data.ts:1389</code>)</td><td>UI bug (cosmetic)</td></tr>
+<tr><td>#22</td><td><code>/api/v1</code> lacks valet-domain endpoints (cards/drivers/offers/property/queue/reports/dashboard) &#8212; scopes granted but no routes to call</td><td>Functional gap</td></tr>
+<tr><td>#23</td><td>API-key create leaves the create dialog open behind the one-time-key popup (double popup, plain styling)</td><td>UI bug</td></tr>
+<tr><td>#24</td><td>Password fields lack show/hide eye toggle except on login (security page has 0)</td><td>UI bug (consistency)</td></tr>
+<tr><td>#25</td><td>Roles permission pills drop the module name &#8594; 27 bare manage/read pills, unreadable (<code>role-detail-panel.tsx:67,75</code>)</td><td>UI bug (usability)</td></tr>
+<tr><td>#26</td><td>Org invite email never actually sent &#8212; SMTP configured in <code>web/.env</code> but invite flow console.logs a placeholder</td><td>Functional gap</td></tr>
+<tr><td>#27</td><td>Product menu empty for default non-owner roles (Member/Viewer grant zero <code>valet.*</code> perms; dashboard 403s) &#8212; <strong>live-confirmed on Roles page: Member = exactly 2 perms; <code>reconcileDefaultRolePermissions</code> never runs for existing orgs</strong></td><td>BUG (RBAC)</td></tr>
+<tr><td>#28</td><td>&#8220;Invite sent&#8221; popup (CopyableSecretDialog) looks different from other popups</td><td>UI bug (consistency)</td></tr>
+<tr><td>#29</td><td>ConfirmDialog zero vertical spacing between icon/text/buttons &#8212; ~18 call sites</td><td>UI bug (fixed, kept open)</td></tr>
+<tr><td>#30</td><td>Master: 4 parallel dialog design systems across both portals (form dialogs / ConfirmDialog / CopyableSecretDialog / hand-rolled divs)</td><td>UI bug (consistency)</td></tr>
+<tr><td>#31</td><td>Duplicate active orders for same card &#8212; two concurrent scans both pass <code>with_guest</code> check (no partial unique index; READ COMMITTED race)</td><td>Data-integrity bug</td></tr>
+<tr><td>#32</td><td>Vehicle condition capture missing at pickup (no damage/scratch/mileage/photo on orders) &#8212; verified absent across driver app, guest web, tenant-admin, schema</td><td>Enhancement (gap)</td></tr>
+<tr><td>#33</td><td>&#8220;Require two-factor authentication&#8221; security default stored but never enforced (UI admits &#8220;Stored, not yet enforced&#8221;; no sign-in path reads it)</td><td>BUG (security config)</td></tr>
+<tr><td>#34</td><td>CAPTCHA provider/site key/secret saved but never rendered or verified on any auth form</td><td>BUG (security config)</td></tr>
+<tr><td>#35</td><td>&#8220;Allow public sign-up&#8221; kill-switch bypassed by Google/Apple OAuth &#8212; <code>resolveOAuthSignIn</code> creates new accounts without checking <code>isRegistrationEnabled()</code></td><td>BUG (auth)</td></tr>
+<tr><td>#36</td><td>Create-role dialog never closes after creation; detail panel stays on previously selected role (live-repro: &#8220;Matrix Viewer&#8221;)</td><td>UI bug</td></tr>
+<tr><td>#37</td><td>Product sidebar not permission-filtered &#8212; restricted role sees all 7 links, gated pages 403 on click (live: impersonated Matrix Viewer)</td><td>UI/RBAC bug</td></tr>
+<tr><td>#38</td><td>Live Queue + dashboard render for role with zero <code>valet.*</code> perms &#8212; unlike Offers, not gated; ops data (plates/drivers/zones) exposed</td><td>RBAC bug</td></tr>
+<tr><td>#39</td><td>Offer staff-code validation unconfigurable &#8212; no <code>staff_code</code> field in admin offer form; guest validate box always 400s (live-verified)</td><td>BUG (feature gap)</td></tr>
+<tr><td>#40</td><td>Guest root <code>/</code> shows public NFC-scan landing &#8212; restrict; only <code>/t/[uid]</code> screens reachable</td><td>Enhancement (audit)</td></tr>
+<tr><td>#41</td><td>Guest C1 home banner should show property image when set (else current brand block)</td><td>Enhancement (audit)</td></tr>
+<tr><td>#42</td><td>Guest offer list/featured cards should show offer image when set &#8212; <code>data:</code> URL path unverified</td><td>Enhancement (audit)</td></tr>
+<tr><td>#43</td><td>Guest offer detail menu PDF may not open (<code>data:</code> URL upload) &#8212; serve via safe endpoint</td><td>Enhancement (audit)</td></tr>
+<tr><td>#44</td><td>Guest countdown shows 00:00 before timer starts &#8212; hide status-count + eta pills when no ETA</td><td>UI (audit)</td></tr>
+<tr><td>#45</td><td>Remove URL/slug pill from guest home top slot (debt, no fix needed now)</td><td>Enhancement (audit)</td></tr>
+<tr><td>#46</td><td>Feature: staff validation code on guest home/status while waiting + property-level code at location create/edit</td><td>Enhancement (audit)</td></tr>
+</table>
+<p>A pinned regression guard for #20 (<code>expectDialogHasNoDoubleScroll</code> in <code>qa/utils/helpers.ts</code> + red test in the offers spec) lives in <code>qa/tests/</code> so the defect can never silently regress.</p>
+
+<h3>&#167;13.4 Deep-test session — summary of this round (live :3000 + source review)</h3>
+<ul>
+<li><strong>Security-settings enforcement sweep (Super Admin → Settings → General):</strong> turned the user's "enable a sign-in setting but it is not effective anywhere" example into hard evidence. <code>security.require_2fa</code> and <code>security.captcha_provider</code> are persisted but never enforced (the form itself renders "Stored, not yet enforced", <code>general-settings-forms.tsx:518</code>). <code>access.registration_enabled</code> gates only the email signup — <strong>OAuth (Google/Apple) creates new accounts without checking it</strong> (<code>resolveOAuthSignIn</code>, <code>oauth-provider.ts:174</code>). <code>access.maintenance_mode</code> IS wired via <code>web/proxy.ts</code> (works, not a finding). Filed #33, #34, #35.</li>
+<li><strong>Roles matrix (live):</strong> created a custom "Matrix Viewer" role in the UI; saved 3 <code>read</code> permissions successfully (assign-to-member flow, 0 members yet). Live-confirmed Member default role = exactly 2 perms (<code>read</code> + <code>read_members</code>, zero <code>valet.*</code>) — #27 reproduced and root cause extended: <code>reconcileDefaultRolePermissions</code> is never invoked, so the roles.ts default change is not live for existing orgs. Filed #36 (create-role dialog never closes; panel stays on previously selected role).</li>
+<li><strong>Full Product surface walk (7/7 pages):</strong> Dashboard, Live Queue, Locations, Drivers, NFC Cards (201 cards / 14 pagination pages), Offers, Reports — all render live org-scoped data; Locations "Loading…/0" is a hydration false-start, resolves on mount. Cards still show <code>Toyota null</code> for missing model (= #21, confirmed against current build).</li>
+<li><strong>Tooling (not an app bug):</strong> the MCP Postgres tool defaults to the legacy <code>saas_project</code> schema (<code>org_members</code>, <code>activity_logs</code>, &#8230;), not <code>valet_monorepo</code>; role/order verification was done through the live UI instead.</li>
+<li><strong>Roles-matrix end-to-end (live):</strong> created custom "Matrix Viewer" role, saved 3 <code>read</code> perms, assigned <code>dimplegohel0613@gmail.com</code> (assign flow works: member appears in Assigned members + unassign/pagination present), then Impersonated as her. Result: Dashboard + Live Queue render (queue NOT gated on <code>valet.*</code> &#8594; #38); Offers returns <strong>403</strong> (correctly gated); sidebar still lists all 7 links (#37).</li>
+<li><strong>Guest mobile-web deep test (:3001):</strong> <code>/t/7001</code> full lifecycle renders (home → live-status timeline "Request received 02:07 PM" → "Driver assigned — Karim Valet" → "Car on the move" → "Ready at valet curb ~02:12 PM", driver avatar/zone, "Valet validated &#8212; parking is on the house"); offer detail renders with Dining offers (AED 10); staff-code entry always returns <strong>400 "This offer has no validation code"</strong> because the tenant-admin offer form has no <code>staff_code</code> field and <code>offers.staff_code</code> stays NULL (&#8594; #39, live-confirmed); <code>/t/7002</code> (PW_TEST_LOC_Jumeirah) shows friendly "No parked car found for this card" state. Reports re-verified: search/q + property filter + period + Export CSV (downloads 15-row daily CSV) all work.</li>
+<li><strong>Audit batch #39&#8211;#46 filed (user-directed, ADD-ONLY):</strong> #39 staff-code unconfigurable; #40 guest <code>/</code> landing shouldn't be reachable (only <code>/t/[uid]</code>); #41 C1 banner should show property image; #42 list/featured offer cards should show offer image (<code>data:</code> URL unverified); #43 offer menu PDF may not open from <code>data:</code> URL; #44 countdown shows 00:00 before timer starts (StatusHero + live-status ring); #45 remove URL/slug pill from guest home; #46 staff validation code on guest wait screen + property-level code at location create/edit. <strong>Product-directed code change applied:</strong> removed the guest landing manual card-number entry UI + hero copy (NFC-scan only), verified live.</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="legacy-matrix">14. Legacy Build vs Merged Monorepo — Side-by-Side Flow Matrix</h2>
+
+<div class="card">
+<p>Compares every primary business flow as it exists in the standalone legacy build
+(<code>D:\laragon\www\360-NFC-Valet</code> &#8212; <code>admin/</code> + <code>app/</code> driver + <code>mobile_web/</code> guest +
+<code>landing/</code>, and the intermediate <code>360-NFC-Valet_with_super_Admin</code> monorepo) with the current merged
+monorepo, based on the legacy <code>audit-report.html</code> findings and this audit&#8217;s live walkthrough.</p>
+
+<table>
+<tr><th>Business flow</th><th>Legacy build</th><th>Merged monorepo (live-verified)</th></tr>
+<tr><td>Admin + tenant provisioning</td><td>Single console; platform <code>roles</code>/<code>role_permissions</code> tables forced a <strong>two-DB split</strong> (roles outlived the second DB). No tenant model.</td><td><span class="badge badge-fixed">FIXED</span> One PostgreSQL, flat org membership (FR-106), tenant + platform RBAC as separate systems; Super Admin + Tenant Admin portals.</td></tr>
+<tr><td>Property / location mgmt</td><td>Create location (no org scoping), 12-table schema.</td><td><span class="badge badge-exist">OK</span> Org-scoped <code>Property</code> (organization_id), guest URL slug, zones/slots, card pool. #15 create-location 500 fixed + live-verified; pool is free-text input (#17).</td></tr>
+<tr><td>Card registration + lifecycle</td><td>Registrations surfaced in legacy admin; card state machine partially fixed in last legacy pass.</td><td><span class="badge badge-exist">OK</span> 201 cards / 14 pagination pages; register-cards batch dialog (property + prefix + From/To); state machine transitions &#8594; card released &#8594; ready, blocked preserved. Residual: #31 same-card double-order race (no partial unique index).</td></tr>
+<tr><td>Driver login + shift</td><td>HMAC driver JWT, shift start with property, PIN.</td><td><span class="badge badge-exist">OK</span> Same contract carried over; driver session scoped to property &#8594; org.</td></tr>
+<tr><td>Pickup: tap NFC / plate &#8594; order</td><td>41 API files / 60+ ops; org isolation gap across properties listed as a P0 blocker.</td><td><span class="badge badge-fixed">FIXED</span> <code>POST /api/driver/orders</code> org+property-scoped via persistence-layer extension; tenant-level scoping enforced (DNS/lookup fail-closed). #31 residual concurrency race.</td></tr>
+<tr><td>Park / zone + slot assign</td><td>Present; slot model flagged (integrity / concurrency).</td><td><span class="badge badge-exist">OK</span> PATCH order {parked, zone, slot}; order state machine drives the guest timeline.</td></tr>
+<tr><td>Guest tap &#8594; <code>/t/{uid}</code></td><td>NFC scan <strong>and manual card-number entry</strong> on the landing page.</td><td><span class="badge badge-completed">DONE</span> NFC-scan only; manual-entry UI + landing copy removed. #40 (root <code>/</code> still reachable as an audit item).</td></tr>
+<tr><td>Guest live-status timeline</td><td>Return-request flow with guest notifications (retry strategy noted).</td><td><span class="badge badge-exist">OK</span> <code>/t/7001</code> renders Request received &#8594; Driver assigned &#8594; Car on the move &#8594; Ready at curb + "Valet validated". #44 countdown shows 00:00 before ETA set.</td></tr>
+<tr><td>Offers catalog + staff-code validation</td><td>Offer catalog surfaced in admin; validation code per offer.</td><td><span class="badge badge-bug">BUG #39</span> List/detail render (Dining, AED 10) but guest staff-code box always 400s: <code>offers.staff_code</code> NULL, no field in admin form, no phone field on detail. #46 proposes property-level code at location create/edit.</td></tr>
+<tr><td>Return request / "Bring my car" + ETA</td><td>Return request flow; P1 gaps around return/timeout.</td><td><span class="badge badge-exist">OK</span> ETA set server-side on return request; hides until then per #44. Return-request escalation/timeout still backlog (legacy gap carried).</td></tr>
+<tr><td>Real-time queue admin</td><td>WebSocket :3002; <strong>HttpOnly cookie blocked the WS token</strong> (legacy quirk).</td><td><span class="badge badge-fixed">FIXED</span> Short-lived non-HttpOnly <code>valet_ws_token</code>; queue can use live socket, 20s polling fallback (M6 re-confirm deployed).</td></tr>
+<tr><td>Reports / export</td><td>Daily CSV export present backend-side.</td><td><span class="badge badge-exist">OK</span> Daily rollup + Today + period + outlet spend + property filter; Export CSV downloads real 15-row daily CSV (live re-verified), PDF menu present.</td></tr>
+<tr><td>Cross-tenant isolation</td><td>Property leakage listed as a <strong>P0 blocker</strong>; no org scoping layer.</td><td><span class="badge badge-fixed">FIXED</span> Automatic persistence-layer scope (Prisma Client extension + AsyncLocalStorage), fail-closed; cross-tenant access &#8594; 404 not 403; Tenant B live-shows zero Tenant A data.</td></tr>
+<tr><td>Authorizations / IDOR</td><td>P1 driver order IDOR; property/org not enforced.</td><td><span class="badge badge-fixed">FIXED</span> Property/org scoping enforced (fixed in monorepo, carried into driver + API paths).</td></tr>
+<tr><td>RBAC (roles / permissions)</td><td>Roles in the second DB; single role table set.</td><td><span class="badge badge-p3">ISSUES</span> Platform + tenant role systems, 5 tenant roles in Org A. #27 Member/Viewer grant zero <code>valet.*</code> perms (dashboard 403s); #37 sidebar not permission-filtered; #38 Live Queue not gated. Roles editable per-role incl. Matrix Viewer (3 read perms).</td></tr>
+<tr><td>API keys / public API</td><td>None.</td><td><span class="badge badge-p3">PARTIAL</span> Scoped keys + <code>/api/v1/api-keys</code> Bearer works; #22 no valet-domain routes (cards/drivers/offers/property/queue/reports/dashboard) exist yet.</td></tr>
+<tr><td>MFA / session security</td><td>Password login only.</td><td><span class="badge badge-p3">PARTIAL</span> MFA enrollment UI (QR + manual secret + verify) works; #33 <code>security.require_2fa</code> stored but never enforced. Sessions list + revoke live-verified.</td></tr>
+<tr><td>Billing / subscriptions</td><td>None (admin console only).</td><td><span class="badge badge-exist">OK</span> Stripe checkout/webhook wired; Super Admin cross-org Billing view-only gated on <code>core.platform.view_billing</code>; "No subscriptions found" for current orgs.</td></tr>
+<tr><td>Audit / activity log</td><td><em>activity_logs</em> in the legacy schema.</td><td><span class="badge badge-exist">OK</span> Platform <code>AuditLog</code> model + service; impersonation events logged; immutable audit principle held in design.</td></tr>
+<tr><td>Operations monitoring</td><td>Dashboard metrics requirement flagged; no Live Queue.</td><td><span class="badge badge-exist">OK</span> Dashboard + Live Queue render org-scoped; queue read-only by design (driver actions in driver app). #38 gating defect on zero-perm roles.</td></tr>
+</table>
+<p><strong>Bottom line:</strong> every legacy P0/P1 blocker (two-DB split, org/isolation, branding save, IDOR, WS-token HttpOnly quirk, transactions, card lifecycle) is resolved and live-verified in the monorepo. The remaining deltas are the <strong>#39/#46 staff-code configuration gap</strong>, <strong>#27/#37/#38 RBAC radial</strong>, <strong>#31 same-card race</strong>, and <strong>#22 valet API surface</strong> &#8212; all tracked in &#167;13.3.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="workflow">15. GitHub Issue Workflow</h2>
 
 <div class="card">
 <p>Issues are managed against a machine-readable backlog and auto-synced to GitHub (label <code>audit</code>):</p>
@@ -409,7 +520,7 @@ wiki walks through the same procedure.</p>
 </div>
 
 <!-- ============================================================ -->
-<h2 id="score">14. Production Readiness Score</h2>
+<h2 id="score">16. Production Readiness Score</h2>
 
 <div class="score-grid">
 <div class="score-card good"><div class="score">100%</div><div class="label">Tenant Admin Features</div></div>
@@ -432,7 +543,7 @@ deployed env, M7 maintenance-gate smoke-test, M8 valet service tests, M9 prisma 
 </div>
 
 <!-- ============================================================ -->
-<h2 id="verdict">15. Go / No-Go</h2>
+<h2 id="verdict">17. Go / No-Go</h2>
 
 <div class="card">
 <table>
@@ -449,7 +560,7 @@ deployed env, M7 maintenance-gate smoke-test, M8 valet service tests, M9 prisma 
 </div>
 
 <!-- ============================================================ -->
-<h2 id="env">16. Environment / Reproducibility</h2>
+<h2 id="env">18. Environment / Reproducibility</h2>
 
 <div class="card">
 <table>
@@ -467,7 +578,7 @@ deployed env, M7 maintenance-gate smoke-test, M8 valet service tests, M9 prisma 
 <!-- ============================================================ -->
 <div class="card" style="margin-top:32px;text-align:center;padding:32px">
 <h3 style="margin-bottom:8px">Monorepo Audit Complete</h3>
-<p style="color:var(--muted)">2 portals · 1 shared database · 7 tenant product features (20 sub-checks) · 11 settings pages · 27 API/valet routes · M1–M9 forward backlog · 466 platform tests · GitHub issue workflow</p>
+<p style="color:var(--muted)">2 portals · 1 shared database · 7 tenant product features (20 sub-checks) · 11 settings pages · 27 API/valet routes · M1–M9 forward backlog · 466 platform tests · GitHub issue workflow · 32 open QA issues (#15–#46) · deep-test session §13.4</p>
 <p style="margin-top:12px"><strong>Bottom line:</strong> All P0/P1 blockers from the legacy build are fixed and live-verified in the monorepo. Tenant Admin is <strong>GO</strong> — 20/20 product features and 11/11 settings pages pass with zero console errors and proven cross-tenant isolation.</p>
 </div>
 

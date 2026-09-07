@@ -55,9 +55,12 @@ export const OWNER_ROLE_SLUG = "owner";
  * permissions that actually exist in the TENANT catalog today — Admin gets
  * everything except core.roles.manage (can run the org day-to-day but can't
  * grant itself, or anyone else, more power by editing roles/permissions);
- * Member gets read access to the org and its people; Viewer gets just enough
- * to know the org exists. `null` permissionKeys means "every registered
- * TENANT permission" (Owner only) rather than an explicit, staler list.
+ * Member gets read access to the org, its people, and the valet product
+ * surface (fully read-only — matches the sidebar's per-permission menu, so a
+ * Member sees Dashboard/Live Queue/Locations/Drivers/NFC Cards/Offers/Reports
+ * but no manage actions); Viewer gets just enough to know the org exists.
+ * `null` permissionKeys means "every registered TENANT permission" (Owner only)
+ * rather than an explicit, staler list.
  */
 const DEFAULT_ROLE_DEFINITIONS: {
   name: string;
@@ -74,8 +77,18 @@ const DEFAULT_ROLE_DEFINITIONS: {
   },
   {
     name: "Member",
-    description: "Can view the organization and its team.",
-    permissionKeys: ["core.organization.read", "core.organization.read_members"],
+    description: "Can view the organization, its team, and the valet operation (read-only).",
+    permissionKeys: [
+      "core.organization.read",
+      "core.organization.read_members",
+      "valet.dashboard.read",
+      "valet.queue.read",
+      "valet.property.read",
+      "valet.driver.read",
+      "valet.card.read",
+      "valet.offer.read",
+      "valet.reports.read",
+    ],
   },
   {
     name: "Viewer",

@@ -447,9 +447,10 @@ export async function getLocations(organizationId?: string | null) {
 
 // In the merged single-DB layout there is no legacy valet `tenants` table —
 // tenant/auth context comes from the platform tables (organizations/sessions).
-// properties.tenant_id is kept for column compatibility but left NULL.
-async function defaultTenantId(organizationId?: string | null): Promise<string | null> {
-  return organizationId ?? null;
+// properties.tenant_id is a legacy INTEGER column kept only for column
+// compatibility and must stay NULL (the org id is text and would not fit it).
+async function defaultTenantId(_organizationId?: string | null): Promise<string | null> {
+  return null;
 }
 
 export interface LocationInput {

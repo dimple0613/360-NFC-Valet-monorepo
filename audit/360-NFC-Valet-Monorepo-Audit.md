@@ -277,3 +277,32 @@ scoped files, commits, pushes (triggers CI), and closes the GitHub issue in one 
 - Creds: `admin@wewant360.com` / `Admin#2026Valet!`; `audit.tenant.b@audit360.test` / `TenantB#2026Valet!`
 - Servers: web :3000, mobile-web :3001, ws :3002; Laragon Postgres + Redis
 - Git root `D:/laragon/www/360-NFC-Valet-monorepo`, branch `master`
+
+## 17. Legacy Build vs Merged Monorepo — Side-by-Side Flow Matrix
+
+(`360-NFC-Valet` = legacy standalone: admin + driver app + guest web + landing; current HTML audit carries the full table in §14.)
+
+| Business flow | Legacy build | Merged monorepo (live-verified) |
+|---|---|---|
+| Admin + tenant provisioning | Single console; `roles`/`role_permissions` forced a **two-DB split**; no tenant model | **FIXED** — one PostgreSQL, flat org membership, tenant + platform RBAC, two portals |
+| Property / location mgmt | Create location, no org scoping | **OK** — org-scoped `Property`, guest slug, zones/slots, card pool (#15 fixed, #17 text input) |
+| Card registration + lifecycle | Registrations in admin; partial state-machine fixes | **OK** — 201 cards, batch register dialog, state machine; residual #31 same-card race |
+| Driver login + shift | HMAC JWT, shift with PIN/property | **OK** — same contract, org+property scoped |
+| Pickup: tap NFC / plate → order | 41 API files/60+ ops; property-leak P0 | **FIXED** — org+property-scoped order create; fail-closed tenant scope; #31 residual |
+| Park / zone + slot | Present; slot integrity flagged | **OK** — PATCH {parked, zone, slot}; timeline driven by state machine |
+| Guest tap → `/t/{uid}` | NFC scan **+ manual entry** | **DONE** — NFC-scan only; manual entry removed; #40 root landing audit item |
+| Guest live-status timeline | Return-request flow + retry strategy | **OK** — full timeline on `/t/7001`; #44 00:00 countdown before ETA |
+| Offers + staff-code validation | Catalog + per-offer validation code | **BUG #39** — list/detail render but validation box always 400s (`staff_code` NULL); #46 property-level code |
+| Return request / "Bring my car" | Return flow; P1 timeouts | **OK** — ETA set on request; escalation still backlog |
+| Real-time queue admin | WS :3002; **HttpOnly cookie blocked WS token** | **FIXED** — short-lived non-HttpOnly `valet_ws_token`, 20s polling fallback (M6) |
+| Reports / export | Daily CSV backend-side | **OK** — rollup + filters + CSV (15-row daily file live-checked) + PDF menu |
+| Cross-tenant isolation | Property leakage **P0 blocker** | **FIXED** — persistence-layer scope, fail-closed, 404-vs-403; Tenant B sees zero A data |
+| Authorizations / IDOR | P1 driver order IDOR | **FIXED** — property/org scoping enforced |
+| RBAC | Roles in second DB | **ISSUES** — #27 default roles empty, #37 sidebar not filtered, #38 queue not gated |
+| API keys / public API | None | **PARTIAL** — keys + `/api/v1/api-keys` work; #22 no valet-domain routes |
+| MFA / sessions | Password login only | **PARTIAL** — MFA enrollment UI works; #33 stored-not-enforced |
+| Billing / subscriptions | None | **OK** — Stripe wired; cross-org view-only Billing; no active subs |
+| Audit / activity log | `activity_logs` in legacy schema | **OK** — platform `AuditLog` service; impersonation events logged |
+| Operations monitoring | Dashboard metrics flagged; no Live Queue | **OK** — Dashboard + Live Queue org-scoped; #38 gating defect |
+
+**Bottom line:** every legacy P0/P1 blocker is resolved and live-verified. Remaining deltas: #39/#46 staff-code gap, #27/#37/#38 RBAC radial, #31 same-card race, #22 valet API surface.
