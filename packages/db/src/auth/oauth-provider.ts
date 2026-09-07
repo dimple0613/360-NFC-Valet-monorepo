@@ -2,7 +2,7 @@ import { Apple, Google, decodeIdToken, generateCodeVerifier, generateState } fro
 import { decodeBase64IgnorePadding } from "@oslojs/encoding";
 import { prismaWithoutTenantScoping } from "../client";
 import { acceptPendingInviteForOAuthUser } from "../organization-invites";
-import { getSecurityDefaultSettings } from "../platform-config";
+import { getSecurityDefaultSettings, isRegistrationEnabled } from "../platform-config";
 import { MissingOAuthConfigError, OAuthAuthenticationError, type OAuthAuthorizeResult, type OAuthProfile } from "./oauth-adapter";
 
 // FR-220's provider architecture: Google and Apple are the first two OAuth2/
@@ -20,7 +20,7 @@ import { MissingOAuthConfigError, OAuthAuthenticationError, type OAuthAuthorizeR
 // contract added alongside Microsoft/Entra ID) and are re-exported here
 // unchanged — see that file's header comment for why Google/Apple aren't
 // wrapped as OAuthAdapter objects themselves.
-export { MissingOAuthConfigError, OAuthAuthenticationError };
+export { MissingOAuthConfigError, OAuthAuthenticationError, RegistrationDisabledError };
 export type { OAuthProfile };
 
 /** The provider reported an unverified email that already belongs to another account — can't safely auto-link it (an unverified email is, by definition, not vouched-for), and User.email is globally unique so creating a second account isn't possible either. */
@@ -28,6 +28,14 @@ export class UnverifiedEmailConflictError extends Error {
   constructor() {
     super("An account with this email already exists. Sign in with your password, then link this provider from Security settings.");
     this.name = "UnverifiedEmailConflictError";
+  }
+}
+
+/** Platform kill-switch (Settings > General > "Allow public sign-up") tripped on the OAuth path — an unknown account is sign-up, not sign-in, so the switch gates it exactly like the email path (web signup-flow.ts). Existing accounts and invite-joins are unaffected. */
+class RegistrationDisabledError extends Error {
+  constructor() {
+    super("New account registration is currently disabled.");
+    this.name = "RegistrationDisabledError";
   }
 }
 
@@ -187,6 +195,22 @@ export async function resolveOAuthSignIn(profile: OAuthProfile): Promise<Resolve
   const userByEmail = await prismaWithoutTenantScoping.user.findUnique({ where: { email: profile.email } });
   if (userByEmail && !profile.emailVerified) throw new UnverifiedEmailConflictError();
   const existingUser = profile.emailVerified ? userByEmail : null;
+
+  // The registration kill-switch covers every self-serve account-creation path:
+  // OAuth "sign-in" for a brand-new profile is really sign-up, so gate it the
+  // same way the email path does (signUpNewOrganization → isRegistrationEnabled).
+  // Two legitimate new-account creation cases stay exempt, exactly like the
+  // email/invite flows: existing users (auto-link above) and invite-joins — a
+  // pending invites lookup happens in acceptPendingInviteForOAuthUser below
+  // anyway, so a pre-check here is just the cheap indexed existence probe that
+  // lets an invited OAuth user through while public self-registration is off.
+  const hasPendingInvite = await prismaWithoutTenantScoping.organizationInvite.findFirst({
+    where: { email: profile.email, acceptedAt: null, expiresAt: { gt: new Date() } },
+    select: { id: true },
+  });
+  if (!existingUser && !hasPendingInvite && !(await isRegistrationEnabled())) {
+    throw new RegistrationDisabledError();
+  }
 
   const user =
     existingUser ??

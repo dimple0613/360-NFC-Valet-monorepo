@@ -147,6 +147,7 @@ export {
   resolveOAuthSignIn,
   listLinkedOAuthAccounts,
   UnverifiedEmailConflictError,
+  RegistrationDisabledError,
 } from "./auth/oauth-provider";
 export type { OAuthProfile, ResolvedOAuthSignIn, BeginOAuthResult } from "./auth/oauth-provider";
 

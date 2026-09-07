@@ -1,4 +1,5 @@
 import {
+  RegistrationDisabledError,
   createOrganization,
   createSession,
   db,
@@ -11,6 +12,13 @@ import {
   seedDefaultRoles,
   signUp,
 } from "@saasclaude/db";
+
+// RegistrationDisabledError lives in packages/db (auth/oauth-provider.ts) so
+// both self-serve account-creation paths — email signup here and OAuth
+// sign-Up-for-an-unknown-account in resolveOAuthSignIn — throw the same class
+// and surface the same message.
+
+export { RegistrationDisabledError };
 
 // Composes signUp (auth-only, packages/db) with createOrganization
 // (packages/db) and the default role set (packages/db's seedDefaultRoles) —
@@ -100,13 +108,6 @@ export interface SignUpNewOrganizationResult {
   userId: string;
   organizationId: string;
   sessionToken: string;
-}
-
-export class RegistrationDisabledError extends Error {
-  constructor() {
-    super("New account registration is currently disabled.");
-    this.name = "RegistrationDisabledError";
-  }
 }
 
 export async function signUpNewOrganization(
