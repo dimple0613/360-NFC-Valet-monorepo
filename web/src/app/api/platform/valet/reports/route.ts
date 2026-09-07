@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { getReports } from "@/app/tenant-admin/_lib/valet-data";
+import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
+  if (!(await assertValetPermission("valet.reports.read"))) {
+    return NextResponse.json({ error: "You don't have permission to view reports" }, { status: 403 });
+  }
   const identity = await requireIdentity();
 
   const url = new URL(req.url);

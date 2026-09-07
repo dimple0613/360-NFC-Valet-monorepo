@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { updateLocation, deleteLocation } from "@/app/tenant-admin/_lib/valet-data";
+import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await assertValetPermission("valet.property.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage locations" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const { id: idStr } = await params;
   const id = Number(idStr);
@@ -25,6 +29,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await assertValetPermission("valet.property.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage locations" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const { id: idStr } = await params;
   const id = Number(idStr);

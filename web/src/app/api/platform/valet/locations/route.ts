@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { getLocations, createLocation } from "@/app/tenant-admin/_lib/valet-data";
+import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET() {
+  if (!(await assertValetPermission("valet.property.read"))) {
+    return NextResponse.json({ error: "You don't have permission to view locations" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const data = await getLocations(identity.session.organizationId ?? null);
   return NextResponse.json(data);
 }
 
 export async function POST(req: Request) {
+  if (!(await assertValetPermission("valet.property.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage locations" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { name, area, zones, slots, cards, imageUrl } = body || {};

@@ -25,6 +25,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
+import { Pool } from "pg";
 import { Server, DefaultEventsMap } from "socket.io";
 import { WebSocketServer } from "ws";
 import { config as loadEnv } from "dotenv";
@@ -38,6 +39,42 @@ const ALLOWED_ORIGINS = (process.env.WS_ORIGIN || "*")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+
+// The admin console socket joins the shared `admin` room, which receives every
+// broadcast (queue, dashboard, offers...). A valid session credential alone is
+// not an entitlement to all that data — the socket must also belong to a user
+// who holds at least one valet.* permission in their session's organization,
+// mirroring what page.tsx requireValetPage checks server-side. Scoped to "at
+// least one valet.*" because the room is room-wide; per-resource (per-event)
+// fan-out granularity would need the broadcast path to carry resource type and
+// per-socket permission sets, which is out of scope for the admin room today.
+const dbPool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
+
+async function sessionHoldsValetPermission(sessionId: string): Promise<boolean> {
+  if (!dbPool) return false;
+  try {
+    const res = await dbPool.query(
+      `SELECT 1
+         FROM sessions s
+         JOIN user_roles ur ON ur.user_id = s.user_id
+         JOIN roles r ON r.id = ur.role_id
+         JOIN role_permissions rp ON rp.role_id = r.id
+         JOIN permissions p ON p.id = rp.permission_id
+        WHERE s.id = $1
+          AND s.revoked_at IS NULL
+          AND s.expires_at > NOW()
+          AND p.key LIKE 'valet.%'
+          AND (r.organization_id = s.organization_id OR r.organization_id IS NULL)
+        LIMIT 1`,
+      [sessionId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch {
+    // A DB failure during auth must fail closed: an admin socket that can't be
+    // validated against the permission grant isn't allowed in.
+    return false;
+  }
+}
 
 function wsTokenSecret(): string {
   return process.env.JWT_SECRET || process.env.WS_TOKEN_SECRET || "dev-secret-change-me";
@@ -110,17 +147,24 @@ httpServer.on("upgrade", (req, socket, head) => {
     socket.destroy();
     return;
   }
-  rawAdminServer.handleUpgrade(req, socket, head, (ws) => {
-    ws.on("message", (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-        if (msg?.type === "ping") ws.send(JSON.stringify({ type: "pong" }));
-      } catch {
-        // ignore non-JSON frames
-      }
+  sessionHoldsValetPermission(sessionId).then((allowed) => {
+    if (!allowed) {
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    rawAdminServer.handleUpgrade(req, socket, head, (ws) => {
+      ws.on("message", (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg?.type === "ping") ws.send(JSON.stringify({ type: "pong" }));
+        } catch {
+          // ignore non-JSON frames
+        }
+      });
+      ws.on("error", () => undefined);
+      ws.on("close", () => undefined);
     });
-    ws.on("error", () => undefined);
-    ws.on("close", () => undefined);
   });
 });
 
@@ -150,7 +194,7 @@ interface SocketData {
   };
 }
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const requestedUrl = new URL(socket.handshake.url, "http://localhost");
     const pathname = requestedUrl.pathname;
@@ -166,6 +210,9 @@ io.use((socket, next) => {
     if (pathname === "/live/admin") {
       const sessionId = token ? verifyWsToken(token) : null;
       if (!sessionId) return next(new Error("Invalid or expired token"));
+      if (!(await sessionHoldsValetPermission(sessionId))) {
+        return next(new Error("Session has no valet access"));
+      }
       socket.data.auth = { type: "admin", sessionId };
       return next();
     }
@@ -179,6 +226,9 @@ io.use((socket, next) => {
       }
       const sessionId = verifyWsToken(token);
       if (!sessionId) return next(new Error("Invalid or expired token"));
+      if (!(await sessionHoldsValetPermission(sessionId))) {
+        return next(new Error("Session has no valet access"));
+      }
       socket.data.auth = { type: "admin", sessionId };
       return next();
     }

@@ -7,8 +7,12 @@ import {
   setOfferState,
   deleteOffer,
 } from "@/app/tenant-admin/_lib/valet-data";
+import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
+  if (!(await assertValetPermission("valet.offer.read"))) {
+    return NextResponse.json({ error: "You don't have permission to view offers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const url = new URL(req.url);
   const q = url.searchParams.get("q") || "";
@@ -23,6 +27,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!(await assertValetPermission("valet.offer.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage offers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};
@@ -48,6 +55,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  if (!(await assertValetPermission("valet.offer.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage offers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { id, remove, live, featured, draft, title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};

@@ -9,8 +9,12 @@ import {
   updateDriver,
   removeDriver,
 } from "@/app/tenant-admin/_lib/valet-data";
+import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
+  if (!(await assertValetPermission("valet.driver.read"))) {
+    return NextResponse.json({ error: "You don't have permission to view drivers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const organizationId = identity.session.organizationId ?? null;
   const url = new URL(req.url);
@@ -37,6 +41,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!(await assertValetPermission("valet.driver.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage drivers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { name, propertyId, email, phone, emiratesId, licenseNumber, nationality, emergencyContact, password } = body || {};
@@ -66,6 +73,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  if (!(await assertValetPermission("valet.driver.manage"))) {
+    return NextResponse.json({ error: "You don't have permission to manage drivers" }, { status: 403 });
+  }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { id, shift, newPassword, remove, name, propertyId, email, phone, emiratesId, licenseNumber, nationality, emergencyContact } = body || {};
