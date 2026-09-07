@@ -199,7 +199,77 @@ function StatusHero({ order, leftMs, onViewStatus }) {
   );
 }
 
-function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs }) {
+function ValetValidation({ property, card, apiCall }) {
+  const [code, setCode] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [err, setErr] = useState("");
+
+  const doValidate = async () => {
+    setValidating(true);
+    setErr("");
+    try {
+      await apiCall({ propertyId: property.id, code: code.trim() });
+      setValidated(true);
+    } catch (e) {
+      setErr(e.message || "Could not validate");
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="validate-box">
+        <div className="validate-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 11l1.2-4A2 2 0 0 1 6.1 5h11.8a2 2 0 0 1 1.9 2l1.2 4" />
+            <rect x="3" y="11" width="18" height="6" rx="2" />
+            <circle cx="7.5" cy="17.5" r="1.6" />
+            <circle cx="16.5" cy="17.5" r="1.6" />
+          </svg>
+        </div>
+        <div className="validate-text">
+          <div className="validate-title">Validate with staff code</div>
+          <div className="validate-sub">
+            Card ····{card?.uid?.slice(-4)} · {property?.name} — ask the desk, they enter the code below.
+          </div>
+        </div>
+      </div>
+      {validated ? (
+        <div className="validate-ok">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0C9D61" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12.5 9.5 18 20 6.5" />
+          </svg>
+          <span>Valet validated — parking is on the house</span>
+        </div>
+      ) : (
+        <>
+          <div className="code-row">
+            <div className="code-input-wrap">
+              <span className="code-input-label" style={{ width: "40%" }}>Staff validation code</span>
+              <input
+                className="code-input"
+                style={{ width: "60%" }}
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="• • • •"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+              />
+            </div>
+            <button type="button" className="validate-btn" disabled={validating || code.length < 4} onClick={doValidate}>
+              {validating ? "…" : "Validate"}
+            </button>
+          </div>
+          {err && <div className="validate-err">{err}</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs, apiCall }) {
   const featured = (data.offers || []).filter((o) => o.featured).slice(0, 2);
   const hasRequest = leftMs != null;
   const orderActive = data.order && data.order.status !== "returned";
@@ -297,6 +367,9 @@ function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs }) {
           </div>
         )}
       </div>
+      {data.order && data.property?.validatesValet && data.property?.hasCode ? (
+        <ValetValidation property={data.property} card={data.card} apiCall={apiCall} />
+      ) : null}
     </div>
   );
 }
@@ -347,7 +420,7 @@ function EtaSheet({ open, onClose, onSubmit, busy, order, card, error }) {
   );
 }
 
-function RequestState({ order, request, leftMs, onBack, onDone }) {
+function RequestState({ order, request, leftMs, onBack, onDone, property, card, apiCall }) {
   const total = Math.max(1, request.minutes * 60);
   const counting = leftMs != null && leftMs > 0;
   const left = counting ? Math.ceil(leftMs / 1000) : 0;
@@ -437,12 +510,9 @@ function RequestState({ order, request, leftMs, onBack, onDone }) {
           </div>
         ))}
       </div>
-      <div className="c3-validate">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0C9D61" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 12.5 9.5 18 20 6.5" />
-        </svg>
-        <span>Valet validated — parking is on the house</span>
-      </div>
+      {property?.validatesValet && property?.hasCode ? (
+        <ValetValidation property={property} card={card} apiCall={apiCall} />
+      ) : null}
     </div>
   );
 }
@@ -1067,7 +1137,15 @@ function TapApp() {
   };
 
   if (view.type === "status" && request) {
-    return <RequestState order={data.order} request={request} leftMs={leftMs} onBack={() => setView({ type: "home" })} />;
+    return <RequestState
+      order={data.order}
+      request={request}
+      leftMs={leftMs}
+      onBack={() => setView({ type: "home" })}
+      property={data.property}
+      card={data.card}
+      apiCall={(body) => api("/public/offer/validate", { method: "POST", body: { ...body, cardUid: data.card?.uid || "" } })}
+    />;
   }
 
   return (
@@ -1108,6 +1186,7 @@ function TapApp() {
           onReload={() => { setLoadState("loading"); setFetchKey((k) => k + 1); }}
           onViewStatus={viewStatus}
           leftMs={leftMs}
+          apiCall={(body) => api("/public/offer/validate", { method: "POST", body: { ...body, cardUid: data.card?.uid || "" } })}
         />
       )}
       <EtaSheet

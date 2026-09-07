@@ -12,10 +12,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "Invalid location id" }, { status: 400 });
   const body = await req.json().catch(() => ({}));
-  const { name, area, zones, slots, cards, imageUrl } = body || {};
+  const { name, area, zones, slots, cards, imageUrl, validatesValet, staffCode } = body || {};
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   try {
-    const updated = await updateLocation(id, { name, area, zones, slots, cards, imageUrl }, identity.session.organizationId ?? null);
+    const updated = await updateLocation(id,
+      { name, area, zones, slots, cards, imageUrl, validatesValet: typeof validatesValet === "boolean" ? validatesValet : undefined, staffCode: typeof staffCode === "string" ? staffCode : undefined },
+      identity.session.organizationId ?? null
+    );
     return NextResponse.json(updated);
   } catch (err: any) {
     if (err?.code === "23505") {

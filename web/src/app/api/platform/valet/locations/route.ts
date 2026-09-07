@@ -18,12 +18,15 @@ export async function POST(req: Request) {
   }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
-  const { name, area, zones, slots, cards, imageUrl } = body || {};
+  const { name, area, zones, slots, cards, imageUrl, validatesValet, staffCode } = body || {};
   if (!name || !slots) {
     return NextResponse.json({ error: "Name and slot count are required" }, { status: 400 });
   }
   try {
-    const created = await createLocation({ name, area, zones, slots, cards, imageUrl }, identity.session.organizationId ?? null);
+    const created = await createLocation(
+      { name, area, zones, slots, cards, imageUrl, validatesValet: typeof validatesValet === "boolean" ? validatesValet : undefined, staffCode: typeof staffCode === "string" ? staffCode : undefined },
+      identity.session.organizationId ?? null
+    );
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
     if (err?.code === "23505") {

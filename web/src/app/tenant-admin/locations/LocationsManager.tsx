@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Formik, Form } from "formik";
+import { useField, Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
 import { BuildingIcon, ChevronRight, TrashIcon, LoadingIcon } from "@/app/tenant-admin/_components/valet-icons";
 import { PlusIcon, MapPinIcon } from "lucide-react";
-import { FormField, FormSelectField } from "@/components/console-form-field";
+import { FormField, FormSelectField, FormToggleField } from "@/components/console-form-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 
@@ -18,6 +18,10 @@ const SCHEMA = yup.object({
   zones: yup.number().typeError("Zones must be a number.").integer("Zones must be a whole number.").min(1).max(50).required(),
   slots: yup.number().typeError("Slots must be a number.").integer("Slots must be a whole number.").min(1).max(5000).required(),
   cards: yup.number().oneOf(POOLS, "Select a card pool.").required(),
+  validatesValet: yup.boolean(),
+  staffCode: yup
+    .string()
+    .test("four-digits", "Staff validation code must be exactly 4 digits", (v) => !v || /^\d{4}$/.test(String(v).trim())),
 });
 
 interface Zone {
@@ -39,6 +43,8 @@ interface Property {
   cardPool: number;
   occupied: number;
   overdue: number;
+  validatesValet: boolean;
+  staffCodeConfigured: boolean;
   zones: Zone[];
 }
 
@@ -88,10 +94,43 @@ function GuestUrlRow({ value, fallback }: { value: string; fallback: string }) {
   );
 }
 
+function StaffCodeField({ configured }: { configured: boolean }) {
+  const [field, meta, helpers] = useField("staffCode");
+  const showHint = configured && !(meta.touched && meta.error);
+  return (
+    <div>
+      <div className="field">
+        <label className="field-label" htmlFor="staffCode">
+          Staff validation code
+        </label>
+        <input
+          id="staffCode"
+          name="staffCode"
+          className="field-value input"
+          placeholder={configured ? "Keep current code" : "4 digits"}
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          value={field.value}
+          onChange={(e) => helpers.setValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+          onBlur={field.onBlur}
+          style={{ letterSpacing: 4, fontVariantNumeric: "tabular-nums" }}
+        />
+      </div>
+      {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      {showHint ? (
+        <div style={{ fontSize: 11, fontWeight: 500, color: "#6c7a93", marginTop: 4 }}>
+          This location already has a code. Enter a new 4-digit code to replace it — codes are never shown again.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated: () => void }) {
   return (
     <Formik
-      initialValues={{ name: "", area: "", zones: 4, slots: 160, cards: 200, imageUrl: "" }}
+      initialValues={{ name: "", area: "", zones: 4, slots: 160, cards: 200, imageUrl: "", validatesValet: false, staffCode: "" }}
       validationSchema={SCHEMA}
       onSubmit={async (values, { setSubmitting, resetForm }) => {
         try {
@@ -105,6 +144,8 @@ function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated
               slots: Number(values.slots),
               cards: Number(values.cards),
               imageUrl: values.imageUrl || null,
+              validatesValet: values.validatesValet,
+              staffCode: !values.validatesValet ? null : values.staffCode ? values.staffCode.trim() : null,
             }),
           });
           const data = await res.json();
@@ -141,6 +182,12 @@ function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated
                   label: `Assign ${n} cards · UID ${nextUid}–${Number(nextUid) + n - 1}`,
                 }))}
               />
+              <FormToggleField
+                name="validatesValet"
+                label="Validate with staff code"
+                description="Guests get a staff validation box on this property's page while waiting."
+              />
+              {formik.values.validatesValet && <StaffCodeField configured={false} />}
               <GuestUrlRow value={formik.values.name} fallback="new-location" />
             </div>
             <button className="btn-primary" type="submit" style={{ marginTop: 18, padding: 14, width: "100%", fontSize: 14 }} disabled={formik.isSubmitting}>
@@ -164,6 +211,8 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
         slots: location.slots,
         cards: location.cardPool,
         imageUrl: location.imageUrl || "",
+        validatesValet: location.validatesValet,
+        staffCode: "",
       }}
       enableReinitialize
       validationSchema={SCHEMA}
@@ -179,6 +228,8 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
               slots: Number(values.slots),
               cards: Number(values.cards),
               imageUrl: values.imageUrl || null,
+              validatesValet: values.validatesValet,
+              staffCode: !values.validatesValet ? null : values.staffCode ? values.staffCode.trim() : undefined,
             }),
           });
           const data = await res.json();
@@ -252,6 +303,12 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
                 label: `Assign ${n} cards · UID ${nextUid}–${Number(nextUid) + n - 1}`,
               }))}
             />
+            <FormToggleField
+              name="validatesValet"
+              label="Validate with staff code"
+              description="Guests get a staff validation box on this property's page while waiting."
+            />
+            {formik.values.validatesValet && <StaffCodeField configured={location.staffCodeConfigured} />}
             <GuestUrlRow value={formik.values.name} fallback={location.slug} />
           </div>
           <button
@@ -446,6 +503,7 @@ export default function LocationsManager() {
                     <div style={{ fontSize: 15.5, fontWeight: 800, color: "#1C2B46" }}>{l.name}</div>
                     <div style={{ fontSize: 12, color: "#6C7A93", fontWeight: 600, marginTop: 2 }}>
                       {l.area} · {l.drivers} drivers · {l.zonesCount} zones · {l.slots} slots
+                      {l.validatesValet ? (l.staffCodeConfigured ? " · validates valet" : " · validates valet (no code set)") : ""}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 22, alignItems: "center" }}>

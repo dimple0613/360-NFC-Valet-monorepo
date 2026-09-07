@@ -399,7 +399,7 @@ export async function getLocations(organizationId?: string | null) {
     propsWhere = `WHERE p.organization_id = $${propsParams.length}`;
   }
   const props = await q(
-    `SELECT p.id, p.name, p.area, p.slots_count, p.zones_count, p.card_pool, p.slug, p.uid_start, p.image_url,
+    `SELECT p.id, p.name, p.area, p.slots_count, p.zones_count, p.card_pool, p.slug, p.uid_start, p.image_url, p.validates_valet, p.staff_code,
             (SELECT COUNT(*)::int FROM drivers d WHERE d.property_id = p.id) AS drivers,
             (SELECT COUNT(*)::int FROM orders o
                WHERE o.property_id = p.id
@@ -440,6 +440,8 @@ export async function getLocations(organizationId?: string | null) {
       cardPool: p.card_pool,
       occupied: Number(p.occupied),
       overdue: p.overdue,
+      validatesValet: p.validates_valet,
+      staffCodeConfigured: Boolean(p.staff_code),
       zones: zonesByProp[p.id] || [],
     })),
   };
@@ -460,6 +462,8 @@ export interface LocationInput {
   slots?: number;
   cards?: number;
   imageUrl?: string | null;
+  validatesValet?: boolean;
+  staffCode?: string | null;
 }
 
 function slugifyName(name: string): string {
@@ -472,11 +476,13 @@ export async function createLocation(input: LocationInput, organizationId?: stri
   const pool = Math.max(1, Number(input.cards) || slotCount * 2);
   const uidStart = await nextUidStart();
   const tenantId = await defaultTenantId(organizationId);
+  const validatesValet = input.validatesValet ?? false;
+  const staffCode = normalizeStaffCode(input.staffCode);
 
   return transaction(async (exec) => {
     const { rows } = await exec(
-      `INSERT INTO properties (tenant_id, organization_id, name, area, zones_count, slots_count, slug, card_pool, uid_start, image_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      `INSERT INTO properties (tenant_id, organization_id, name, area, zones_count, slots_count, slug, card_pool, uid_start, image_url, validates_valet, staff_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
       [
         tenantId,
         organizationId || null,
@@ -488,6 +494,8 @@ export async function createLocation(input: LocationInput, organizationId?: stri
         pool,
         uidStart.toString(),
         input.imageUrl || null,
+        validatesValet,
+        staffCode,
       ]
     );
     const propId = Number(rows[0].id);
@@ -516,22 +524,35 @@ export async function updateLocation(id: number, input: LocationInput, organizat
   const zoneCount = Math.max(1, Number(input.zones) || 1);
   const slotCount = Math.max(1, Number(input.slots) || 1);
   const pool = Math.max(1, Number(input.cards) || slotCount * 2);
+  const sets = ["name=$1", "area=$2", "zones_count=$3", "slots_count=$4", "slug=$5", "card_pool=$6", "image_url=$7"];
+  const vals: Array<string | number | null | boolean> = [
+    input.name,
+    input.area || "—",
+    zoneCount,
+    slotCount,
+    slugifyName(input.name),
+    pool,
+    input.imageUrl || null,
+  ];
+  let next = 8;
+  if (input.validatesValet !== undefined) {
+    sets.push(`validates_valet=$${next}`);
+    vals.push(Boolean(input.validatesValet));
+    next++;
+  }
+  if (input.staffCode !== undefined) {
+    sets.push(`staff_code=$${next}`);
+    vals.push(normalizeStaffCode(input.staffCode));
+    next++;
+  }
+  vals.push(id);
 
   return transaction(async (exec) => {
     await exec(
       `UPDATE properties
-       SET name=$1, area=$2, zones_count=$3, slots_count=$4, slug=$5, card_pool=$6, image_url=$7
-       WHERE id=$8`,
-      [
-        input.name,
-        input.area || "—",
-        zoneCount,
-        slotCount,
-        slugifyName(input.name),
-        pool,
-        input.imageUrl || null,
-        id,
-      ]
+       SET ${sets.join(", ")}
+       WHERE id=$${next}`,
+      vals
     );
     await exec("DELETE FROM zones WHERE property_id=$1", [id]);
     const perZone = Math.ceil(slotCount / zoneCount);

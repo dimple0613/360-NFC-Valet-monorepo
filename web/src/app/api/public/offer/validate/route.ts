@@ -7,30 +7,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many requests — try again in a minute" }, { status: 429 });
   }
 
-  let body: { offerId?: number; code?: string; cardUid?: string };
+  let body: { offerId?: number; propertyId?: number; code?: string; cardUid?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const offerId = Number(body?.offerId);
+  const offerId = body?.offerId ? Number(body.offerId) : null;
+  const propertyId = body?.propertyId ? Number(body.propertyId) : null;
   const code = String(body?.code || "").trim();
   const cardUid = String(body?.cardUid || "").trim();
-  if (!offerId || !code) {
-    return NextResponse.json({ error: "Offer and staff code are required" }, { status: 400 });
+  if ((!offerId && !propertyId) || !code) {
+    return NextResponse.json({ error: "Staff validation code is required" }, { status: 400 });
   }
 
   try {
-    const { rows } = await query("SELECT id, staff_code FROM offers WHERE id = $1 AND live = true AND draft = false", [
-      offerId,
-    ]);
-    const offer = rows[0] as { id: number; staff_code: string | null } | undefined;
-    if (!offer) return NextResponse.json({ error: "Offer not found" }, { status: 404 });
-    if (!offer.staff_code) {
-      return NextResponse.json({ error: "This offer has no validation code" }, { status: 400 });
+    let stockCode: string | null = null;
+    let targetOffer = offerId;
+    let targetProperty = propertyId;
+
+    if (offerId) {
+      const { rows } = await query("SELECT id, staff_code FROM offers WHERE id = $1 AND live = true AND draft = false", [
+        offerId,
+      ]);
+      const offer = rows[0] as { id: number; staff_code: string | null } | undefined;
+      if (!offer) return NextResponse.json({ error: "Offer not found" }, { status: 404 });
+      if (!offer.staff_code) {
+        return NextResponse.json({ error: "This offer has no validation code" }, { status: 400 });
+      }
+      stockCode = offer.staff_code;
+      targetProperty = null;
+    } else if (propertyId) {
+      const { rows } = await query("SELECT staff_code, validates_valet FROM properties WHERE id = $1", [propertyId]);
+      const prop = rows[0] as { staff_code: string | null; validates_valet: boolean | null } | undefined;
+      if (!prop) return NextResponse.json({ error: "Property not found" }, { status: 404 });
+      if (!prop.validates_valet) {
+        return NextResponse.json({ error: "This location has no validation enabled" }, { status: 400 });
+      }
+      if (!prop.staff_code) {
+        return NextResponse.json({ error: "This location has no validation code" }, { status: 400 });
+      }
+      stockCode = prop.staff_code;
+      targetOffer = null;
     }
-    if (String(offer.staff_code) !== code) {
+
+    if (String(stockCode) !== code) {
       return NextResponse.json({ ok: false, validated: false, error: "Incorrect staff code" }, { status: 403 });
     }
 
@@ -47,15 +69,28 @@ export async function POST(req: Request) {
     }
 
     if (orderId) {
-      const { rows: existing } = await query(
-        "SELECT id FROM validations WHERE order_id = $1 AND offer_id = $2",
-        [orderId, offerId]
-      );
-      if (!existing.length) {
-        await query("INSERT INTO validations (order_id, offer_id, qty, amount) VALUES ($1, $2, 1, 0)", [
+      if (targetOffer != null) {
+        const { rows: dupes } = await query("SELECT id FROM validations WHERE order_id = $1 AND offer_id = $2", [
           orderId,
-          offerId,
+          targetOffer,
         ]);
+        if (!dupes.length) {
+          await query("INSERT INTO validations (order_id, offer_id, qty, amount) VALUES ($1, $2, 1, 0)", [
+            orderId,
+            targetOffer,
+          ]);
+        }
+      } else if (targetProperty != null) {
+        const { rows: dupes } = await query(
+          "SELECT id FROM validations WHERE order_id = $1 AND property_id = $2 AND offer_id IS NULL",
+          [orderId, targetProperty]
+        );
+        if (!dupes.length) {
+          await query("INSERT INTO validations (order_id, property_id, qty, amount) VALUES ($1, $2, 1, 0)", [
+            orderId,
+            targetProperty,
+          ]);
+        }
       }
     }
 

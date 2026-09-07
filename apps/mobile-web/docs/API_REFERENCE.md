@@ -10,7 +10,7 @@ The mobile web has **no API routes of its own**. It consumes the **admin console
 |---|---|---|---|
 | GET | `/api/public/tap/[uid]` | none | Resolve an NFC card UID (text) → `{ card, property, order, offers }`. `order` is the card's latest `active`/`parked`/`retrieving`/`returning` order (or `null`), with the assigned valet. `offers` = live, non-draft offers for the card's property, featured first. Unknown UID → `404 { error: "Card not found" }` |
 | POST | `/api/public/tap/[uid]` | none | Bring-my-car. Body `{ minutes }` (5–60, int) → `{ ok, orderId, minutes, eta }`. Sets the card's latest order to `status='returning'` and `guest_eta = now() + minutes`. No parked order → `400 { error: "No parked car found for this card" }`. Out-of-range ETA → `400 { error: "ETA must be between 5 and 60 minutes" }` |
-| POST | `/api/public/offer/validate` | none | Validate a staff-only offer code. Body `{ offerId, code, cardUid? }` → `200 { ok: true, validated: true }` on match, `403 { ok: false, validated: false, error: "Incorrect staff code" }` otherwise. `code` is compared against the offer's `staff_code`; the code itself is never returned by any endpoint |
+| POST | `/api/public/offer/validate` | none | Validate a staff-only code. Body `{ offerId?, propertyId?, code, cardUid? }` → `200 { ok: true, validated: true }` on match, `403 { ok: false, validated: false, error: "Incorrect staff code" }` otherwise. Pass **one** of `offerId` (the offer's `staff_code`) or `propertyId` (the location's `staff_code`); the code itself is never returned by any endpoint |
 
 ## Response shapes
 
@@ -20,7 +20,8 @@ The mobile web has **no API routes of its own**. It consumes the **admin console
   "card": { "uid": "72100112791", "status": "ready", "usesCount": 0 },
   "property": {
     "id": 1, "name": "JW Marriott Marquis", "area": "Business Bay",
-    "slug": "jw-marriott-marquis", "city": "Dubai", "phone": "+971 4 414 0000"
+    "slug": "jw-marriott-marquis", "city": "Dubai", "phone": "+971 4 414 0000",
+    "validatesValet": true, "hasCode": true
   },
   "order": {
     "plate": "DXB F 44556", "carMake": "Mercedes", "carModel": "S-Class", "carColor": "White",
@@ -36,7 +37,7 @@ The mobile web has **no API routes of its own**. It consumes the **admin console
 }
 ```
 
-`hasCode` is `true` when a staff validation code is configured for the offer — the code itself is never returned. The app renders the staff-code validate box only when `validatesValet && hasCode`, so an offer without a configured code never shows a dead input.
+`hasCode` is `true` when a staff validation code is configured for the offer — the code itself is never returned. The app renders the staff-code validate box only when `validatesValet && hasCode`, so an offer without a configured code never shows a dead input. The same pair of flags on `property` controls the location-level validation box shown on home / status while waiting.
 
 ```jsonc
 // POST /api/public/tap/72100112791   body: { "minutes": 10 }
@@ -52,7 +53,7 @@ const data = await api(`/public/tap/${uid}`);
 const res = await api(`/public/tap/${uid}`, { method: "POST", body: { minutes } });
 const val = await api("/public/offer/validate", {
   method: "POST",
-  body: { offerId, code, cardUid },
+  body: { propertyId, code, cardUid }, // or { offerId, code, cardUid }
 });
 ```
 

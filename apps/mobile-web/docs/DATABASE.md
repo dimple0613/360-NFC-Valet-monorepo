@@ -30,6 +30,8 @@ The mobile web app has **no database of its own**. It reads and writes the **sup
 | `phone` | text | "Call to reserve" on the offer detail |
 | `zones_count` / `slots_count` / `card_pool` | int | layout + pool size |
 | `uid_start` | bigint | first card UID (real NFC UIDs exceed int — must stay BIGINT) |
+| `validates_valet` | boolean | enables the location-level staff validation box on home / status while waiting |
+| `staff_code` | text nullable | property-level secret validation code — never returned by any endpoint |
 
 ### `orders`
 
@@ -75,7 +77,7 @@ The mobile web app has **no database of its own**. It reads and writes the **sup
 
 - **Tap lookup** — `nfc_cards` by `uid` → its `property` + latest `active`/`parked`/`retrieving`/`returning` order (with assigned driver) + live, non-draft `offers` for that property (featured first).
 - **Bring my car** — update the card's latest order to `status='returning'` with `guest_eta = now() + minutes`.
-- **Validate offer** — compare the posted `code` with `offers.staff_code`.
+- **Validate staff code** — compare the posted `code` with `offers.staff_code` (offer-level) or `properties.staff_code` (location-level). A successful validation records a row in `validations` (`offer_id` XOR `property_id`) when the card has a live order.
 
 ## Seeding
 
