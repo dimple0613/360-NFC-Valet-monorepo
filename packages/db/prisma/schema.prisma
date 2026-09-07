@@ -1310,6 +1310,9 @@ model Order {
 
   validations Validation[]
 
+  // Prisma can't express a PARTIAL unique index; the backstop for the #31
+  // duplicate-active-orders bug is added by the raw migration
+  // 20260908000000_orders_one_active_per_card (one ACTIVE row per card_id).
   @@index([propertyId, status])
   @@index([createdAt])
   @@index([returnedAt])

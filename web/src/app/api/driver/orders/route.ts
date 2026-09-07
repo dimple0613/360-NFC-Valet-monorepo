@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
       if (cardUid) {
         const byPhysical = await exec(
-          "SELECT id, status, uid FROM nfc_cards WHERE physical_uid = $1 AND property_id = $2",
+          "SELECT id, status, uid FROM nfc_cards WHERE physical_uid = $1 AND property_id = $2 FOR UPDATE",
           [cardUid, propertyId]
         );
         card = (byPhysical.rows[0] as CardRow | undefined) || null;
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       let assignedNumber: string | null = null;
 
       if (!card && printed) {
-        const byUid = await exec("SELECT id, status, uid FROM nfc_cards WHERE uid = $1 AND property_id = $2", [
+        const byUid = await exec("SELECT id, status, uid FROM nfc_cards WHERE uid = $1 AND property_id = $2 FOR UPDATE", [
           printed,
           propertyId,
         ]);
@@ -180,6 +180,11 @@ export async function POST(req: Request) {
     );
   } catch (err) {
     console.error("[driver-orders POST]", err);
+    // Partial unique index orders_one_active_per_card (see #31): a racing
+    // duplicate check-in trips the unique violation before the card update.
+    if (typeof err === "object" && err !== null && (err as { code?: string }).code === "23505") {
+      return NextResponse.json({ error: "This card is already assigned to an active vehicle" }, { status: 409 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
