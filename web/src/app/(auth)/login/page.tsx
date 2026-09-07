@@ -1,4 +1,4 @@
-import { isAppleConfigured, isGoogleConfigured, listOAuthProviderStatuses } from "@saasclaude/db";
+import { getPageContentSettings, isAppleConfigured, isGoogleConfigured, listOAuthProviderStatuses } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { LoginForm } from "./login-form";
 
@@ -17,11 +17,14 @@ export default async function LoginPage({
     .filter((status) => status.configured)
     .map((status) => ({ id: status.id, displayName: status.displayName }));
 
+  // Page copy is configurable via Settings > Pages & content.
+  const content = await getPageContentSettings();
+
   return (
     <>
       <AuthLeftContent
-        headline="Every car back at the curb before the guest is."
-        sub="Run every property, driver and NFC card from one console — and see the day's numbers as they happen."
+        headline={content.loginHeroHeadline}
+        sub={content.loginHeroSub}
         showStats
       />
       <LoginForm
@@ -29,6 +32,8 @@ export default async function LoginPage({
         showGoogle={isGoogleConfigured()}
         showApple={isAppleConfigured()}
         adapterProviders={adapterProviders}
+        title={content.loginTitle}
+        subtitle={content.loginSubtitle}
       />
     </>
   );

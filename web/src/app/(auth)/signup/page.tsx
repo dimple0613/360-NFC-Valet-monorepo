@@ -1,15 +1,17 @@
+import { getPageContentSettings } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { SignupForm } from "./signup-form";
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  const content = await getPageContentSettings();
   return (
     <>
       <AuthLeftContent
-        headline="Every car back at the curb before the guest is."
-        sub="Set up your organization in a minute."
+        headline={content.signupHeroHeadline}
+        sub={content.signupHeroSub}
         showStats={false}
       />
-      <SignupForm />
+      <SignupForm title={content.signupTitle} subtitle={content.signupSubtitle} />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { UsersIcon, UserPlusIcon, ShieldCheckIcon } from "lucide-react";
-import { requireIdentity } from "@/lib/auth/current-user";
+import { requireValetPage } from "../_lib/valet-permissions";
 import { parseListQueryParams } from "@/lib/list-query-params";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
@@ -13,7 +13,7 @@ export default async function DriversPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const identity = await requireIdentity();
+  const identity = await requireValetPage("valet.driver.read");
   const searchParamsResolved = await searchParams;
   const listParams = parseListQueryParams(searchParamsResolved);
   const propertyRaw = Array.isArray(searchParamsResolved.property)

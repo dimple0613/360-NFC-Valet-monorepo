@@ -1,4 +1,4 @@
-import { requireIdentity } from "@/lib/auth/current-user";
+import { requireValetPage } from "../_lib/valet-permissions";
 import { getQueueOrders } from "../_lib/valet-data";
 import QueuePageClient from "./queue-page-client";
 
@@ -7,7 +7,7 @@ export default async function QueuePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const identity = await requireIdentity();
+  const identity = await requireValetPage("valet.queue.read");
   const raw = await searchParams;
   const status = typeof raw.status === "string" ? raw.status : null;
   const property = typeof raw.property === "string" ? raw.property : "all";

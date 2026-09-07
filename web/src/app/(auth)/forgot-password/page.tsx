@@ -1,15 +1,17 @@
+import { getPageContentSettings } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  const content = await getPageContentSettings();
   return (
     <>
       <AuthLeftContent
-        headline="Every car back at the curb before the guest is."
-        sub="Reset your password to get back into the operations console."
+        headline={content.forgotHeroHeadline}
+        sub={content.forgotHeroSub}
         showStats={false}
       />
-      <ForgotPasswordForm />
+      <ForgotPasswordForm title={content.forgotTitle} subtitle={content.forgotSubtitle} />
     </>
   );
 }

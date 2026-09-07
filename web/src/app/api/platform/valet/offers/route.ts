@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  await requireIdentity();
+  const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};
   if (!title || !price) return NextResponse.json({ error: "Title and price are required" }, { status: 400 });
@@ -37,22 +37,26 @@ export async function POST(req: Request) {
       imageUrl,
       menuUrl,
       wasPrice: wasPrice == null ? null : Number(wasPrice),
-    });
+    }, identity.session.organizationId ?? null);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
+    if (err?.message === "Property not found") {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
     return NextResponse.json({ error: err?.message || "Failed to create offer" }, { status: 400 });
   }
 }
 
 export async function PATCH(req: Request) {
-  await requireIdentity();
+  const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { id, remove, live, featured, draft, title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};
   const offerId = Number(id);
   if (!offerId) return NextResponse.json({ error: "Offer id is required" }, { status: 400 });
+  const organizationId = identity.session.organizationId ?? null;
   try {
     if (remove) {
-      await deleteOffer(offerId);
+      await deleteOffer(offerId, organizationId);
       return NextResponse.json({ id, deleted: true });
     }
     if (title !== undefined) {
@@ -66,7 +70,7 @@ export async function PATCH(req: Request) {
         imageUrl,
         menuUrl,
         wasPrice: wasPrice == null ? null : Number(wasPrice),
-      });
+      }, organizationId);
       return NextResponse.json({ id, updated: true });
     }
     if (live !== undefined || draft !== undefined || featured !== undefined) {
@@ -74,11 +78,14 @@ export async function PATCH(req: Request) {
         live: typeof live === "boolean" ? live : undefined,
         draft: typeof draft === "boolean" ? draft : undefined,
         featured: featured !== undefined ? (featured === true || featured === false || featured === null ? featured : Number(featured)) : undefined,
-      });
+      }, organizationId);
       return NextResponse.json({ id, updated: true });
     }
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   } catch (err: any) {
+    if (err?.message === "Offer not found" || err?.message === "Property not found") {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
     return NextResponse.json({ error: err?.message || "Failed to update offer" }, { status: 400 });
   }
 }

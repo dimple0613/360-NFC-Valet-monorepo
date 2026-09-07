@@ -58,38 +58,45 @@ export async function POST(req: Request) {
     }, identity.session.organizationId ?? null);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
+    if (err?.message === "Property not found") {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
     return NextResponse.json({ error: err?.message || "Failed to create driver" }, { status: 500 });
   }
 }
 
 export async function PATCH(req: Request) {
-  await requireIdentity();
+  const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
   const { id, shift, newPassword, remove, name, propertyId, email, phone, emiratesId, licenseNumber, nationality, emergencyContact } = body || {};
   const driverId = Number(id);
   if (!driverId) return NextResponse.json({ error: "Driver id is required" }, { status: 400 });
+  const organizationId = identity.session.organizationId ?? null;
   try {
     if (remove) {
-      await removeDriver(driverId);
+      await removeDriver(driverId, organizationId);
       return NextResponse.json({ id, removed: true });
     }
     if (newPassword) {
       if (String(newPassword).length < 6) {
         return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
       }
-      await resetDriverPassword(driverId, String(newPassword));
+      await resetDriverPassword(driverId, String(newPassword), organizationId);
       return NextResponse.json({ id, passwordReset: true });
     }
     if (name !== undefined) {
-      await updateDriver(driverId, { name, propertyId, email, phone, emiratesId, licenseNumber, nationality, emergencyContact });
+      await updateDriver(driverId, { name, propertyId, email, phone, emiratesId, licenseNumber, nationality, emergencyContact }, organizationId);
       return NextResponse.json({ id, updated: true });
     }
     if (shift !== undefined) {
-      await toggleDriverShift(driverId, !!shift);
+      await toggleDriverShift(driverId, !!shift, organizationId);
       return NextResponse.json({ id, shift: !!shift });
     }
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   } catch (err: any) {
+    if (err?.message === "Driver not found" || err?.message === "Property not found") {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
     return NextResponse.json({ error: err?.message || "Failed to update driver" }, { status: 500 });
   }
 }

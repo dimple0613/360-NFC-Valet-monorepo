@@ -7,7 +7,14 @@ import * as Yup from "yup";
 import { toast } from "sonner";
 import { forgotPasswordAction } from "./actions";
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({
+  title = "Reset your password",
+  subtitle = "We'll email you a link to reset it",
+}: {
+  /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
+  title?: string;
+  subtitle?: string;
+}) {
   const [submitted, setSubmitted] = useState(false);
 
   const formik = useFormik({
@@ -45,8 +52,8 @@ export function ForgotPasswordForm() {
 
   return (
     <div>
-      <div className="login-title">Reset your password</div>
-      <div className="login-desc">We&apos;ll email you a link to reset it</div>
+      <div className="login-title">{title}</div>
+      <div className="login-desc">{subtitle}</div>
       <form className="login-form" onSubmit={formik.handleSubmit} noValidate>
         <div className="login-fields">
           <div>

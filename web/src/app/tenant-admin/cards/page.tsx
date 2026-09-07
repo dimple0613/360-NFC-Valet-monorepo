@@ -1,8 +1,9 @@
-import { requireIdentity } from "@/lib/auth/current-user";
+import { requireValetPage } from "../_lib/valet-permissions";
 import { parseListQueryParams } from "@/lib/list-query-params";
 import { PageHeader } from "@/components/page-header";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { getUserPlatformPermissions } from "@saasclaude/db";
 import { listCardsForTable } from "../_lib/valet-data";
 import { CardTableRow } from "./card-row";
 import { RegisterCardsDialog } from "./register-cards-dialog";
@@ -13,7 +14,7 @@ export default async function CardsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const identity = await requireIdentity();
+  const identity = await requireValetPage("valet.card.read");
   const searchParamsResolved = await searchParams;
   const listParams = parseListQueryParams(searchParamsResolved);
   const propertyRaw = Array.isArray(searchParamsResolved.property)
@@ -33,6 +34,14 @@ export default async function CardsPage({
   });
 
   const fields = data.properties.map((p) => ({ id: p.id, name: p.name }));
+
+  // Minting new card batches is platform inventory work — visible to Super
+  // Admins only (including while impersonating a tenant). Matches the
+  // POST /api/platform/valet/cards gate: honest UI, no dead button.
+  const platformPermissions = await getUserPlatformPermissions(
+    identity.session.impersonatorUserId ?? identity.user.id,
+  );
+  const canRegisterCards = platformPermissions.length > 0;
 
   const statusFilter: DataTableFilter = {
     name: "status",
@@ -61,7 +70,7 @@ export default async function CardsPage({
         title="NFC Cards"
         description={`${data.totalCount} cards across ${data.properties.length} properties`}
         icon={<NfcIcon />}
-        actions={<RegisterCardsDialog fields={fields} />}
+        actions={canRegisterCards ? <RegisterCardsDialog fields={fields} /> : null}
       />
 
       <DataTable

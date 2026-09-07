@@ -6,6 +6,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 // left-brand-panel text per page (and only shows the network stats on /login).
 // Each page renders <AuthLeftContent> with its own headline/sub/stats; the
 // shared <AuthLeftPanel> in the layout reads this through context.
+// Brand identity (name, logo, copyright) is platform-configurable and arrives
+// from the layout's AuthLeftProvider, fed from the Settings > Branding + Pages
+// & content surfaces.
 
 export interface AuthLeftData {
   headline: string;
@@ -13,7 +16,18 @@ export interface AuthLeftData {
   showStats: boolean;
 }
 
+export interface AuthBranding {
+  siteName: string;
+  logoLightUrl: string | null;
+  copyright: string;
+}
+
 export const AUTH_HEADLINE = "Every car back at the curb before the guest is.";
+export const DEFAULT_BRANDING: AuthBranding = {
+  siteName: "360 NFC Valet",
+  logoLightUrl: null,
+  copyright: "© 2026 We Want 360 · Dubai, UAE",
+};
 
 const DEFAULT_LEFT: AuthLeftData = {
   headline: AUTH_HEADLINE,
@@ -23,12 +37,21 @@ const DEFAULT_LEFT: AuthLeftData = {
 
 const AuthLeftContext = createContext<AuthLeftData>(DEFAULT_LEFT);
 const AuthLeftSetContext = createContext<(data: AuthLeftData) => void>(() => {});
+const AuthBrandingContext = createContext<AuthBranding>(DEFAULT_BRANDING);
 
-export function AuthLeftProvider({ children }: { children: ReactNode }) {
+export function AuthLeftProvider({
+  children,
+  branding,
+}: {
+  children: ReactNode;
+  branding?: AuthBranding;
+}) {
   const [data, setData] = useState<AuthLeftData>(DEFAULT_LEFT);
   return (
     <AuthLeftSetContext.Provider value={setData}>
-      <AuthLeftContext.Provider value={data}>{children}</AuthLeftContext.Provider>
+      <AuthLeftContext.Provider value={data}>
+        <AuthBrandingContext.Provider value={branding ?? DEFAULT_BRANDING}>{children}</AuthBrandingContext.Provider>
+      </AuthLeftContext.Provider>
     </AuthLeftSetContext.Provider>
   );
 }
@@ -50,8 +73,21 @@ export const NETWORK_STATS = [
 ];
 
 // Same logo glyph as the console's LogoIcon (tenant-admin/_components/valet-icons) so the
-// App Router brand matches /console/login pixel-for-pixel.
-export function BrandLogo({ size = 22 }: { size?: number }) {
+// App Router brand matches /console/login pixel-for-pixel. When the platform has an uploaded
+// logo, that renders instead.
+export function BrandLogo({ size = 22, src }: { size?: number; src?: string | null }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        style={{ objectFit: "contain", maxWidth: "100%", maxHeight: "100%" }}
+      />
+    );
+  }
   return (
     <svg
       width={size}
@@ -71,16 +107,17 @@ export function BrandLogo({ size = 22 }: { size?: number }) {
 }
 
 // The navy brand panel. Rendered once by the layout; content comes from
-// whichever page set <AuthLeftContent>.
+// whichever page set <AuthLeftContent> and the platform branding settings.
 export function AuthLeftPanel() {
   const { headline, sub, showStats } = useContext(AuthLeftContext);
+  const branding = useContext(AuthBrandingContext);
   return (
     <div className="login-left">
       <div className="login-brand">
         <div className="login-logo">
-          <BrandLogo size={22} />
+          <BrandLogo size={22} src={branding.logoLightUrl} />
         </div>
-        <span className="login-brand-name">360 NFC Valet</span>
+        <span className="login-brand-name">{branding.siteName}</span>
       </div>
       <div>
         <div className="login-headline">{headline}</div>
@@ -96,7 +133,7 @@ export function AuthLeftPanel() {
           </div>
         ) : null}
       </div>
-      <div className="login-footer">© 2026 We Want 360 · Dubai, UAE</div>
+      <div className="login-footer">{branding.copyright}</div>
     </div>
   );
 }

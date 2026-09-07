@@ -106,13 +106,14 @@ Prerequisites: **Node 20+**, **pnpm 10.29.3**, and a **PostgreSQL** database. Th
 # 1. Install workspace dependencies (web + packages)
 pnpm install
 
-# 2. Configure environment
-#    - packages/db/.env  : DATABASE_URL (Prisma)
-#    - web/.env          : VALET_DATABASE_URL, JWT_SECRET, admin creds, SMTP, WS_*, ANPR_API_KEY
+# 2. Configure environment (single database, always)
+#    - packages/db/.env  : DATABASE_URL (the one PostgreSQL DB), plus other platform vars
+#    - web/.env          : valet vars (JWT_SECRET, admin creds, SMTP, WS_*, ANPR_API_KEY)
 #    - copy .env.example files as needed
 
-# 3. Run database setup + seed the super admin login
-pnpm --filter web run vdb:setup
+# 3. Apply Prisma migrations + seed the permission catalog
+pnpm --filter @saasclaude/db exec prisma migrate deploy
+pnpm --filter @saasclaude/db run seed
 
 # 4. Start the super admin dev server
 pnpm dev                # web/ on http://localhost:3000
@@ -136,7 +137,8 @@ pnpm build          # prisma generate + next build
 pnpm lint           # lint all workspace packages
 pnpm typecheck      # typecheck all workspace packages
 pnpm test           # run tests
-pnpm --filter web run vdb:setup   # schema + seed (valet DB)
+pnpm --filter @saasclaude/db exec prisma migrate deploy   # apply DB migrations
+pnpm --filter @saasclaude/db run seed                     # seed core permission catalog
 pnpm --filter web run vws         # websocket server (port 3002)
 ```
 

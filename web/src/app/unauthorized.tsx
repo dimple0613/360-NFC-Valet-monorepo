@@ -1,14 +1,20 @@
 import ErrorShell from "@/app/_components/error-shell";
+import { getPlatformPageIdentity } from "@/lib/platform-page-identity";
 
-export default function Unauthorized() {
+export default async function Unauthorized() {
+  const identity = await getPlatformPageIdentity();
+  const err = identity.errors["401"];
   return (
     <ErrorShell
       status="401"
-      title="Sign in required"
-      body="You need to sign in to view this page."
+      title={err.title}
+      body={err.body}
+      brandName={identity.brandName}
+      copyright={identity.copyright}
+      logoLightUrl={identity.logoLightUrl}
       actions={[
         { href: "/login", label: "Sign in", variant: "navy" },
-        { href: "/console/dashboard", label: "Back to console", variant: "outline" },
+        { href: "/super-admin", label: "Back to platform", variant: "outline" },
       ]}
     />
   );

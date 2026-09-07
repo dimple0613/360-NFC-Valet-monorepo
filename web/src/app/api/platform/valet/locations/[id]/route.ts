@@ -3,7 +3,7 @@ import { requireIdentity } from "@/lib/auth/current-user";
 import { updateLocation, deleteLocation } from "@/app/tenant-admin/_lib/valet-data";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireIdentity();
+  const identity = await requireIdentity();
   const { id: idStr } = await params;
   const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "Invalid location id" }, { status: 400 });
@@ -11,25 +11,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { name, area, zones, slots, cards, imageUrl } = body || {};
   if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   try {
-    const updated = await updateLocation(id, { name, area, zones, slots, cards, imageUrl });
+    const updated = await updateLocation(id, { name, area, zones, slots, cards, imageUrl }, identity.session.organizationId ?? null);
     return NextResponse.json(updated);
   } catch (err: any) {
     if (err?.code === "23505") {
       return NextResponse.json({ error: "A location with this name already exists" }, { status: 400 });
+    }
+    if (err?.message === "Location not found") {
+      return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
     return NextResponse.json({ error: "Failed to update location" }, { status: 500 });
   }
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireIdentity();
+  const identity = await requireIdentity();
   const { id: idStr } = await params;
   const id = Number(idStr);
   if (!id) return NextResponse.json({ error: "Invalid location id" }, { status: 400 });
   try {
-    await deleteLocation(id);
+    await deleteLocation(id, identity.session.organizationId ?? null);
     return NextResponse.json({ id });
-  } catch {
+  } catch (err: any) {
+    if (err?.message === "Location not found") {
+      return NextResponse.json({ error: "Location not found" }, { status: 404 });
+    }
     return NextResponse.json({ error: "Failed to remove location" }, { status: 500 });
   }
 }

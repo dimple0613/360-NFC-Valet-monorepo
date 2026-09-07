@@ -489,3 +489,28 @@ Picks up the one candidate deliberately deferred from the previous "full API sur
 - [x] **Full verification**: `pnpm typecheck`/`lint`/`test`/`build` all pass clean from the repo root — 332 `packages/db` tests (up 1) + 129 `web` (up 5) + 5 `api-client` (up 1), **466 total**. `pnpm build`'s route table confirms `/api/v1/audit-logs` compiled. Hit a real instance of this repo's already-documented "local services don't survive across sessions" class of issue mid-round: local Postgres had gone down again between the previous round's verification and this one's live check (Redis stayed up, confirming it was specifically Postgres, not a general environment reset) — restarted via `pg_ctl start`, confirmed via `pg_isready`, no data lost (WAL recovery ran automatically). Live-verified against a real running dev server afterward (`next dev` on a scratch port, stopped by PID before this round's own earlier `test`/`build` steps and again after live verification, per the standing Windows Prisma-DLL-lock precaution): seeded a real org + a real audit-log entry + a real API key via a temp `tsx` script (deleted after use); confirmed 401 with no key and a real 200 with the exact seeded entry, correctly scoped and correctly trimmed. All seeded data cleaned up afterward.
 
 Next: another ROADMAP.md Phase 2 item (module/plugin registry, localization, tax engine, reporting, dynamic dashboards, mobile app), or SMS/push/Slack/Teams/Discord/Telegram from §2.14's deferred list.
+
+## Post-Phase-2 closeout: merged valet audit reports + task workflow (done)
+
+The merged monorepo (saasclaude core + valet business surface) now carries its own audit trail and a
+GitHub-backed task workflow:
+
+- [x] **udit/merged-audit.md + udit/merged-audit.html** — legacy audit report reconciled against a live
+  walkthrough of the merged monorepo (both portals, single DB, org-scoped valet data). Verdict GO.
+- [x] **udit/tenant-admin-audit.md + udit/tenant-admin-audit.html** — the full functionality Tenant
+  Admin audit report in the legacy udit-report.html dark style: 20/20 product features PASS,
+  11/11 settings pages render, live-verified cross-tenant isolation, mobile 375 px no-overflow,
+  0 console errors (one dev-only WS warning mapped to backlog M6). Verdict GO/READY.
+- [x] **.github/workflows/ci.yml** — the Phase-0 CI workflow the task list references but that was never
+  actually written is now real: install + prisma migrate deploy (real Postgres service) +
+  lint + typecheck + test + build on push/PR to master.
+- [x] **udit/backlog.json** — machine-readable mirror of merged-audit.md sec 4 (M1-M9) used by the
+  issue workflow; issue numbers get written back on sync.
+- [x] **scripts/audit/issues.ps1** — manages the backlog as GitHub issues (gh CLI, label udit):
+  log / sync (create missing issues, close done ones) / close -Id Mx -Message ... [-Files ...]
+  (pull --rebase, commit, push, close issue) / push -Message ... [-Files ...]. Scoped -Files is
+  preferred over -A so unrelated work is never swept into a task commit (the hazard Phase-0 flagged
+  with commit-on-task-complete.sh).
+
+Next: run sync to open the M1-M9 GitHub issues, then pick the next backlog item (M5 lint debt is the
+cheapest; M4/M8 close the two remaining live-verification gaps).

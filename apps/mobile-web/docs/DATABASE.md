@@ -2,10 +2,10 @@
 
 ## Overview
 
-The mobile web app has **no database of its own**. It reads and writes the **admin console's** PostgreSQL database (`360nfc_valet`) through the admin's public API endpoints. The schema, seeder, and connection layer all live in `../admin` (`db/schema.sql`, `db/seed.js`, `db/reset.js`, `lib/db.js`).
+The mobile web app has **no database of its own**. It reads and writes the **super admin console's** PostgreSQL database (a single platform DB behind `DATABASE_URL`) through the admin's public API endpoints. The schema, migrations, and services live in `packages/db` (`prisma/schema.prisma`, `prisma/migrations`, `src/**`).
 
-- **PostgreSQL 18** (Laragon) on `localhost:5432`, database `360nfc_valet`.
-- Connection string from `DATABASE_URL` (admin `.env`), default `postgresql://postgres@localhost:5432/360nfc_valet`.
+- **PostgreSQL 18** (Laragon) on `localhost:5432`, database per `DATABASE_URL` (e.g. `valet_monorepo`).
+- Connection string from `DATABASE_URL` (`packages/db/.env`, loaded by `web/next.config.ts`).
 
 ## Tables the public tap endpoints read/write
 

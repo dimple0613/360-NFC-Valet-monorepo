@@ -2,25 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Merged-app layout (360-NFC-Valet + saasclaude)
+## Merged monorepo layout (single repo, single database)
 
-This repo is the saasclaude platform core with the **360-NFC-Valet admin console** merged in as the existing tenant product. Three distinct app surfaces share the `web/` Next.js project:
+This Turborepo + pnpm workspace consolidates the whole **360 NFC Valet** platform: the SaaS platform core (`saasclaude`) and the valet business surface (driver app, guest web, landing) in one git repo. `README.md` has the current structure — this section is the agent-facing ground rules; the parts below it that still describe the generic platform core are unchanged and accurate.
 
-- **Super Admin portal** — App Router at `/super-admin/**` (saasclaude core, `src/app/super-admin/**`).
-- **Tenant Admin portal** — App Router at `/tenant-admin/**` (saasclaude core).
-- **360 Valet console** — legacy **Pages Router** app at `/console/**` (dashboard, queue, locations, drivers, cards, offers, reports, team, tenants, backup, profile, login). Pages live in `web/src/pages/`, non-page code in `web/valet/` (components/hooks/lib/db/scripts/docs/ws-server.js). It's a **plain-JS Pages Router app** — never introduce TypeScript or App Router conventions into it.
+- **Super Admin console** — App Router at `web/src/app/super-admin/**` (saasclaude core, TypeScript).
+- **Tenant Admin portal** — App Router at `web/src/app/tenant-admin/**` (saasclaude core + valet business features).
+- **Driver app** — Expo at `apps/app/`.
+- **Guest mobile web** — Pages Router, plain JS at `apps/mobile-web/` (public, no login; calls the super admin's public API).
+- **Landing page** — static site at `apps/landing/`.
 
-Ground rules that came out of the merge:
+Ground rules that govern the current code:
 
-- **Two databases, always** — Prisma (platform, `@saasclaude/db`) uses `DATABASE_URL` (in `packages/db/.env`); the valet console uses `VALET_DATABASE_URL` (falling back to `DATABASE_URL` in `web/valet/lib/db.js`), set in `web/.env`. The `roles`/`role_permissions` table names collide between the two schemas, so they must never share a database.
-- **Route namespacing** — App Router owns `/`, `/login`, `/signup`, `/api/v1/*`, `/super-admin/**`, `/tenant-admin/**`, `/api/cron/*`, `/api/webhooks/*`. The Pages Router owns `/console/**` and all legacy valet `/api/*` routes (`src/pages/api/**`). Next 16 requires `app` + `pages` under the same folder, so the pages app lives at `src/pages` (not a root `pages/`).
-- **Aliases** — `@/*` → `./src/*` (saasclaude), `@valet/*` → `./valet/*` (legacy console). The `@valet` alias only resolves through the Next bundler — **standalone Node scripts** (`valet/db/seed.js`, `valet/ws-server.js`, `valet/scripts/*.js`) must use relative `../lib/...` imports.
-- **CORS proxy** — Next 16 uses `web/proxy.ts` (middleware is deprecated here) so the legacy Pages Router API can be called cross-origin from the guest app.
-- **Lint** — `eslint.config.mjs` global-ignores `src/pages/**` and `valet/**`; the legacy subtree is exempt from the core's strict TS lint.
+- **One database, always** — the platform and the valet business data share a single PostgreSQL database behind `DATABASE_URL` (the source of truth is `packages/db/.env`, loaded by `web/next.config.ts`; valet-specific vars live in `web/.env`). There is **no** second `VALET_DATABASE_URL` in this code — the old two-DB `roles`/`role_permissions` collision is gone, so the legacy split does not apply. Never reintroduce a second DB connection string.
+- **Route namespacing** — App Router owns `/`, `/login`, `/signup`, `/api/v1/*`, `/super-admin/**`, `/tenant-admin/**`, `/api/platform/valet/*`, `/api/cron/*`, `/api/webhooks/*`. `apps/mobile-web` is its own Next app (Pages Router) on port 3001 with its own `/api/*` public surface calling back into the super admin on :3000.
+- **Aliases** — `@/*` → `web/src/*` (super admin) and `@saasclaude/db` → `packages/db`. Standalone Node scripts must use relative imports (bundler aliases don't resolve outside it).
+- **CORS proxy** — Next 16 uses `web/proxy.ts` (middleware is deprecated) so the guest app / mobile app can call the super admin API cross-origin.
+- **Lint** — `eslint.config.mjs` global-ignores the legacy subtrees (`apps/`, `web/src/pages/**`); the legacy code is exempt from the core's strict TS lint.
 
-Valet env (in `web/.env`): `VALET_DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (seed admin login), `ANPR_API_KEY`, SMTP_*, `WS_PORT`/`WS_ORIGIN`/`WS_BROADCAST_URL`, `NEXT_PUBLIC_WS_URL` (WebSocket for live queue), guest-URL vars. Valet commands: `pnpm --filter web run vdb:setup` (schema + seed), `vdb:reset` (drop tables), `vws` (run `valet/ws-server.js` on port 3002). Login: the `.env` admin email/password (default admin@wewant360.com / admin123).
-
-One known inherited quirk (present in the original valet codebase, not the merge): the valet admin `session` cookie is `HttpOnly`, so the browser-side WebSocket token read (via `document.cookie`) fails and the admin queue falls back to 20s polling ("Auto-refresh"). The WS server still serves driver/guest clients. Fixing this properly is a small refactor (return a short-lived non-httpOnly WS token on login) — not yet done.
+Valet env (in `web/.env`): `JWT_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (legacy console login), `ANPR_API_KEY`, SMTP_*, `WS_PORT`/`WS_ORIGIN`/`WS_BROADCAST_URL`, `NEXT_PUBLIC_WS_URL` (WebSocket for live queue), guest-URL vars (`NEXT_PUBLIC_GUEST_BASE`, `NEXT_PUBLIC_GUEST_SAMPLE_UID`). The WebSocket credential for the browser is the short-lived, **non-HttpOnly** `valet_ws_token` cookie set on login (`web/src/lib/auth/ws-token.ts`) — the old "HttpOnly cookie blocks WS token" quirk is fixed; the admin queue can use the live socket instead of falling back to 20s polling.
 
 ## Project status
 

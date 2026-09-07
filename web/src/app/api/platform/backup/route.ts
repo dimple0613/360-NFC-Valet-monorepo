@@ -10,12 +10,13 @@ import {
 } from "@/lib/backup/restore";
 
 // Platform-gated delegate for the 360 Valet console's backup/restore tooling
-// (src/lib/backup/backup.js + restore.js operate on the 360nfc_valet DB). The
-// Super Admin portal owns the platform session, NOT the valet `session` cookie
-// the /console/backup page relies on, so this route re-authenticates against
-// the platform session and calls the same underlying functions. Restore is
-// destructive (overwrites the valet DB), which is why it sits behind a
-// platform-manage_settings-level gate rather than a plain read permission.
+// (src/lib/backup/backup.js + restore.js operate on the single platform DB
+// behind DATABASE_URL). The Super Admin portal owns the platform session, NOT
+// the valet `session` cookie the /console/backup page relies on, so this route
+// re-authenticates against the platform session and calls the same underlying
+// functions. Restore is destructive (overwrites the DB), which is why it sits
+// behind a platform-manage_settings-level gate rather than a plain read
+// permission.
 //
 // On Laragon (Windows dev) the PostgreSQL/GNU tools are not on the system
 // PATH by default, so we prepend them here before calling the scripts — they

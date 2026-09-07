@@ -31,14 +31,14 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel
 import { logoutAction } from "@/lib/auth/logout-action";
 import { OrgSwitcher, type OrgOption } from "./org-switcher";
 
-const PRODUCT_NAV_ITEMS: Array<{ title: string; url: string; icon: React.ReactNode }> = [
-  { title: "Dashboard", url: "/tenant-admin", icon: <LayoutDashboardIcon /> },
-  { title: "Live Queue", url: "/tenant-admin/queue", icon: <BoltIcon /> },
-  { title: "Locations", url: "/tenant-admin/locations", icon: <Building2Icon /> },
-  { title: "Drivers", url: "/tenant-admin/drivers", icon: <UsersIcon /> },
-  { title: "NFC Cards", url: "/tenant-admin/cards", icon: <NfcIcon /> },
-  { title: "Offers", url: "/tenant-admin/offers", icon: <TagIcon /> },
-  { title: "Reports", url: "/tenant-admin/reports", icon: <BarChart3Icon /> },
+const PRODUCT_NAV_ITEMS: Array<{ title: string; url: string; icon: React.ReactNode; permission: string }> = [
+  { title: "Dashboard", url: "/tenant-admin", icon: <LayoutDashboardIcon />, permission: "valet.dashboard.read" },
+  { title: "Live Queue", url: "/tenant-admin/queue", icon: <BoltIcon />, permission: "valet.queue.read" },
+  { title: "Locations", url: "/tenant-admin/locations", icon: <Building2Icon />, permission: "valet.property.read" },
+  { title: "Drivers", url: "/tenant-admin/drivers", icon: <UsersIcon />, permission: "valet.driver.read" },
+  { title: "NFC Cards", url: "/tenant-admin/cards", icon: <NfcIcon />, permission: "valet.card.read" },
+  { title: "Offers", url: "/tenant-admin/offers", icon: <TagIcon />, permission: "valet.offer.read" },
+  { title: "Reports", url: "/tenant-admin/reports", icon: <BarChart3Icon />, permission: "valet.reports.read" },
 ];
 
 const SETTINGS_SUB_ITEMS: Array<{ title: string; url: string; icon: React.ReactNode }> = [
@@ -69,6 +69,7 @@ export function TenantAdminSidebar({
   canAccessSuperAdmin = false,
   isImpersonating = false,
   stopImpersonatingAction,
+  permissions = [],
   ...props
 }: {
   currentOrg: OrgOption;
@@ -80,9 +81,12 @@ export function TenantAdminSidebar({
   isImpersonating?: boolean;
   /** Server action that ends impersonation and restores the real Super Admin session. */
   stopImpersonatingAction?: () => Promise<void>;
+  /** The user's TENANT permissions within the active organization — filters which product pages are shown (FR-153). */
+  permissions?: string[];
 } & React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname() ?? "";
   const inSettings = pathname.startsWith("/tenant-admin/settings");
+  const visibleProductItems = PRODUCT_NAV_ITEMS.filter((item) => permissions.includes(item.permission));
 
   const backToSuperAdmin =
     isImpersonating && stopImpersonatingAction ? (
@@ -116,7 +120,7 @@ export function TenantAdminSidebar({
           <SidebarGroup>
             <SidebarGroupLabel>Product</SidebarGroupLabel>
             <SidebarMenu>
-              {PRODUCT_NAV_ITEMS.map((item) => {
+              {visibleProductItems.map((item) => {
                 const isActive =
                   (item.url === "/tenant-admin" && (pathname === "/tenant-admin" || pathname === "/tenant-admin/")) ||
                   (item.url !== "/tenant-admin" && pathname.startsWith(item.url));

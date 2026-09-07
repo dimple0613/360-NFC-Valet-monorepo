@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDownIcon, EyeIcon, KeyRoundIcon, PencilIcon, PowerIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, Eye, EyeOff, EyeIcon, KeyRoundIcon, PencilIcon, PowerIcon, Trash2Icon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DriverForm } from "./driver-form";
@@ -31,6 +31,9 @@ export function DriverManageMenu({
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   const onShift = driver.status === "on_shift" || driver.status === "on_break";
@@ -79,6 +82,10 @@ export function DriverManageMenu({
       toast.error("Password must be at least 6 characters.");
       return;
     }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords don't match.");
+      return;
+    }
     setResetting(true);
     startTransition(async () => {
       try {
@@ -92,6 +99,7 @@ export function DriverManageMenu({
         toast.success("Password updated.");
         setResetOpen(false);
         setNewPassword("");
+        setConfirmPassword("");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong.");
       } finally {
@@ -217,19 +225,102 @@ export function DriverManageMenu({
           style={{ borderRadius: 20, padding: 24 }}
         >
           <div className="text-[17px] font-extrabold text-[#1c2b46]">Reset password</div>
-          <div className="mt-1 text-[12.5px] font-medium text-[#6c7a93]">Enter a new password for {driver.name}.</div>
-          <input
-            type="password"
-            placeholder="New password (min 6 chars)"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="mt-4 w-full rounded-xl border-[1.5px] border-[#e7eaf0] bg-white px-4 py-3 text-[13px] font-semibold text-[#1c2b46] outline-none focus:border-[#f4531f]"
-          />
+          <div className="mt-1 text-[12.5px] font-medium text-[#6c7a93]">
+            Set a new password for {driver.name}. They&apos;ll use it on their next login.
+          </div>
+          <div className="super-console mt-4 flex flex-col gap-4">
+            <div className="field">
+              <label className="field-label" htmlFor="dm-new-pw">
+                New password
+              </label>
+              <div className="relative">
+                <input
+                  id="dm-new-pw"
+                  className="field-value input"
+                  type={showNew ? "text" : "password"}
+                  placeholder="Min 6 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  aria-label={showNew ? "Hide password" : "Show password"}
+                  aria-pressed={showNew}
+                  onClick={() => setShowNew((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "#6c7a93",
+                  }}
+                >
+                  {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <div className="field">
+                <label className="field-label" htmlFor="dm-confirm-pw">
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <input
+                    id="dm-confirm-pw"
+                    className="field-value input"
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    style={{ paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                    aria-pressed={showConfirm}
+                    onClick={() => setShowConfirm((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 4,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: "#6c7a93",
+                    }}
+                  >
+                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              {confirmPassword && newPassword !== confirmPassword ? (
+                <div className="field-error">Passwords don&apos;t match.</div>
+              ) : null}
+            </div>
+          </div>
           <button
             type="button"
             onClick={submitReset}
-            disabled={resetting || !newPassword.trim()}
-            className="mt-4 w-full rounded-full bg-[#f4531f] py-3 text-[13px] font-extrabold text-white disabled:opacity-50"
+            disabled={
+              resetting ||
+              !newPassword.trim() ||
+              newPassword.trim().length < 6 ||
+              newPassword !== confirmPassword
+            }
+            className="mt-5 w-full rounded-full bg-[#f4531f] py-3 text-[13px] font-extrabold text-white disabled:opacity-50"
           >
             {resetting ? "Updating…" : "Update password"}
           </button>

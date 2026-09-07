@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { forbidden, redirect } from "next/navigation";
-import { endImpersonation, getUserPlatformPermissions, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { endImpersonation, getUserOrganizationPermissions, getUserPlatformPermissions, prismaWithoutTenantScoping } from "@saasclaude/db";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { requireIdentity } from "@/lib/auth/current-user";
@@ -33,6 +33,13 @@ export default async function TenantAdminLayout({ children }: { children: React.
   const platformUserId = identity.session.impersonatorUserId ?? identity.user.id;
   const platformPermissions = await getUserPlatformPermissions(platformUserId);
   const canAccessSuperAdmin = platformPermissions.length > 0;
+
+  // Valet feature visibility (FR-153: UI derives from the same permission data
+  // the page-level requireValetPage checks use — never a separate UI-only list).
+  const orgPermissions = await getUserOrganizationPermissions(
+    platformUserId,
+    organizationId,
+  );
 
   async function stopImpersonatingAction() {
     "use server";
@@ -69,6 +76,7 @@ export default async function TenantAdminLayout({ children }: { children: React.
         canAccessSuperAdmin={canAccessSuperAdmin}
         isImpersonating={Boolean(identity.session.impersonatorUserId)}
         stopImpersonatingAction={stopImpersonatingAction}
+        permissions={orgPermissions}
       />
       <SidebarInset>
         {identity.session.impersonatorUserId ? (

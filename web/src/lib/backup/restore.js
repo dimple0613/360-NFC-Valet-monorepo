@@ -4,15 +4,25 @@ const path = require("path");
 const { pool } = require("./db");
 const { BACKUP_DIR } = require("./backup-dir");
 
+// Backup filenames are prefixed with the database name (see backup.js
+// dbPrefix, same regex) so the platform's single DATABASE_URL connection
+// drives both sides — no hard-coded legacy DB name in this codebase.
+function dbPrefix() {
+  const m = /:\d+\/([^?&#]+)/.exec(String(process.env.DATABASE_URL || ""));
+  return (m ? m[1] : "backup").toLowerCase();
+}
+
+const PREFIX_RE = new RegExp(`^${dbPrefix()}_`);
+
 function listBackups() {
   if (!fs.existsSync(BACKUP_DIR)) return [];
   return fs.readdirSync(BACKUP_DIR)
-    .filter((f) => f.startsWith("360nfc_valet_") && f.endsWith(".sql.gz"))
+    .filter((f) => PREFIX_RE.test(f) && f.endsWith(".sql.gz"))
     .sort()
     .reverse()
     .map((f) => {
       const stat = fs.statSync(path.join(BACKUP_DIR, f));
-      const match = f.match(/360nfc_valet_(\d{8})_(\d{6})\.sql\.gz/);
+      const match = f.match(/^.+?_(\d{8})_(\d{6})\.sql\.gz$/);
       let ts = null;
       if (match) {
         const [, date, time] = match;
@@ -30,7 +40,7 @@ function listBackups() {
 
 function deleteBackup(filename) {
   const filepath = path.join(BACKUP_DIR, filename);
-  if (!filename.startsWith("360nfc_valet_") || !filename.endsWith(".sql.gz")) {
+  if (!PREFIX_RE.test(filename) || !filename.endsWith(".sql.gz")) {
     throw new Error("Invalid backup filename");
   }
   if (!fs.existsSync(filepath)) {
@@ -42,14 +52,14 @@ function deleteBackup(filename) {
 
 async function restoreBackup(filename) {
   const filepath = path.join(BACKUP_DIR, filename);
-  if (!filename.startsWith("360nfc_valet_") || !filename.endsWith(".sql.gz")) {
+  if (!PREFIX_RE.test(filename) || !filename.endsWith(".sql.gz")) {
     throw new Error("Invalid backup filename");
   }
   if (!fs.existsSync(filepath)) {
     throw new Error("Backup not found");
   }
 
-  const connStr = process.env.DATABASE_URL || "postgresql://postgres@localhost:5432/360nfc_valet";
+  const connStr = process.env.DATABASE_URL;
 
   console.log(`Restoring from: ${filename}`);
   try {

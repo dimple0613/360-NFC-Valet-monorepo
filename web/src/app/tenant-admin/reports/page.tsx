@@ -1,4 +1,4 @@
-import { requireIdentity } from "@/lib/auth/current-user";
+import { requireValetPage } from "../_lib/valet-permissions";
 import { parseListQueryParams } from "@/lib/list-query-params";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -31,7 +31,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const identity = await requireIdentity();
+  const identity = await requireValetPage("valet.reports.read");
   const raw = await searchParams;
   const today = new Date();
   const past = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);

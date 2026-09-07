@@ -137,10 +137,11 @@ function CarStrip({ order, card }) {
   );
 }
 
-function CategoryGrid({ active, onSelect }) {
+function CategoryGrid({ categories = CATEGORIES, active, onSelect }) {
+  if (!categories.length) return null;
   return (
     <div className="cat-grid">
-      {CATEGORIES.map((c) => (
+      {categories.map((c) => (
         <button key={c.label} type="button" className={`cat-tile${active === c.filter ? " active" : ""}`} onClick={() => onSelect(c)}>
           <span className="cat-tile-box">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -203,6 +204,9 @@ function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs }) {
   const hasRequest = leftMs != null;
   const orderActive = data.order && data.order.status !== "returned";
   const orderReturned = data.order && data.order.status === "returned";
+  const [activeCat, setActiveCat] = useState(null);
+  const visibleCats = CATEGORIES.filter((c) => (data.offers || []).some((o) => (o.category || "") === c.filter));
+  const effectiveActive = activeCat ?? visibleCats[0]?.filter ?? null;
   return (
     <div className="home">
       <div className="url-pill">
@@ -276,7 +280,7 @@ function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs }) {
           </div>
         </div>
       )}
-      <CategoryGrid active={null} onSelect={(c) => onBrowse(c.filter, c.label)} />
+      <CategoryGrid categories={visibleCats} active={effectiveActive} onSelect={(c) => { setActiveCat(c.filter); onBrowse(c.filter, c.label); }} />
       <div className="feat-row" id="offers-row">
         <span className="feat-title">Featured for you</span>
         <button type="button" className="feat-all" onClick={() => onBrowse("All", "All deals")}>
@@ -355,11 +359,14 @@ function RequestState({ order, request, leftMs, onBack, onDone }) {
   const driver = order?.driver;
   const driverFirst = driver?.name?.split(" ")[0] || "Valet";
   const requestedAt = request.eta ? new Date(new Date(request.eta).getTime() - request.minutes * 60000) : null;
+  const status = order?.status;
+  const moving = status === "returning" || status === "retrieving";
+  const returned = status === "returned";
   const steps = [
     { label: "Request received", time: requestedAt ? formatClock(requestedAt.toISOString()) : "now", state: "done" },
-    { label: driver ? `Driver assigned — ${driver.name}` : "Driver assigned", time: requestedAt ? formatClock(requestedAt.toISOString()) : "now", state: driver ? "done" : "pending" },
-    { label: "Car on the move", time: "now", state: "now" },
-    { label: "Ready at valet curb", time: request.eta ? `~${formatClock(request.eta)}` : "", state: "pending" },
+    { label: driver ? `Driver assigned — ${driver.name}` : "Driver assigned", time: driver && requestedAt ? formatClock(requestedAt.toISOString()) : "", state: driver ? "done" : "pending" },
+    { label: "Car on the move", time: moving ? "now" : returned ? (request.eta ? `~${formatClock(request.eta)}` : "") : "", state: returned ? "done" : moving ? "now" : "pending" },
+    { label: "Ready at valet curb", time: request.eta ? `~${formatClock(request.eta)}` : "", state: returned ? "done" : "pending" },
   ];
   return (
     <div className="c3">
@@ -687,6 +694,7 @@ function Landing({ onNavigate }) {
   const [nfcSupported, setNfcSupported] = useState(false);
   const [nfcScanning, setNfcScanning] = useState(false);
   const [manualUid, setManualUid] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const [nfcError, setNfcError] = useState("");
   const ndefRef = useRef(null);
   const nfcAbortRef = useRef(null);
@@ -807,19 +815,29 @@ function Landing({ onNavigate }) {
             )}
             {nfcError && <div className="nfc-err">{nfcError}</div>}
             <div className="nfc-divider"><span>or</span></div>
-            <form onSubmit={submitManual}>
-              <label className="nfc-label">Card number</label>
-              <input
-                className="nfc-input"
-                inputMode="numeric"
-                placeholder="e.g. 7001"
-                value={manualUid}
-                onChange={(e) => setManualUid(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
-              />
-              <button type="submit" className="btn-dark" style={{ width: "100%" }} disabled={manualUid.replace(/[^0-9]/g, "").length < 4}>
-                Look up card
-              </button>
-            </form>
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ width: "100%" }}
+              onClick={() => setManualOpen((o) => !o)}
+            >
+              {manualOpen ? "Hide card number entry" : "Enter card number instead"}
+            </button>
+            {manualOpen && (
+              <form onSubmit={submitManual} style={{ marginTop: 12 }}>
+                <label className="nfc-label">Card number</label>
+                <input
+                  className="nfc-input"
+                  inputMode="numeric"
+                  placeholder="e.g. 7001"
+                  value={manualUid}
+                  onChange={(e) => setManualUid(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
+                />
+                <button type="submit" className="btn-dark" style={{ width: "100%" }} disabled={manualUid.replace(/[^0-9]/g, "").length < 4}>
+                  Look up card
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </main>
@@ -1035,6 +1053,15 @@ function TapApp() {
     setRequest(null);
     setView({ type: "home" });
   };
+
+  useEffect(() => {
+    if (loadState !== "ready" || view.type !== "home") return;
+    if (request || ready) return;
+    if (!data?.order) return;
+    if (data.order.status === "active" || data.order.status === "parked") {
+      setEtaOpen(true);
+    }
+  }, [loadState, view.type, request, ready, data?.order?.status]);
 
   if (loadState === "landing") return <Landing onNavigate={(uid) => router.push(`/t/${uid}`)} />;
   if (loadState === "loading")

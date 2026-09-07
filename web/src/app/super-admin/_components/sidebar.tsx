@@ -152,6 +152,7 @@ export function SuperAdminSidebar({
   user,
   permissions,
   siteName,
+  logoLightUrl,
   ...props
 }: {
   user: { name: string | null; email: string };
@@ -160,8 +161,10 @@ export function SuperAdminSidebar({
   // check. A section with no matching permission simply isn't shown; the
   // page itself still enforces the real check independently.
   permissions: string[];
-  /** Platform name from Settings > General branding; falls back to "saasclaude". */
+  /** Platform name from Settings > General branding; falls back to "360 Valet". */
   siteName?: string;
+  /** Uploaded brand logo (Settings > General branding); falls back to the sunset glyph. */
+  logoLightUrl?: string | null;
 } & React.ComponentProps<typeof Sidebar>) {
   const visibleTopItems = TOP_NAV_ITEMS.filter((item) => permissions.includes(item.requiresPermission));
   const visibleGroups = NAV_GROUPS.map((group) => ({
@@ -176,15 +179,27 @@ export function SuperAdminSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="console-sa-brand cursor-default hover:bg-transparent">
-              <div className="flex aspect-square size-[34px] items-center justify-center rounded-[11px] bg-linear-to-br from-(--brand-sunset) to-[#ff8a50] text-white">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M6 8a7 7 0 0 1 0 8" />
-                  <path d="M9.5 5.5a11 11 0 0 1 0 13" />
-                  <path d="M13 3a15 15 0 0 1 0 18" />
-                </svg>
+              <div
+                className="flex aspect-square size-[34px] items-center justify-center rounded-[11px] bg-linear-to-br from-(--brand-sunset) to-[#ff8a50] text-white"
+                style={logoLightUrl ? { background: "transparent", overflow: "hidden" } : undefined}
+              >
+                {logoLightUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoLightUrl}
+                    alt=""
+                    style={{ objectFit: "contain", maxWidth: "100%", maxHeight: "100%" }}
+                  />
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 8a7 7 0 0 1 0 8" />
+                    <path d="M9.5 5.5a11 11 0 0 1 0 13" />
+                    <path d="M13 3a15 15 0 0 1 0 18" />
+                  </svg>
+                )}
               </div>
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-[14.5px] font-extrabold text-white">360 Valet</span>
+                <span className="truncate text-[14.5px] font-extrabold text-white">{siteName || "360 Valet"}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

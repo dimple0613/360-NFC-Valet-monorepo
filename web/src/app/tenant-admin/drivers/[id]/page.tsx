@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
-import { requireIdentity } from "@/lib/auth/current-user";
+import { requireValetPage } from "../../_lib/valet-permissions";
 import { PageHeader } from "@/components/page-header";
+import { DataTable, type DataTableFilter } from "@/components/data-table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { getDriverDetail } from "../../_lib/valet-data";
 import { fmtDuration, fmtDateTime, DriverStatusBadge, initialsOf } from "../../_lib/valet-ui";
 import { fieldsForDriver } from "../../_lib/valet-data";
@@ -12,15 +14,29 @@ export const dynamic = "force-dynamic";
 
 export default async function DriverDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const identity = await requireIdentity();
+  const identity = await requireValetPage("valet.driver.read");
   const { id } = await params;
+  const raw = await searchParams;
   const organizationId = identity.session.organizationId ?? null;
+
+  const actFrom = typeof raw.dateFrom === "string" ? raw.dateFrom : undefined;
+  const actTo = typeof raw.dateTo === "string" ? raw.dateTo : undefined;
+  const actPage = raw.page !== undefined ? Number(raw.page) : 1;
+  const actPageSize = raw.pageSize !== undefined ? Number(raw.pageSize) : 15;
+
   let detail;
   try {
-    detail = await getDriverDetail(Number(id), organizationId);
+    detail = await getDriverDetail(Number(id), organizationId, {
+      from: actFrom,
+      to: actTo,
+      page: actPage,
+      pageSize: actPageSize,
+    });
   } catch (e: any) {
     if (e?.message === "Driver not found") notFound();
     throw e;
@@ -28,6 +44,20 @@ export default async function DriverDetailPage({
 
   const d = detail.driver;
   const fields = await fieldsForDriver(organizationId);
+
+  const today = new Date();
+  const past = new Date(today.getTime() - 59 * 24 * 60 * 60 * 1000);
+  const iso = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const periodFilter: DataTableFilter = {
+    name: "date",
+    kind: "dateRange",
+    value: actFrom ?? iso(past),
+    valueTo: actTo ?? iso(today),
+    label: "Period",
+    allLabel: "",
+    options: [],
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,6 +162,90 @@ export default async function DriverDetailPage({
           )}
         </div>
       </div>
+
+      <div className="rounded-[18px] border border-[#e7eaf0] bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.8px] text-[#9AA6BC]">
+            Activity report
+          </div>
+          <div className="flex items-center gap-5 text-[12.5px] font-semibold text-[#6c7a93]">
+            <span>Today parked <b className="text-[#f4531f]">{detail.activity.todayParked}</b></span>
+            <span>Total parked <b className="text-[#1c2b46]">{detail.activity.totalParked}</b></span>
+            <span>Shifts <b className="text-[#1c2b46]">{detail.activity.shifts.length}</b></span>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <DataTable
+            headers={[
+              { key: "date", label: "Date" },
+              { key: "shift", label: "Shift" },
+              { key: "property", label: "Property" },
+              { key: "parked", label: "Parked", className: "text-right" },
+              { key: "returned", label: "Returned", className: "text-right" },
+              { key: "validations", label: "Validations", className: "text-right" },
+            ]}
+            page={actPage}
+            pageSize={actPageSize}
+            totalCount={detail.activity.byDayTotal}
+            totalPages={Math.max(1, Math.ceil(detail.activity.byDayTotal / actPageSize))}
+            hideSearch
+            filters={[periodFilter]}
+          >
+            {detail.activity.byDay.map((row) => (
+              <TableRow key={row.date} className="border-b border-[#eef1f6] last:border-0">
+                <TableCell className="text-[12.5px] font-bold text-[#1c2b46]">
+                  {row.date}
+                  {row.date === todayIso() ? (
+                    <span className="ml-2 rounded-full bg-[#FDEBEB] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#F4531F]">
+                      Today
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell className="text-[12.5px] font-semibold text-[#6c7a93]">
+                  {row.shiftStart ? `${row.shiftStart} – ${row.shiftEnd ?? "now"}` : "—"}
+                </TableCell>
+                <TableCell className="text-[12.5px] font-semibold text-[#6c7a93]">
+                  {row.property ?? "—"}
+                </TableCell>
+                <TableCell className="text-right text-[12.5px] font-bold text-[#f4531f]">
+                  {row.parked}
+                </TableCell>
+                <TableCell className="text-right text-[12.5px] font-semibold text-[#0C9D61]">
+                  {row.returned}
+                </TableCell>
+                <TableCell className="text-right text-[12.5px] font-semibold text-[#6c7a93]">
+                  {row.validations}
+                </TableCell>
+              </TableRow>
+            ))}
+            {detail.activity.byDay.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-6 text-center text-[13px] font-semibold text-[#6c7a93]">
+                  No activity recorded for this driver yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </DataTable>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.8px] text-[#9AA6BC]">
+            Shift history
+          </div>
+          {detail.activity.shifts.length === 0 ? (
+            <div className="mt-2 text-[13px] font-semibold text-[#6c7a93]">No shifts recorded yet.</div>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {detail.activity.shifts.map((s) => (
+                <div key={s.id} className="rounded-lg border border-[#e7eaf0] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#6c7a93]">
+                  {fmtDateTime(s.startedAt)} → {s.endedAt ? fmtDateTime(s.endedAt) : "Now"} · {s.property ?? "—"}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -143,4 +257,9 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-right text-[#1c2b46]">{value}</span>
     </div>
   );
+}
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

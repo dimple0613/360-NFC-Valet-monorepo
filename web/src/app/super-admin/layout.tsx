@@ -20,6 +20,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
         user={identity.user}
         permissions={identity.permissions}
         siteName={branding.siteName ?? undefined}
+        logoLightUrl={branding.logoLightUrl}
       />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">

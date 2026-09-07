@@ -1163,6 +1163,7 @@ model Property {
   cards   NfcCard[]
   offers  Offer[]
   orders  Order[]
+  shifts  DriverShift[]
 
   @@index([organizationId])
   @@map("properties")
@@ -1204,12 +1205,35 @@ model Driver {
   pushToken        String?                        @map("push_token")
   createdAt        DateTime  @default(now())      @map("created_at")
 
-  property Property? @relation(fields: [propertyId], references: [id])
-  orders   Order[]
+  property    Property?          @relation(fields: [propertyId], references: [id])
+  orders      Order[]
+  resetTokens DriverResetToken[]
+  shifts      DriverShift[]
 
   @@index([propertyId])
   @@index([organizationId])
   @@map("drivers")
+}
+
+// A completed shift for a valet driver — one row per start→stop. Closed when
+// the driver clocks off, is removed, or starts a new shift (the previous open
+// one is auto-closed). Powers the per-driver activity report (dates + times +
+// property + cars parked) without relying on drivers.shift_started_at, which
+// is wiped on logout and so can't reconstruct history.
+model DriverShift {
+  id             Int       @id @default(autoincrement())
+  driverId       Int                             @map("driver_id")
+  organizationId String?                         @map("organization_id")
+  propertyId     Int?                            @map("property_id")
+  startedAt      DateTime                        @map("started_at")
+  endedAt        DateTime?                       @map("ended_at")
+
+  driver   Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([driverId, startedAt])
+  @@index([organizationId])
+  @@map("driver_shifts")
 }
 
 model NfcCard {
@@ -1306,4 +1330,21 @@ model Validation {
 
   @@index([createdAt])
   @@map("validations")
+}
+
+// Driver password-reset tokens — the rebuilt driver auth surface's analogue of
+// the legacy admin's `password_resets` table (token_hash/expires_at/used).
+model DriverResetToken {
+  id        Int      @id @default(autoincrement())
+  driverId  Int                            @map("driver_id")
+  tokenHash String                         @map("token_hash")
+  expiresAt DateTime                       @map("expires_at")
+  used      Boolean   @default(false)
+  createdAt DateTime  @default(now())      @map("created_at")
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([driverId, used])
+  @@map("driver_reset_tokens")
 }

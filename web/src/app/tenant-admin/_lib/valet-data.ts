@@ -10,6 +10,38 @@ async function q<T extends DbRow = DbRow>(text: string, params: unknown[] = []):
   return rows as T[];
 }
 
+/**
+ * Tenant-isolation guard for valet rows keyed by numeric id. Before any
+ * mutation of a driver/card/offer/location (all of which live under a
+ * property, which belongs to an organization), verify the row is actually in
+ * the session's organization. Throws (→ route maps to 404) when it isn't —
+ * a cross-tenant id must behave exactly like a missing id, never leak
+ * existence. When organizationId is null (no org context) the check is a
+ * no-op so platform-only flows keep working unchanged.
+ */
+async function requireOrgOwned(
+  organizationId: string | null | undefined,
+  table: string,
+  id: number
+): Promise<void> {
+  if (!organizationId) return;
+  const scopeByTable: Record<string, string> = {
+    drivers: "id = $1 AND organization_id = $2",
+    nfc_cards: "id = $1 AND property_id IN (SELECT id FROM properties WHERE organization_id = $2)",
+    offers: "id = $1 AND property_id IN (SELECT id FROM properties WHERE organization_id = $2)",
+  };
+  const cond = scopeByTable[table];
+  if (!cond) throw new Error(`requireOrgOwned: no scope rule for ${table}`);
+  const row = (await q(`SELECT id FROM ${table} WHERE ${cond}`, [id, organizationId]))[0];
+  if (!row) throw new Error(`${TABLE_LABELS[table]} not found`);
+}
+
+const TABLE_LABELS: Record<string, string> = {
+  drivers: "Driver",
+  nfc_cards: "Card",
+  offers: "Offer",
+};
+
 const PROPERTY_COLORS = ["#F4531F", "#FF8A50", "#1C2B46", "#4A5FC9", "#0C9D61"];
 
 const STATUS_LABEL: Record<string, string> = {
@@ -475,7 +507,11 @@ export async function createLocation(input: LocationInput, organizationId?: stri
   });
 }
 
-export async function updateLocation(id: number, input: LocationInput): Promise<{ id: number; name: string }> {
+export async function updateLocation(id: number, input: LocationInput, organizationId?: string | null): Promise<{ id: number; name: string }> {
+  if (organizationId) {
+    const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [id, organizationId]))[0];
+    if (!prop) throw new Error("Location not found");
+  }
   const zoneCount = Math.max(1, Number(input.zones) || 1);
   const slotCount = Math.max(1, Number(input.slots) || 1);
   const pool = Math.max(1, Number(input.cards) || slotCount * 2);
@@ -518,7 +554,11 @@ export async function updateLocation(id: number, input: LocationInput): Promise<
   });
 }
 
-export async function deleteLocation(id: number): Promise<void> {
+export async function deleteLocation(id: number, organizationId?: string | null): Promise<void> {
+  if (organizationId) {
+    const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [id, organizationId]))[0];
+    if (!prop) throw new Error("Location not found");
+  }
   await transaction(async (exec) => {
     await exec("DELETE FROM validations WHERE order_id IN (SELECT id FROM orders WHERE property_id=$1)", [id]);
     await exec("DELETE FROM orders WHERE property_id=$1", [id]);
@@ -806,9 +846,42 @@ export interface DriverDetail {
     returnedAt: Date | null;
     returnMin: number;
   }>;
+  activity: {
+    shifts: Array<{
+      id: number;
+      startedAt: Date;
+      endedAt: Date | null;
+      property: string | null;
+      propertyId: number | null;
+    }>;
+    // One row per day the driver has ANY recorded shift or order — cars
+    // parked (drop-offs) / returns / validations for that day.
+    byDay: Array<{
+      date: string;
+      shiftStart: string | null;
+      shiftEnd: string | null;
+      property: string | null;
+      parked: number;
+      returned: number;
+      validations: number;
+    }>;
+    /** Number of byDay rows matching the current date filter (for pagination). */
+    byDayTotal: number;
+    todayParked: number;
+    totalParked: number;
+  };
 }
 
-export async function getDriverDetail(id: number, organizationId?: string | null): Promise<DriverDetail> {
+export async function getDriverDetail(
+  id: number,
+  organizationId?: string | null,
+  activity?: {
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+  }
+): Promise<DriverDetail> {
   const start = startOfDay(new Date());
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   const driverParams: Array<string | Date | number> = [start, end, id];
@@ -852,6 +925,174 @@ export async function getDriverDetail(id: number, organizationId?: string | null
      ORDER BY o.returned_at DESC LIMIT 5`,
     [id, start]
   );
+
+  // Shift history — closed shifts from driver_shifts, plus a synthetic row for
+  // the currently-open shift (recognised via drivers.shift_started_at) so the
+  // live shift always shows even before clock-off.
+  const shifts = await q(
+    `SELECT s.id, s.started_at, s.ended_at, s.property_id, p.name AS property
+     FROM driver_shifts s
+     LEFT JOIN properties p ON p.id = s.property_id
+     WHERE s.driver_id = $1
+     UNION ALL
+     SELECT -1 AS id, d.shift_started_at AS started_at, NULL AS ended_at, d.property_id, p.name AS property
+     FROM drivers d
+     LEFT JOIN properties p ON p.id = d.property_id
+     WHERE d.id = $1 AND d.shift_started_at IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM driver_shifts s2 WHERE s2.driver_id = d.id AND s2.started_at = d.shift_started_at AND s2.ended_at IS NULL)
+     ORDER BY started_at DESC`,
+    [id]
+  );
+
+  // Per-day rollup: shifts + cars parked (drop-offs) + returns + validations
+  // for the driver. Optionally confined to a date window with pagination —
+  // the same date-range filter + paging the Reports page uses.
+  const actFrom = activity?.from;
+  const actTo = activity?.to;
+  const actPage = activity?.page && activity.page > 0 ? activity.page : 1;
+  const actPageSize = activity?.pageSize && activity.pageSize > 0 ? activity.pageSize : 15;
+
+  const activityWhere = buildActivityWindow();
+  const actParams: Array<string | number> = [id];
+  if (activityWhere) actParams.push(activityWhere.from, activityWhere.to);
+
+  function buildActivityWindow(): { from: string; to: string } | null {
+    if (!actFrom && !actTo) return null;
+    const to = actTo ?? new Date().toISOString().slice(0, 10);
+    const from = actFrom ?? "1970-01-01";
+    return { from, to };
+  }
+  const byDay = await q<{
+    date: string;
+    shift_start: string | null;
+    shift_end: string | null;
+    property: string | null;
+    parked: number;
+    returned: number;
+    validations: number;
+  }>(
+    `WITH days AS (
+       SELECT to_char((CURRENT_DATE - s), 'YYYY-MM-DD') AS day
+       FROM generate_series(0, 59) AS s
+       ${activityWhere ? "WHERE to_char((CURRENT_DATE - s), 'YYYY-MM-DD') BETWEEN $2 AND $3" : ""}
+     ),
+     parked AS (
+       SELECT to_char(o.dropped_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
+       FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL
+       GROUP BY 1
+     ),
+     returned AS (
+       SELECT to_char(o.returned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
+       FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL
+       GROUP BY 1
+     ),
+     validated AS (
+       SELECT to_char(v.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
+       FROM validations v
+       JOIN orders o ON o.id = v.order_id
+       WHERE o.driver_id = $1
+       GROUP BY 1
+     ),
+     shift_info AS (
+       SELECT day, MIN(shift_start) AS shift_start, MAX(shift_end) AS shift_end, MIN(property) AS property
+       FROM (
+         SELECT to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
+                to_char(s.started_at, 'HH24:MI') AS shift_start,
+                to_char(COALESCE(s.ended_at, s.started_at), 'HH24:MI') AS shift_end,
+                p.name AS property
+         FROM driver_shifts s
+         LEFT JOIN properties p ON p.id = s.property_id
+         WHERE s.driver_id = $1
+         UNION ALL
+         SELECT to_char(d.shift_started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
+                to_char(d.shift_started_at, 'HH24:MI') AS shift_start,
+                NULL AS shift_end,
+                p2.name AS property
+         FROM drivers d
+         LEFT JOIN properties p2 ON p2.id = d.property_id
+         WHERE d.id = $1 AND d.shift_started_at IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM driver_shifts s2 WHERE s2.driver_id = d.id AND s2.ended_at IS NULL)
+       ) u
+       GROUP BY day
+     ),
+     rolled AS (
+       SELECT d.day,
+              s.shift_start,
+              s.shift_end,
+              s.property,
+              COALESCE(p.n, 0)::int AS parked,
+              COALESCE(r.n, 0)::int AS returned,
+              COALESCE(v.n, 0)::int AS validations
+       FROM days d
+       LEFT JOIN shift_info s ON s.day = d.day
+       LEFT JOIN parked p ON p.day = d.day
+       LEFT JOIN returned r ON r.day = d.day
+       LEFT JOIN validated v ON v.day = d.day
+       WHERE s.day IS NOT NULL OR p.n IS NOT NULL OR r.n IS NOT NULL OR v.n IS NOT NULL
+     )
+     SELECT day AS date, shift_start, shift_end, property, parked, returned, validations
+     FROM rolled
+     ORDER BY day DESC
+     LIMIT $${actParams.length + 1} OFFSET $${actParams.length + 2}`,
+    [...actParams, actPageSize, (actPage - 1) * actPageSize]
+  );
+
+  const byDayTotal = activityWhere
+    ? Number(
+        (
+          await q(
+            `WITH days AS (
+               SELECT to_char((CURRENT_DATE - s), 'YYYY-MM-DD') AS day
+               FROM generate_series(0, 59) AS s
+               WHERE to_char((CURRENT_DATE - s), 'YYYY-MM-DD') BETWEEN $2 AND $3
+             ),
+             parked AS (
+               SELECT to_char(o.dropped_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+               FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL
+             ),
+             returned AS (
+               SELECT to_char(o.returned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+               FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL
+             ),
+             validated AS (
+               SELECT to_char(v.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+               FROM validations v JOIN orders o ON o.id = v.order_id WHERE o.driver_id = $1
+             ),
+             shift_info AS (
+               SELECT to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM driver_shifts s WHERE s.driver_id = $1
+               UNION
+               SELECT to_char(d.shift_started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM drivers d
+               WHERE d.id = $1 AND d.shift_started_at IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM driver_shifts s2 WHERE s2.driver_id = d.id AND s2.ended_at IS NULL)
+             )
+             SELECT COUNT(*)::int AS n FROM (
+               SELECT d.day FROM days d
+               LEFT JOIN shift_info s ON s.day = d.day
+               LEFT JOIN parked p ON p.day = d.day
+               LEFT JOIN returned r ON r.day = d.day
+               LEFT JOIN validated v ON v.day = d.day
+               WHERE s.day IS NOT NULL OR p.day IS NOT NULL OR r.day IS NOT NULL OR v.day IS NOT NULL
+             ) t`,
+            [id, activityWhere.from, activityWhere.to]
+          )
+        )[0].n
+      )
+    : byDay.length;
+
+  const totalParked = (
+    await q(
+      `SELECT COUNT(*)::int AS n FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL`,
+      [id]
+    )
+  )[0].n;
+
+  const todayParked = (
+    await q(
+      `SELECT COUNT(*)::int AS n FROM orders o WHERE o.driver_id = $1 AND o.dropped_at >= $2`,
+      [id, start]
+    )
+  )[0].n;
+
   return {
     driver: {
       id: driver.id,
@@ -893,6 +1134,27 @@ export async function getDriverDetail(id: number, organizationId?: string | null
       returnedAt: o.returned_at,
       returnMin: o.return_min,
     })),
+    activity: {
+      shifts: shifts.map((s) => ({
+        id: Number(s.id),
+        startedAt: s.started_at,
+        endedAt: s.ended_at,
+        property: s.property,
+        propertyId: s.property_id,
+      })),
+      byDay: byDay.map((r) => ({
+        date: r.date,
+        shiftStart: r.shift_start,
+        shiftEnd: r.shift_end,
+        property: r.property,
+        parked: Number(r.parked) || 0,
+        returned: Number(r.returned) || 0,
+        validations: Number(r.validations) || 0,
+      })),
+      byDayTotal,
+      todayParked,
+      totalParked,
+    },
   };
 }
 
@@ -903,6 +1165,10 @@ export async function createDriver(input: DriverInput & { password: string }, or
   password: string;
   name: string;
 }> {
+  if (input.propertyId && organizationId) {
+    const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [Number(input.propertyId), organizationId]))[0];
+    if (!prop) throw new Error("Property not found");
+  }
   const { count } = (
     await q("SELECT COALESCE(MAX(id), 0) AS count FROM drivers", [])
   )[0];
@@ -937,19 +1203,49 @@ export async function createDriver(input: DriverInput & { password: string }, or
   return { id: Number(d.id), valetId: d.valet_id, pin: d.pin, password: customPassword, name: input.name };
 }
 
-export async function toggleDriverShift(id: number, on: boolean): Promise<void> {
+export async function toggleDriverShift(id: number, on: boolean, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "drivers", id);
   if (on) {
+    // Opening a shift: close any previous shift that was left open (e.g. the
+    // browser/API died mid-shift), then open a fresh one so the activity log
+    // always has a clean start→stop record.
+    await query(
+      `UPDATE driver_shifts SET ended_at = NOW()
+       WHERE driver_id = $1 AND ended_at IS NULL`,
+      [id]
+    );
+    await query(
+      `INSERT INTO driver_shifts (driver_id, organization_id, property_id, started_at)
+       SELECT id, organization_id, property_id, NOW() FROM drivers WHERE id = $1`,
+      [id]
+    );
     await query("UPDATE drivers SET status='on_shift', shift_started_at=NOW() WHERE id=$1", [id]);
   } else {
+    const { rowCount } = await query(
+      `UPDATE driver_shifts SET ended_at = NOW()
+       WHERE driver_id = $1 AND ended_at IS NULL`,
+      [id]
+    );
+    if (rowCount === 0) {
+      // No open shift record (legacy/edge case) — persist a minimiscoped one
+      // from the driver's own columns so the report still shows something.
+      await query(
+        `INSERT INTO driver_shifts (driver_id, organization_id, property_id, started_at, ended_at)
+         SELECT id, organization_id, property_id, shift_started_at, NOW() FROM drivers WHERE id = $1 AND shift_started_at IS NOT NULL`,
+        [id]
+      );
+    }
     await query("UPDATE drivers SET status='off_duty', shift_started_at=NULL WHERE id=$1", [id]);
   }
 }
 
-export async function resetDriverPassword(id: number, newPassword: string): Promise<void> {
+export async function resetDriverPassword(id: number, newPassword: string, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "drivers", id);
   await query("UPDATE drivers SET password_hash = $2 WHERE id = $1", [id, hashPassword(String(newPassword))]);
 }
 
-export async function updateDriver(id: number, input: DriverInput): Promise<void> {
+export async function updateDriver(id: number, input: DriverInput, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "drivers", id);
   const sets: string[] = [];
   const vals: Array<string | number | null> = [id];
   sets.push(`full_name = $${vals.length + 1}`);
@@ -966,7 +1262,12 @@ export async function updateDriver(id: number, input: DriverInput): Promise<void
   await query(`UPDATE drivers SET ${sets.join(", ")} WHERE id = $1`, vals);
 }
 
-export async function removeDriver(id: number): Promise<void> {
+export async function removeDriver(id: number, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "drivers", id);
+  await query(
+    "UPDATE driver_shifts SET ended_at = NOW() WHERE driver_id = $1 AND ended_at IS NULL",
+    [id]
+  );
   await query(
     "UPDATE drivers SET status = 'removed', shift_started_at = NULL, token_version = COALESCE(token_version, 0) + 1 WHERE id = $1",
     [id]
@@ -1104,6 +1405,7 @@ export async function registerCards(input: {
   prefix: string;
   from: number;
   to: number;
+  organizationId?: string | null;
 }): Promise<{ created: number; from: string; to: string }> {
   const pfx = String(input.prefix || "").trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(pfx)) throw new Error("Prefix must be exactly 3 letters (A–Z)");
@@ -1112,6 +1414,14 @@ export async function registerCards(input: {
   if (!Number.isInteger(startNum) || !Number.isInteger(endNum)) throw new Error("From and To must be whole numbers");
   if (startNum < 1 || endNum < startNum) throw new Error("Range is invalid");
   if (endNum - startNum + 1 > 500) throw new Error("Create at most 500 cards per batch");
+
+  // FR-153/tenant isolation: a card batch can only be bound to a property the
+  // acting organization actually owns — never another org's property.
+  const property = (await q("SELECT id, organization_id FROM properties WHERE id = $1", [input.propertyId]))[0];
+  if (!property) throw new Error("Property not found.");
+  if (input.organizationId && String(property.organization_id) !== input.organizationId) {
+    throw new Error("Property doesn't belong to this organization.");
+  }
 
   const pad = Math.max(5, String(endNum).length);
   const uids: string[] = [];
@@ -1134,18 +1444,20 @@ export async function registerCards(input: {
   return { created: uids.length, from: uids[0], to: uids[uids.length - 1] };
 }
 
-export async function updateCardUid(id: number, uid: string): Promise<{ uid: string }> {
+export async function updateCardUid(id: number, uid: string, organizationId?: string | null): Promise<{ uid: string }> {
   const next = String(uid || "").trim().toUpperCase();
   if (!/^[A-Z0-9-]{1,24}$/.test(next)) {
     throw new Error("UID may only contain A–Z, 0–9 and dashes (max 24)");
   }
   const clash = (await q("SELECT id FROM nfc_cards WHERE uid = $1 AND id <> $2", [next, id]))[0];
   if (clash) throw new Error(`UID ${next} is already used by another card`);
+  await requireOrgOwned(organizationId, "nfc_cards", id);
   await q("UPDATE nfc_cards SET uid = $2 WHERE id = $1", [id, next]);
   return { uid: next };
 }
 
-export async function setCardStatus(id: number, action: "block" | "unblock" | "mark-returned" | "lost"): Promise<void> {
+export async function setCardStatus(id: number, action: "block" | "unblock" | "mark-returned" | "lost", organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "nfc_cards", id);
   if (action === "block") {
     await q("UPDATE nfc_cards SET status = 'blocked' WHERE id = $1", [id]);
   } else if (action === "unblock") {
@@ -1159,7 +1471,8 @@ export async function setCardStatus(id: number, action: "block" | "unblock" | "m
   }
 }
 
-export async function removeCard(id: number): Promise<void> {
+export async function removeCard(id: number, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "nfc_cards", id);
   await q("DELETE FROM nfc_cards WHERE id = $1", [id]);
 }
 
@@ -1356,10 +1669,14 @@ export interface OfferInput {
   propertyId?: string | number | null;
 }
 
-export async function createOffer(input: OfferInput): Promise<{ id: number }> {
+export async function createOffer(input: OfferInput, organizationId?: string | null): Promise<{ id: number }> {
   let propertyId = input.propertyId ? Number(input.propertyId) : null;
+  if (propertyId && organizationId) {
+    const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [propertyId, organizationId]))[0];
+    if (!prop) throw new Error("Property not found");
+  }
   if (!propertyId) {
-    const props = await propertiesForScope();
+    const props = await propertiesForScope(organizationId);
     propertyId = props[0]?.id ?? null;
   }
   await q(
@@ -1382,7 +1699,12 @@ export async function createOffer(input: OfferInput): Promise<{ id: number }> {
   return { id: Number(rows[0].id) };
 }
 
-export async function updateOffer(id: number, input: OfferInput): Promise<void> {
+export async function updateOffer(id: number, input: OfferInput, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "offers", id);
+  if (input.propertyId && organizationId) {
+    const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [Number(input.propertyId), organizationId]))[0];
+    if (!prop) throw new Error("Property not found");
+  }
   const sets = ["title=$2", "category=$3", "price=$4", "description=$5", "image_url=$6", "menu_url=$7", "was_price=$8", "property_id=$9"];
   const vals: Array<string | number | null> = [
     id,
@@ -1400,8 +1722,10 @@ export async function updateOffer(id: number, input: OfferInput): Promise<void> 
 
 export async function setOfferState(
   id: number,
-  state: { live?: boolean; featured?: boolean | number | null; draft?: boolean }
+  state: { live?: boolean; featured?: boolean | number | null; draft?: boolean },
+  organizationId?: string | null
 ): Promise<void> {
+  await requireOrgOwned(organizationId, "offers", id);
   const cur = (
     await q("SELECT live, featured, draft FROM offers WHERE id=$1", [id])
   )[0];
@@ -1419,12 +1743,19 @@ export async function setOfferState(
     }
   }
   if (featured !== null) {
-    await q("UPDATE offers SET featured = NULL WHERE featured = $1 AND id <> $2", [featured, id]);
+    let featuredScope = "";
+    const featuredParams: Array<string | number> = [featured, id];
+    if (organizationId) {
+      featuredParams.push(organizationId);
+      featuredScope = ` AND id IN (SELECT id FROM offers o JOIN properties p ON p.id = o.property_id WHERE p.organization_id = $${featuredParams.length})`;
+    }
+    await q(`UPDATE offers SET featured = NULL WHERE featured = $1 AND id <> $2${featuredScope}`, featuredParams);
   }
   await q("UPDATE offers SET live=$2, featured=$3, draft=$4 WHERE id=$1", [id, live, featured, draft]);
 }
 
-export async function deleteOffer(id: number): Promise<void> {
+export async function deleteOffer(id: number, organizationId?: string | null): Promise<void> {
+  await requireOrgOwned(organizationId, "offers", id);
   await q("DELETE FROM offers WHERE id=$1", [id]);
 }
 

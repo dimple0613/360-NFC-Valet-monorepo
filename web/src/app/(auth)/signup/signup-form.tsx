@@ -13,7 +13,14 @@ const SCHEMA = Yup.object({
   password: Yup.string().min(12, "Password must be at least 12 characters.").required("Password is required."),
 });
 
-export function SignupForm() {
+export function SignupForm({
+  title = "Create your organization",
+  subtitle = "Set up your organization in a minute",
+}: {
+  /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
+  title?: string;
+  subtitle?: string;
+}) {
   const formik = useFormik({
     initialValues: { organizationName: "", name: "", email: "", password: "" },
     validationSchema: SCHEMA,
@@ -43,8 +50,8 @@ export function SignupForm() {
 
   return (
     <div>
-      <div className="login-title">Create your organization</div>
-      <div className="login-desc">Set up your organization in a minute</div>
+      <div className="login-title">{title}</div>
+      <div className="login-desc">{subtitle}</div>
       <form className="login-form" onSubmit={formik.handleSubmit} noValidate>
         <div className="login-fields">
           <div>

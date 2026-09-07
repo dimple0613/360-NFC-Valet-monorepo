@@ -23,12 +23,17 @@ export function LoginForm({
   showGoogle,
   showApple,
   adapterProviders = [],
+  title = "Welcome back",
+  subtitle = "Sign in to your saasclaude account",
 }: {
   oauthError: string | null;
   showGoogle: boolean;
   showApple: boolean;
   /** Registry-driven providers (oauth-registry.ts) that report as configured+enabled right now — e.g. Microsoft/Entra ID once a Super Admin sets it up. Unlike showGoogle/showApple, this list isn't hardcoded here: a brand-new adapter shows up with zero changes to this component. */
   adapterProviders?: AdapterLoginOption[];
+  /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
+  title?: string;
+  subtitle?: string;
 }) {
   const [showPw, setShowPw] = useState(false);
   const [keep, setKeep] = useState(true);
@@ -63,8 +68,8 @@ export function LoginForm({
       {oauthError ? (
         <div className="login-error">{oauthError}</div>
       ) : null}
-      <div className="login-title">Welcome back</div>
-      <div className="login-desc">Sign in to your saasclaude account</div>
+      <div className="login-title">{title}</div>
+      <div className="login-desc">{subtitle}</div>
       <form className="login-form" onSubmit={formik.handleSubmit} noValidate>
         {hasOAuthOptions ? (
           <>

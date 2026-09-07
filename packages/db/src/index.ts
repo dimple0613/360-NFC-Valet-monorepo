@@ -76,6 +76,12 @@ export {
   setSecurityDefaultSettings,
   DEFAULT_INVOICE_NUMBER_FORMAT,
   CAPTCHA_PROVIDERS,
+  normalizeBrandImage,
+  ALLOWED_BRAND_IMAGE_MIMES,
+  MAX_BRAND_IMAGE_DATA_URL_LENGTH,
+  PAGE_CONTENT_DEFAULTS,
+  getPageContentSettings,
+  setPageContentSettings,
 } from "./platform-config";
 export type {
   BrandingSettings,
@@ -83,6 +89,8 @@ export type {
   SecurityDefaultSettings,
   SetSecurityDefaultSettingsInput,
   CaptchaProvider,
+  PageContentSettings,
+  PageContentKey,
 } from "./platform-config";
 
 export { encrypt, decrypt, MissingEncryptionKeyError } from "./encryption";
@@ -240,6 +248,7 @@ export {
   DuplicateGlobalRoleNameError,
   OWNER_ROLE_SLUG,
   seedDefaultRoles,
+  reconcileDefaultRolePermissions,
 } from "./roles";
 export type {
   RoleWithPermissionKeys,

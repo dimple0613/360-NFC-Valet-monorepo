@@ -36,9 +36,11 @@ type Portal = "console" | "tenant-admin" | "super-admin";
 
 // The App Router serves every portal (Super Admin, Tenant Admin) plus the
 // marketing/auth routes. Errors thrown inside a portal should send the user
-// back to THAT portal (dashboard + login) — never to the legacy /console app
-// that owns its own 404 page. Detect the portal from the current path so the
-// per-status handlers (forbidden.tsx / not-found.tsx / unauthorized.tsx /
+// back to THAT portal (dashboard + login). There is no App-Router "console"
+// portal anymore — legacy /console lives in the separate mobile-web app — so
+// the catch-all (auth pages, marketing, unknown) routes to the Super Admin
+// portal, not a dead /console/* path. Detect the portal from the current path
+// so the per-status handlers (forbidden.tsx / not-found.tsx / unauthorized.tsx /
 // error.tsx) all route users correctly without repeating the logic.
 function usePortal(): Portal {
   const pathname = usePathname() ?? "";
@@ -65,8 +67,11 @@ const PORTAL_BRAND: Record<Portal, { brand: string; headline: string; sub: strin
   },
 };
 
+// There is no App-Router /console portal (legacy /console is a separate app),
+// so the "console" fallback routes to the Super Admin portal, which is the
+// platform operations home for any signed-in admin.
 const PORTAL_ACTIONS: Record<Portal, { dashboard: string; login: string }> = {
-  console: { dashboard: "/console/dashboard", login: "/console/login" },
+  console: { dashboard: "/super-admin", login: "/login" },
   "tenant-admin": { dashboard: "/tenant-admin", login: "/login" },
   "super-admin": { dashboard: "/super-admin", login: "/login" },
 };
@@ -78,6 +83,9 @@ export default function ErrorShell({
   actions,
   headline,
   sub,
+  brandName,
+  copyright,
+  logoLightUrl,
 }: {
   status: string;
   title: string;
@@ -85,9 +93,15 @@ export default function ErrorShell({
   actions: ErrorAction[];
   headline?: string;
   sub?: string;
+  /** Platform-configured brand identity (Settings > Branding) — overrides the per-portal defaults. */
+  brandName?: string;
+  copyright?: string;
+  logoLightUrl?: string | null;
 }) {
   const portal = usePortal();
   const brand = PORTAL_BRAND[portal];
+  const resolvedBrandName = brandName || brand.brand;
+  const resolvedCopyright = copyright ?? "© 2026 We Want 360 · Dubai, UAE";
 
   // For the Super Admin and Tenant Admin portals, override the caller's
   // console-centric links with portal-correct ones, but keep any in-place
@@ -132,16 +146,26 @@ export default function ErrorShell({
               width: 42,
               height: 42,
               borderRadius: 13,
-              background: SUNSET_GRADIENT,
+              background: logoLightUrl ? "transparent" : SUNSET_GRADIENT,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              overflow: "hidden",
             }}
           >
-            <LogoIcon size={22} />
+            {logoLightUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoLightUrl}
+                alt=""
+                style={{ objectFit: "contain", maxWidth: "100%", maxHeight: "100%" }}
+              />
+            ) : (
+              <LogoIcon size={22} />
+            )}
           </div>
           <span style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>
-            {brand.brand}
+            {resolvedBrandName}
           </span>
         </div>
 
@@ -173,7 +197,7 @@ export default function ErrorShell({
         </div>
 
         <div style={{ fontSize: 11.5, color: "#5e6f8f", fontWeight: 600 }}>
-          © 2026 We Want 360 · Dubai, UAE
+          {resolvedCopyright}
         </div>
       </div>
 

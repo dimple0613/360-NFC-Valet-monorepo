@@ -126,6 +126,46 @@ export async function seedDefaultRoles(organizationId: string): Promise<{ ownerR
   return { ownerRoleId };
 }
 
+/**
+ * Brings an existing org's default roles in line with the CURRENT
+ * DEFAULT_ROLE_DEFINITIONS — additive only, never removes a granted
+ * permission. seedDefaultRoles snapshots "every registered TENANT permission"
+ * at the moment the org is created; when new TENANT-scope permissions get
+ * registered later (a module like valet landing after the org already
+ * exists), pre-existing Owner/Admin roles would permanently lack them —
+ * which is exactly how the first valet.* permissions were missed by the two
+ * audit orgs until this backfill ran. Idempotent and safe to re-run.
+ */
+export async function reconcileDefaultRolePermissions(organizationId: string): Promise<void> {
+  const tenantPermissions = await prismaWithoutTenantScoping.permission.findMany({ where: { scope: "TENANT" } });
+  const permissionIdByKey = new Map(tenantPermissions.map((p) => [p.key, p.id]));
+
+  await runWithTenant(organizationId, async () => {
+    for (const definition of DEFAULT_ROLE_DEFINITIONS) {
+      const role = await db.role.findFirst({ where: { organizationId, slug: slugify(definition.name) } });
+      if (!role) continue;
+
+      const current = await db.rolePermission.findMany({
+        where: { roleId: role.id },
+        select: { permissionId: true },
+      });
+      const owned = new Set(current.map((rp) => rp.permissionId));
+
+      const keys = definition.permissionKeys ?? [...permissionIdByKey.keys()];
+      const excluded = new Set(definition.excludeKeys ?? []);
+      const missing = keys
+        .filter((key) => !excluded.has(key))
+        .map((key) => permissionIdByKey.get(key))
+        .filter((permissionId): permissionId is string => permissionId !== undefined && !owned.has(permissionId))
+        .map((permissionId) => ({ roleId: role.id, permissionId, organizationId }));
+
+      if (missing.length > 0) {
+        await db.rolePermission.createMany({ data: missing });
+      }
+    }
+  });
+}
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
