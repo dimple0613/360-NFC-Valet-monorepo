@@ -74,6 +74,8 @@ export {
   formatInvoiceNumber,
   getSecurityDefaultSettings,
   setSecurityDefaultSettings,
+  verifyCaptcha,
+  CAPTCHA_V3_MIN_SCORE,
   DEFAULT_INVOICE_NUMBER_FORMAT,
   CAPTCHA_PROVIDERS,
   normalizeBrandImage,

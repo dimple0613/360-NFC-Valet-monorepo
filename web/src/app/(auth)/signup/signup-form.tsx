@@ -1,10 +1,13 @@
 "use client";
 
+import { useRef } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
 import Link from "next/link";
 import { signupAction, type SignupFormState } from "./actions";
+import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
+import type { AuthCaptchaConfig } from "../login/login-form";
 
 const SCHEMA = Yup.object({
   organizationName: Yup.string().required("Organization name is required."),
@@ -16,15 +19,45 @@ const SCHEMA = Yup.object({
 export function SignupForm({
   title = "Create your organization",
   subtitle = "Set up your organization in a minute",
+  captcha,
 }: {
   /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
   title?: string;
   subtitle?: string;
+  /** CAPTCHA config from Settings > General > Security defaults; renders the widget and verifies the token when a provider is configured. */
+  captcha?: AuthCaptchaConfig;
 }) {
+  const captchaRef = useRef<CaptchaWidgetHandle>(null);
+  const captchaEnabled = !!captcha && captcha.provider !== "none" && !!captcha.siteKey;
+
   const formik = useFormik({
     initialValues: { organizationName: "", name: "", email: "", password: "" },
     validationSchema: SCHEMA,
     onSubmit: async (values, { setSubmitting }) => {
+      if (captchaEnabled) {
+        const token = (await captchaRef.current?.getToken()) ?? null;
+        if (!token) {
+          toast.error("Please complete the security check before creating your account.");
+          setSubmitting(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.set("organizationName", values.organizationName);
+        formData.set("name", values.name);
+        formData.set("email", values.email);
+        formData.set("password", values.password);
+        formData.set("captchaToken", token);
+        let state: SignupFormState | null = null;
+        try {
+          state = await signupAction({ error: null }, formData);
+        } catch {
+          state = null;
+        }
+        if (state?.error) toast.error(state.error);
+        captchaRef.current?.reset();
+        setSubmitting(false);
+        return;
+      }
       const formData = new FormData();
       formData.set("organizationName", values.organizationName);
       formData.set("name", values.name);
@@ -32,10 +65,10 @@ export function SignupForm({
       formData.set("password", values.password);
       let state: SignupFormState | null = null;
       try {
-        state = await signupAction({ error: null }, formData);
-      } catch {
         // signupAction redirect()s on success — Next handles the navigation and
         // the awaited call throws NEXT_REDIRECT, which we treat as success.
+        state = await signupAction({ error: null }, formData);
+      } catch {
         state = null;
       }
       if (state?.error) toast.error(state.error);
@@ -137,6 +170,8 @@ export function SignupForm({
             {showPasswordError ? <div className="field-error">{formik.errors.password}</div> : null}
           </div>
         </div>
+        <CaptchaWidget ref={captchaRef} provider={captcha?.provider ?? "none"} siteKey={captcha?.siteKey ?? null} action="signup" />
+
         <button className="btn-login" type="submit" disabled={formik.isSubmitting}>
           {formik.isSubmitting ? "Creating account..." : "Create account"}
         </button>

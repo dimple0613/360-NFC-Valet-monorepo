@@ -1,4 +1,4 @@
-import { getPageContentSettings, isAppleConfigured, isGoogleConfigured, listOAuthProviderStatuses } from "@saasclaude/db";
+import { getPageContentSettings, getSecurityDefaultSettings, isAppleConfigured, isGoogleConfigured, listOAuthProviderStatuses } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { LoginForm } from "./login-form";
 
@@ -19,6 +19,10 @@ export default async function LoginPage({
 
   // Page copy is configurable via Settings > Pages & content.
   const content = await getPageContentSettings();
+  // CAPTCHA config comes from Settings > General > Security defaults — the
+  // site key is the only part that makes it to the browser; the secret stays
+  // server-side for verifyCaptcha() in the login action.
+  const security = await getSecurityDefaultSettings();
 
   return (
     <>
@@ -34,6 +38,7 @@ export default async function LoginPage({
         adapterProviders={adapterProviders}
         title={content.loginTitle}
         subtitle={content.loginSubtitle}
+        captcha={{ provider: security.captchaProvider, siteKey: security.captchaSiteKey }}
       />
     </>
   );

@@ -1,9 +1,10 @@
-import { getPageContentSettings } from "@saasclaude/db";
+import { getPageContentSettings, getSecurityDefaultSettings } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { SignupForm } from "./signup-form";
 
 export default async function SignupPage() {
   const content = await getPageContentSettings();
+  const security = await getSecurityDefaultSettings();
   return (
     <>
       <AuthLeftContent
@@ -11,7 +12,11 @@ export default async function SignupPage() {
         sub={content.signupHeroSub}
         showStats={false}
       />
-      <SignupForm title={content.signupTitle} subtitle={content.signupSubtitle} />
+      <SignupForm
+        title={content.signupTitle}
+        subtitle={content.signupSubtitle}
+        captcha={{ provider: security.captchaProvider, siteKey: security.captchaSiteKey }}
+      />
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { getSecurityDefaultSettings } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { ResetPasswordForm } from "./reset-password-form";
 
@@ -8,6 +9,7 @@ export default async function ResetPasswordPage({
 }) {
   const { token } = await searchParams;
   const hasToken = !!token;
+  const security = await getSecurityDefaultSettings();
   return (
     <>
       <AuthLeftContent
@@ -19,7 +21,10 @@ export default async function ResetPasswordPage({
         }
         showStats={false}
       />
-      <ResetPasswordForm token={token ?? ""} />
+      <ResetPasswordForm
+        token={token ?? ""}
+        captcha={{ provider: security.captchaProvider, siteKey: security.captchaSiteKey }}
+      />
     </>
   );
 }

@@ -1,15 +1,20 @@
 "use server";
 
-import { checkRateLimit, requestPasswordReset, resolveEmailSender } from "@saasclaude/db";
+import { checkRateLimit, requestPasswordReset, resolveEmailSender, verifyCaptcha } from "@saasclaude/db";
 
 export interface ForgotPasswordFormState {
   submitted: boolean;
+  error?: string | null;
 }
 
 export async function forgotPasswordAction(
   _prevState: ForgotPasswordFormState,
   formData: FormData,
 ): Promise<ForgotPasswordFormState> {
+  // Anti-bot gate before even looking at the address.
+  if (!(await verifyCaptcha(String(formData.get("captchaToken") ?? "")))) {
+    return { submitted: false, error: "CAPTCHA verification failed. Please try again." };
+  }
   const email = String(formData.get("email") ?? "").trim();
   if (email) {
     // NFR-2: throttle repeated reset requests per email (mitigates

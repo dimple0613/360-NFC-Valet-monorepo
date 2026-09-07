@@ -9,6 +9,7 @@ import {
   InvalidCredentialsError,
   login,
   RateLimitExceededError,
+  verifyCaptcha,
 } from "@saasclaude/db";
 import { setSessionCookie } from "@/lib/auth/session";
 import { setWsTokenCookie } from "@/lib/auth/ws-token";
@@ -23,6 +24,12 @@ export async function loginAction(_prevState: LoginFormState, formData: FormData
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) return { error: "Email and password are required." };
+
+  // Verify the form's CAPTCHA token before touching credentials. verifyCaptcha
+  // is a no-op (returns true) when no provider/keys are configured.
+  if (!(await verifyCaptcha(String(formData.get("captchaToken") ?? "")))) {
+    return { error: "CAPTCHA verification failed. Please try again." };
+  }
 
   let result;
   try {

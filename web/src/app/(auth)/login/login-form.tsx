@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
 import { CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
+import type { CaptchaProvider } from "@saasclaude/db";
 import { loginAction } from "./actions";
+import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
 
 export interface AdapterLoginOption {
   id: string;
   displayName: string;
+}
+
+export interface AuthCaptchaConfig {
+  provider: CaptchaProvider;
+  siteKey: string | null;
 }
 
 const SCHEMA = Yup.object({
@@ -25,6 +32,7 @@ export function LoginForm({
   adapterProviders = [],
   title = "Welcome back",
   subtitle = "Sign in to your saasclaude account",
+  captcha,
 }: {
   oauthError: string | null;
   showGoogle: boolean;
@@ -34,9 +42,14 @@ export function LoginForm({
   /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
   title?: string;
   subtitle?: string;
+  /** CAPTCHA config from Settings > General > Security defaults; renders the widget and verifies the token when a provider is configured. */
+  captcha?: AuthCaptchaConfig;
 }) {
   const [showPw, setShowPw] = useState(false);
   const [keep, setKeep] = useState(true);
+  const captchaRef = useRef<CaptchaWidgetHandle>(null);
+
+  const captchaEnabled = !!captcha && captcha.provider !== "none" && !!captcha.siteKey;
 
   const hasOAuthOptions = showGoogle || showApple || adapterProviders.length > 0;
 
@@ -44,15 +57,37 @@ export function LoginForm({
     initialValues: { email: "", password: "" },
     validationSchema: SCHEMA,
     onSubmit: async (values, { setSubmitting }) => {
+      if (captchaEnabled) {
+        const token = (await captchaRef.current?.getToken()) ?? null;
+        if (!token) {
+          toast.error("Please complete the security check before signing in.");
+          setSubmitting(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.set("email", values.email);
+        formData.set("password", values.password);
+        formData.set("captchaToken", token);
+        let state;
+        try {
+          state = await loginAction({ error: null }, formData);
+        } catch {
+          state = null;
+        }
+        if (state?.error) toast.error(state.error);
+        captchaRef.current?.reset();
+        setSubmitting(false);
+        return;
+      }
       const formData = new FormData();
       formData.set("email", values.email);
       formData.set("password", values.password);
       let state;
       try {
-        state = await loginAction({ error: null }, formData);
-      } catch {
         // loginAction redirect()s on success — Next handles the navigation and
         // the awaited call throws NEXT_REDIRECT, which we treat as success.
+        state = await loginAction({ error: null }, formData);
+      } catch {
         state = null;
       }
       if (state?.error) toast.error(state.error);
@@ -174,6 +209,8 @@ export function LoginForm({
             Forgot your password?
           </Link>
         </div>
+
+        <CaptchaWidget ref={captchaRef} provider={captcha?.provider ?? "none"} siteKey={captcha?.siteKey ?? null} action="login" />
 
         <button className="btn-login" type="submit" disabled={formik.isSubmitting}>
           {formik.isSubmitting ? "Signing in…" : "Sign in"}

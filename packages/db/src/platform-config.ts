@@ -8,9 +8,11 @@ import { getPlatformSetting, setPlatformSetting } from "./settings";
 //
 // Wired consumers today: formatInvoiceNumber() (billing/invoices.ts),
 // isRegistrationEnabled() (web signup-flow), getBrandingSettings().siteName
-// (Super Admin shell). maintenance mode, require-2FA and the captcha fields
-// are persisted here but not yet enforced anywhere — the General page says
-// so inline rather than implying they work.
+// (Super Admin shell), the require-2FA gate (auth/local-provider.ts +
+// auth/oauth-provider.ts) and verifyCaptcha() (auth form actions). maintenance
+// mode is enforced by web/proxy.ts. The captcha fields are enforced end-to-end:
+// web renders the widget from the provider+site key and server actions verify
+// the token via verifyCaptcha() before proceeding.
 
 const KEYS = {
   siteName: "branding.site_name",
@@ -409,4 +411,66 @@ export async function setSecurityDefaultSettings(input: SetSecurityDefaultSettin
     );
   }
   await Promise.all(writes);
+}
+
+// --- CAPTCHA verification ---
+//
+// Server-side token verification for the auth forms' CAPTCHA widget. Fail-open
+// when CAPTCHA isn't configured at all or the config is unusable (no site key
+// means the widget can't even render, so there is never a token to verify);
+// fail-closed on a definitive _invalid_ token or an upstream verification
+// error once someone actually configured a provider+keys — the whole point of
+// the switch is blocking bots, and a degraded provider must not silently
+// unbolt the door. Recovery is a Super-Admin toggle off on the General page.
+
+const CAPTCHA_VERIFY_ENDPOINTS: Record<Exclude<CaptchaProvider, "none">, string> = {
+  recaptcha_v2: "https://www.google.com/recaptcha/api/siteverify",
+  recaptcha_v3: "https://www.google.com/recaptcha/api/siteverify",
+  hcaptcha: "https://hcaptcha.com/siteverify",
+};
+
+/** Default score floor for reCAPTCHA v3 (0.0–1.0; Google recommends 0.5). */
+export const CAPTCHA_V3_MIN_SCORE = 0.5;
+
+/**
+ * Verifies a CAPTCHA token against the configured provider.
+ *
+ * Returns `true` when verification passes, or when CAPTCHA isn't enforced
+ * (provider "none", or provider set but site key/secret missing — there is
+ * nothing meaningful to check). Returns `false` when a configured provider
+ * rejects the token or the upstream verification call itself fails, so the
+ * caller can refuse the request.
+ */
+export async function verifyCaptcha(token: string, minScore: number = CAPTCHA_V3_MIN_SCORE): Promise<boolean> {
+  const [provider, siteKey, secretKey] = await Promise.all([
+    getPlatformSetting<string>(KEYS.captchaProvider),
+    getPlatformSetting<string>(KEYS.captchaSiteKey),
+    getPlatformSetting<string>(KEYS.captchaSecretKey),
+  ]);
+  const captchaProvider = toCaptchaProvider(provider);
+  if (captchaProvider === "none") return true;
+  const siteKeyValue = nullableString(siteKey);
+  const secretValue = nullableString(secretKey);
+  if (!siteKeyValue || !secretValue) return true;
+
+  const body = new URLSearchParams();
+  body.set("secret", secretValue);
+  body.set("response", token);
+
+  try {
+    const response = await fetch(CAPTCHA_VERIFY_ENDPOINTS[captchaProvider], {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    if (!response.ok) return false;
+    const result = (await response.json()) as { success?: boolean; score?: number };
+    if (result.success !== true) return false;
+    if (captchaProvider === "recaptcha_v3") {
+      return typeof result.score === "number" && result.score >= minScore;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

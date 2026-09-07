@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { InvalidOrExpiredTokenError, resetPassword, WeakPasswordError } from "@saasclaude/db";
+import { InvalidOrExpiredTokenError, resetPassword, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
 
 export interface ResetPasswordFormState {
   error: string | null;
@@ -16,6 +16,11 @@ export async function resetPasswordAction(
 
   if (!token) return { error: "Missing reset token." };
   if (!password) return { error: "Enter a new password." };
+
+  // Anti-bot gate before consuming the reset token.
+  if (!(await verifyCaptcha(String(formData.get("captchaToken") ?? "")))) {
+    return { error: "CAPTCHA verification failed. Please try again." };
+  }
 
   try {
     await resetPassword(token, password);

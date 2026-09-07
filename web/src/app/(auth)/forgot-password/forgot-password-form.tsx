@@ -1,21 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
-import { forgotPasswordAction } from "./actions";
+import { forgotPasswordAction, type ForgotPasswordFormState } from "./actions";
+import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
+import type { AuthCaptchaConfig } from "../login/login-form";
 
 export function ForgotPasswordForm({
   title = "Reset your password",
   subtitle = "We'll email you a link to reset it",
+  captcha,
 }: {
   /** Configurable via Settings > Pages & content — defaults keep the historical copy. */
   title?: string;
   subtitle?: string;
+  /** CAPTCHA config from Settings > General > Security defaults; renders the widget and verifies the token when a provider is configured. */
+  captcha?: AuthCaptchaConfig;
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const captchaRef = useRef<CaptchaWidgetHandle>(null);
+  const captchaEnabled = !!captcha && captcha.provider !== "none" && !!captcha.siteKey;
 
   const formik = useFormik({
     initialValues: { email: "" },
@@ -23,6 +30,33 @@ export function ForgotPasswordForm({
       email: Yup.string().email("Enter a valid email address").required("Email is required"),
     }),
     onSubmit: async (values, { setSubmitting }) => {
+      if (captchaEnabled) {
+        const token = (await captchaRef.current?.getToken()) ?? null;
+        if (!token) {
+          toast.error("Please complete the security check before requesting a reset.");
+          setSubmitting(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.set("email", values.email);
+        formData.set("captchaToken", token);
+        let state: ForgotPasswordFormState | null = null;
+        try {
+          state = await forgotPasswordAction({ submitted: false }, formData);
+        } catch {
+          state = { submitted: false, error: "Something went wrong" };
+        }
+        if (state?.error) {
+          toast.error(state.error);
+          captchaRef.current?.reset();
+          setSubmitting(false);
+          return;
+        }
+        setSubmitted(true);
+        toast.success("Reset link sent");
+        setSubmitting(false);
+        return;
+      }
       try {
         const formData = new FormData();
         formData.set("email", values.email);
@@ -79,6 +113,8 @@ export function ForgotPasswordForm({
             {showEmailError ? <div className="field-error">{formik.errors.email}</div> : null}
           </div>
         </div>
+        <CaptchaWidget ref={captchaRef} provider={captcha?.provider ?? "none"} siteKey={captcha?.siteKey ?? null} action="forgot-password" />
+
         <button className="btn-login" type="submit" disabled={formik.isSubmitting}>
           {formik.isSubmitting ? "Sending..." : "Send reset link"}
         </button>

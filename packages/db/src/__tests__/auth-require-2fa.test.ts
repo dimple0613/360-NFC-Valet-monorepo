@@ -43,7 +43,7 @@ async function makeUser(email: string): Promise<{ id: string; email: string }> {
 }
 
   beforeAll(async () => {
-    await setSecurityDefaultSettings({ require2fa: true, captchaProvider: "none" });
+    await setSecurityDefaultSettings({ require2fa: true, captchaProvider: "none", captchaSiteKey: null });
   });
 
   afterAll(async () => {
@@ -94,7 +94,7 @@ async function makeUser(email: string): Promise<{ id: string; email: string }> {
   });
 
   it("with require-2FA off, an unenrolled user keeps logging straight in", async () => {
-    await setSecurityDefaultSettings({ require2fa: false, captchaProvider: "none" });
+    await setSecurityDefaultSettings({ require2fa: false, captchaProvider: "none", captchaSiteKey: null });
     const user = await makeUser(`req2fa-off-${runId}@example.com`);
     await expect(
       login({ email: user.email, password: "correct-horse-battery-staple" }),

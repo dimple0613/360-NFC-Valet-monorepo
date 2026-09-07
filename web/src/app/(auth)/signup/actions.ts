@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, WeakPasswordError } from "@saasclaude/db";
+import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
 import { signUpNewOrganization } from "@/lib/auth/signup-flow";
 import { setSessionCookie } from "@/lib/auth/session";
 
@@ -17,6 +17,11 @@ export async function signupAction(_prevState: SignupFormState, formData: FormDa
 
   if (!organizationName || !email || !password) {
     return { error: "Organization name, email, and password are required." };
+  }
+
+  // Anti-bot gate: the form token is verified server-side before signing up.
+  if (!(await verifyCaptcha(String(formData.get("captchaToken") ?? "")))) {
+    return { error: "CAPTCHA verification failed. Please try again." };
   }
 
   let sessionToken: string;

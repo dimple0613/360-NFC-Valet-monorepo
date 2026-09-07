@@ -1,9 +1,10 @@
-import { getPageContentSettings } from "@saasclaude/db";
+import { getPageContentSettings, getSecurityDefaultSettings } from "@saasclaude/db";
 import { AuthLeftContent } from "../auth-left";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export default async function ForgotPasswordPage() {
   const content = await getPageContentSettings();
+  const security = await getSecurityDefaultSettings();
   return (
     <>
       <AuthLeftContent
@@ -11,7 +12,11 @@ export default async function ForgotPasswordPage() {
         sub={content.forgotHeroSub}
         showStats={false}
       />
-      <ForgotPasswordForm title={content.forgotTitle} subtitle={content.forgotSubtitle} />
+      <ForgotPasswordForm
+        title={content.forgotTitle}
+        subtitle={content.forgotSubtitle}
+        captcha={{ provider: security.captchaProvider, siteKey: security.captchaSiteKey }}
+      />
     </>
   );
 }
