@@ -56,7 +56,7 @@ mobile_web/
 
 | View | Trigger | Notes |
 |---|---|---|
-| `landing` | no UID in the URL | NFC scan + manual entry |
+| `landing` | no UID in the URL | NFC scan |
 | `loading` | UID present, fetch in flight | spinner |
 | `error` | fetch failed | "Card not recognised" + retry |
 | `home` | loaded | hero, car strip, categories, featured offers |

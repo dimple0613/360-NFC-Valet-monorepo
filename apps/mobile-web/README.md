@@ -11,7 +11,7 @@ Guest-facing **tap page (Module 3)** for 360 NFC Valet. A mobile-first web app t
 | Styling      | Global CSS (`styles/globals.css`) + design tokens   |
 | Data source  | Admin console public API (`../admin`, port 3000)    |
 | Real-time    | socket.io-client (WebSocket server, port 3002)      |
-| NFC          | Web NFC (`NDEFReader`) on Android Chrome + manual entry |
+| NFC          | Web NFC (`NDEFReader`) on Android Chrome |
 
 ## Getting Started
 
@@ -81,7 +81,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown.
 
 - **Cards not found** — make sure the admin console is seeded and its API is reachable; the UID must match a card in `nfc_cards`.
 - **No real-time banners** — the WebSocket server on `:3002` is optional; the app still polls via manual reload.
-- **NFC button missing** — Web NFC needs Chrome on Android over HTTPS/`localhost`; use manual entry elsewhere.
+- **NFC button missing** — Web NFC needs Chrome on Android over HTTPS/`localhost`; the app no longer offers manual card-number entry.
 - **Port already in use** — `next dev -p 3001`.
 
 ## Documentation

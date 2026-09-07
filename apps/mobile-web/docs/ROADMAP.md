@@ -6,7 +6,7 @@ Planned work for the 360 NFC Valet Mobile Web (guest tap page). Items marked ✅
 
 - ✅ **1. Project scaffold** — Next.js 15 Pages Router + plain JS, design-system CSS, path alias `@/*`.
 - ✅ **2. Card lookup** — UID from the URL (`/t/<uid>`), resolve via `GET /api/public/tap/[uid]`.
-- ✅ **3. Landing screen** — Web NFC scan (`NDEFReader`) + manual card-number entry with validation.
+- ✅ **3. Landing screen** — Web NFC scan (`NDEFReader`); manual card-number entry was removed per product direction.
 
 ## Phase 2 — Guest core flow
 
@@ -38,7 +38,7 @@ Planned work for the 360 NFC Valet Mobile Web (guest tap page). Items marked ✅
 - ❌ **17. Push notifications / background updates** — countdown relies on an open tab today.
 - ❌ **18. Multi-language** — UI copy is English only.
 - ❌ **19. Guest history** — "my past visits" per card (needs a storage strategy; the app has no on-device persistence).
-- ⚠️ **20. Web NFC on iOS** — unavailable; manual entry remains the fallback.
+- ⚠️ **20. Web NFC on iOS** — unavailable; the landing shows an "NFC not available" notice (no manual entry).
 
 ## Immediate next steps
 

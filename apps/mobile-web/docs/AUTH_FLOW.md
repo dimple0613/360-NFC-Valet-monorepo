@@ -6,7 +6,7 @@
 
 ## Flow
 
-1. A guest taps an NFC-tagged valet card (or enters the card number manually on the landing screen).
+1. A guest taps an NFC-tagged valet card (the landing is NFC-scan only — manual card-number entry was removed).
 2. The app reads the UID from the URL (`/t/<uid>`, `/t/`, or `/?uid=<uid>`).
 3. `GET /api/public/tap/[uid]` resolves the UID to a card → property + order + offers.
 4. To get the car back, `POST /api/public/tap/[uid]` with `{ minutes }` flips the card's parked order to `returning` and stamps `guest_eta` — no authentication involved.

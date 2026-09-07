@@ -693,8 +693,6 @@ function normalizeSerial(serial) {
 function Landing({ onNavigate }) {
   const [nfcSupported, setNfcSupported] = useState(false);
   const [nfcScanning, setNfcScanning] = useState(false);
-  const [manualUid, setManualUid] = useState("");
-  const [manualOpen, setManualOpen] = useState(false);
   const [nfcError, setNfcError] = useState("");
   const ndefRef = useRef(null);
   const nfcAbortRef = useRef(null);
@@ -714,11 +712,11 @@ function Landing({ onNavigate }) {
 
   const startNfcScan = async () => {
     if (!("NDEFReader" in window)) {
-      setNfcError("Web NFC is only supported on Android Chrome. Use manual entry below.");
+      setNfcError("Web NFC is only supported on Android Chrome.");
       return;
     }
     if (typeof window.isSecureContext !== "undefined" && !window.isSecureContext) {
-      setNfcError("NFC needs a secure (HTTPS) connection. Use manual entry below.");
+      setNfcError("NFC needs a secure (HTTPS) connection.");
       return;
     }
     setNfcError("");
@@ -747,7 +745,7 @@ function Landing({ onNavigate }) {
         }
         const serial = normalizeSerial(serialNumber);
         if (serial) onNavigate(serial);
-        else setNfcError("Could not read this card. Enter the card number below.");
+        else setNfcError("Could not read this card.");
       });
       ndef.addEventListener("readingerror", () => {
         stopNfcScan();
@@ -761,15 +759,9 @@ function Landing({ onNavigate }) {
       setNfcError(
         e && e.name === "NotAllowedError"
           ? "NFC permission denied. Please allow NFC access and try again."
-          : "NFC not available. Use manual entry below."
+          : "NFC unavailable on this device."
       );
     }
-  };
-
-  const submitManual = (e) => {
-    e.preventDefault();
-    const val = manualUid.replace(/[^0-9]/g, "").trim();
-    if (val.length >= 4) onNavigate(val);
   };
 
   return (
@@ -786,7 +778,7 @@ function Landing({ onNavigate }) {
           360 NFC Valet
         </div>
         <div className="hero-property">Tap your card to begin</div>
-        <div className="hero-area">Scan your valet card or enter the card number below.</div>
+        <div className="hero-area">Scan your valet card.</div>
       </header>
       <main className="page-content">
         <div className="panel" style={{ padding: "24px 20px", marginTop: 16 }}>
@@ -810,34 +802,10 @@ function Landing({ onNavigate }) {
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 8v4m0 4h.01" />
                 </svg>
-                <span>NFC not available on this device — enter card number below</span>
+                <span>NFC not available on this device</span>
               </div>
             )}
             {nfcError && <div className="nfc-err">{nfcError}</div>}
-            <div className="nfc-divider"><span>or</span></div>
-            <button
-              type="button"
-              className="btn-ghost"
-              style={{ width: "100%" }}
-              onClick={() => setManualOpen((o) => !o)}
-            >
-              {manualOpen ? "Hide card number entry" : "Enter card number instead"}
-            </button>
-            {manualOpen && (
-              <form onSubmit={submitManual} style={{ marginTop: 12 }}>
-                <label className="nfc-label">Card number</label>
-                <input
-                  className="nfc-input"
-                  inputMode="numeric"
-                  placeholder="e.g. 7001"
-                  value={manualUid}
-                  onChange={(e) => setManualUid(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
-                />
-                <button type="submit" className="btn-dark" style={{ width: "100%" }} disabled={manualUid.replace(/[^0-9]/g, "").length < 4}>
-                  Look up card
-                </button>
-              </form>
-            )}
           </div>
         </div>
       </main>

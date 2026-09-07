@@ -7,7 +7,7 @@
 - `npm run build` — production build (catches compile/import errors).
 - `npm run lint` — ESLint.
 - Manual smoke tests against the running stack (admin `:3000`, mobile web `:3001`, socket `:3002`):
-  - landing → manual UID entry → card lookup
+  - landing → NFC tap (card UID) → card lookup
   - ETA request (stepper + preset chips) → live countdown → ready screen
   - WebSocket banner on a return-complete event
   - category browse → offer detail → staff-code validation (correct and wrong code)
@@ -48,7 +48,7 @@
 
 ### Component tests
 
-- **Landing** — NFC unsupported shows manual entry; short UID disables submit; submit navigates to `/t/<uid>`.
+- **Landing** — NFC unsupported shows "NFC not available" notice; (manual entry was removed); card scan navigates to `/t/<uid>`.
 - **Home** — renders property banner + car strip from mocked data; "no car" panel when `order` is null; ETA button opens the sheet.
 - **EtaSheet** — stepper clamps 5–30; preset chips set the value; submit calls `POST` with `minutes`; busy state.
 - **Status (C3)** — renders countdown + driver chip + 4 steps; hits 0 → ready view.
@@ -57,7 +57,7 @@
 
 ### E2E (Playwright)
 
-- Landing → manual UID → home → bring-my-car → countdown (mock the clock) → ready.
+- Landing/NFC tap, `/t/<uid>` → home → bring-my-car → countdown (mock the clock) → ready.
 - Offer detail → staff-code validation success + failure.
 - Unknown UID → "Card not recognised".
 

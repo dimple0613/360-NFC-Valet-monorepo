@@ -20,7 +20,7 @@
 
 ## Core Features
 
-- **Landing** — NFC scan (Web NFC / `NDEFReader` on Android Chrome) or manual card-number entry; looks up the card by UID.
+- **Landing** — NFC scan (Web NFC / `NDEFReader` on Android Chrome); looks up the card by UID. Per product direction the manual card-number entry was removed — the app is NFC-scan only.
 - **Home (C1)** — property banner, "Bring my car" hero, car strip (card, plate, zone), category grid, featured offers row.
 - **Bring my car (ETA sheet)** — bottom sheet with a 5–30 min stepper + preset chips; POSTs to the public tap API.
 - **Live status (C3)** — countdown ring, driver chip, 4-step timeline (request → driver → on the move → ready), WebSocket live updates.
@@ -60,7 +60,7 @@ styles/         design system (globals.css)
 - Mobile-first, single-column, bottom-sheet and ring-countdown UI built with plain CSS in `styles/globals.css`.
 - Loading, empty, and error states on every data view (spinner, "no car" panel, "card not recognised").
 - Design tokens as CSS variables (`--primary`, `--navy-2`, …) shared with the admin console.
-- Web NFC scan icon pulses while scanning; a fallback manual entry is always available.
+- The Web NFC scan icon pulses while scanning; the app is NFC-scan only (no manual entry).
 
 **Status: Implemented**
 
@@ -76,7 +76,7 @@ styles/         design system (globals.css)
 ## Testing Requirements
 
 - Build + lint gate (`npm run build`, `npm run lint`).
-- Manual smoke tests: landing → manual lookup → tap with real UID → ETA request → live countdown → offer browse → staff-code validation.
+- Manual smoke tests: landing (NFC tap with real UID) → home → ETA request → live countdown → offer browse → staff-code validation.
 
 **Status: Smoke-tested end-to-end.** Automated tests are planned (see `docs/TESTING_STRATEGY.md`).
 
@@ -90,7 +90,8 @@ styles/         design system (globals.css)
 
 ## Decisions Required
 
-- Card lookup strategy for offline/no-card flows (manual entry only today; Web NFC is Android-only).
+- Card lookup strategy for offline/no-card flows (NFC-scan only today; Web NFC is Android-only).
+- Re-introduce an admin-gated card-number lookup if a no-NFC flow is ever needed.
 - Multi-language support (UI copy is English).
 - Push notifications vs in-page polling for the return status when the tab is backgrounded.
 - Deployment host for both the admin API and this app (Vercel / VPS).
@@ -121,7 +122,7 @@ styles/         design system (globals.css)
 
 | Requirement | Status | Notes |
 |---|---|---|
-| Landing (NFC scan + manual entry) | ✅ | `NDEFReader` on Android Chrome; manual fallback always available |
+| Landing (NFC scan) | ✅ | `NDEFReader` on Android Chrome; manual entry removed per product direction |
 | Home (C1) | ✅ | Property banner, bring-my-car hero, car strip, categories, featured offers |
 | ETA sheet | ✅ | 5–30 min stepper + preset chips |
 | Live status (C3) | ✅ | Countdown ring, driver chip, 4-step timeline |
@@ -160,6 +161,6 @@ styles/         design system (globals.css)
 
 ## Known Deviations
 
-1. **Web NFC** requires a secure context and Chrome on Android; iOS falls back to manual entry.
+1. **Web NFC** requires a secure context and Chrome on Android; on devices without NFC the landing shows an "NFC not available" notice (no manual entry).
 2. **No persistence on-device** — everything is server state on the admin console; reloading re-fetches.
 3. **The WebSocket server (`:3002`) is not part of this repo** — it runs separately (see `docs/DEPLOYMENT.md`).
