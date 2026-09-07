@@ -515,7 +515,7 @@ export function GeneralSettingsForms({
                 <FormField name="captchaSecretKey" label="CAPTCHA secret key" type="password" placeholder={security.captchaSecretConfigured ? "•••••••• — leave blank to keep current" : "Not set"} />
               </div>
               <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Stored, not yet enforced.</span> 2FA enforcement at sign-in and a CAPTCHA widget on the auth forms are not wired yet — these values are persisted for when they are.
+                <span className="font-medium text-foreground">Enforced.</span> With this on, a user without a second factor must enrol it (at /login/mfa/enroll) before any session is created — enforced for both local login and OAuth sign-in. The CAPTCHA widget on the auth forms is not wired yet.
               </p>
               <button type="submit" className="btn-primary w-fit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving…" : "Save security settings"}

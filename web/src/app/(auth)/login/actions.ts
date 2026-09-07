@@ -46,6 +46,11 @@ export async function loginAction(_prevState: LoginFormState, formData: FormData
     redirect("/login/mfa");
   }
 
+  if (result.status === "mfa_enrollment_required") {
+    await setPendingMfaCookie(result.userId);
+    redirect("/login/mfa/enroll");
+  }
+
   const organizationId = await getDefaultOrganizationId(result.userId);
   const { rawToken, session } = await createSession({ userId: result.userId, organizationId });
   await setSessionCookie(rawToken);

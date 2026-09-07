@@ -2,6 +2,7 @@ import { Apple, Google, decodeIdToken, generateCodeVerifier, generateState } fro
 import { decodeBase64IgnorePadding } from "@oslojs/encoding";
 import { prismaWithoutTenantScoping } from "../client";
 import { acceptPendingInviteForOAuthUser } from "../organization-invites";
+import { getSecurityDefaultSettings } from "../platform-config";
 import { MissingOAuthConfigError, OAuthAuthenticationError, type OAuthAuthorizeResult, type OAuthProfile } from "./oauth-adapter";
 
 // FR-220's provider architecture: Google and Apple are the first two OAuth2/
@@ -156,7 +157,10 @@ export async function listLinkedOAuthAccounts(userId: string): Promise<{ provide
 export interface ResolvedOAuthSignIn {
   userId: string;
   isNewUser: boolean;
+  /** User has a second factor enrolled — send them through the /login/mfa challenge. */
   mfaRequired: boolean;
+  /** Platform-wide "Require 2FA" is on but this user has no second factor — send them through /login/mfa/enroll before any session is created. Mutually exclusive with mfaRequired (a user with a factor challenges, one without must enrol). */
+  mfaEnrollmentRequired: boolean;
   /** Set when a brand-new user's email matched a pending invite, which was auto-accepted — the caller skips the "name your organization" screen and lands them straight in this org. */
   joinedOrganizationId: string | null;
 }
@@ -177,7 +181,7 @@ export async function resolveOAuthSignIn(profile: OAuthProfile): Promise<Resolve
   });
   if (existingLink) {
     const user = await prismaWithoutTenantScoping.user.findUniqueOrThrow({ where: { id: existingLink.userId } });
-    return { userId: user.id, isNewUser: false, mfaRequired: user.mfaEnabled, joinedOrganizationId: null };
+    return resolvedFor(user, false);
   }
 
   const userByEmail = await prismaWithoutTenantScoping.user.findUnique({ where: { email: profile.email } });
@@ -200,14 +204,40 @@ export async function resolveOAuthSignIn(profile: OAuthProfile): Promise<Resolve
   });
 
   if (!isNewUser) {
-    return { userId: user.id, isNewUser: false, mfaRequired: user.mfaEnabled, joinedOrganizationId: null };
+    return resolvedFor(user, false);
   }
 
   const acceptedInvite = await acceptPendingInviteForOAuthUser(profile.email, user.id);
   return {
     userId: user.id,
     isNewUser: true,
-    mfaRequired: false, // a brand-new account can't have MFA enabled yet
+    ...(await enrollmentFlagsFor(user)),
     joinedOrganizationId: acceptedInvite?.organizationId ?? null,
+  };
+}
+
+async function enrollmentFlagsFor(user: { id: string; mfaEnabled: boolean }): Promise<{
+  mfaRequired: boolean;
+  mfaEnrollmentRequired: boolean;
+}> {
+  /** A brand-new account can't have a factor yet, but the platform-wide require-2FA toggle still forces enrollment before a session is created. */
+  const security = await getSecurityDefaultSettings();
+  return {
+    mfaRequired: user.mfaEnabled,
+    mfaEnrollmentRequired: security.require2fa && !user.mfaEnabled,
+  };
+}
+
+async function resolvedFor(
+  user: { id: string; mfaEnabled: boolean },
+  isNewUser: boolean,
+): Promise<ResolvedOAuthSignIn> {
+  return {
+    userId: user.id,
+    isNewUser,
+    // Enforced the same way as local login: an enrolled user challenges, an
+    // unenrolled one must enrol before a session is created.
+    ...(await enrollmentFlagsFor(user)),
+    joinedOrganizationId: null,
   };
 }

@@ -7,7 +7,9 @@ import { cookies } from "next/headers";
 // is still the TOTP/recovery code check itself, not secrecy of this id.
 
 const PENDING_MFA_COOKIE = "pending_mfa_user_id";
-const PENDING_MFA_MAX_AGE_SECONDS = 5 * 60;
+// Long enough to cover the require-2FA *enrollment* step (scanning a fresh QR,
+// installing an authenticator app) without being a usable window to hold open.
+const PENDING_MFA_MAX_AGE_SECONDS = 15 * 60;
 
 export async function setPendingMfaCookie(userId: string): Promise<void> {
   const cookieStore = await cookies();

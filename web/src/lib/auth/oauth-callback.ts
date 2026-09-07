@@ -7,10 +7,12 @@ import { setPendingOrgNameCookie } from "./pending-org-name";
 
 /**
  * Shared post-authentication branching for both Google and Apple callbacks —
- * same resolution outcome, same three destinations, regardless of which
- * provider ran:
+ * same resolution outcome, same destinations, regardless of which provider ran:
  *  - MFA is a property of the account, not the login method, so it's still
- *    enforced here exactly like local login (same pending-mfa cookie + /login/mfa).
+ *    enforced here exactly like local login (same pending-mfa cookie).
+ *    Challenge first (/login/mfa); when the platform-wide "Require 2FA"
+ *    toggle is on and the user has no factor, force enrollment first
+ *    (/login/mfa/enroll) before any session is created.
  *  - A brand-new user with no matching pending invite names their own org
  *    next (Google/Apple don't hand us an organization name).
  *  - Everyone else (existing account, or a new user who auto-joined a
@@ -18,6 +20,11 @@ import { setPendingOrgNameCookie } from "./pending-org-name";
  */
 export async function finishOAuthSignIn(profile: OAuthProfile, baseUrl: string): Promise<NextResponse> {
   const result = await resolveOAuthSignIn(profile);
+
+  if (result.mfaEnrollmentRequired) {
+    await setPendingMfaCookie(result.userId);
+    return NextResponse.redirect(`${baseUrl}/login/mfa/enroll`);
+  }
 
   if (result.mfaRequired) {
     await setPendingMfaCookie(result.userId);

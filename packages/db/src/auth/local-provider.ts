@@ -6,6 +6,7 @@ import { consoleEmailSender, type EmailSender } from "./email-sender";
 import { revokeAllUserSessions } from "./session";
 import { verifyAndConsumeRecoveryCode, verifyMfaCode } from "./mfa";
 import { maybeGrantBootstrapSuperAdmin } from "./platform-bootstrap";
+import { getSecurityDefaultSettings } from "../platform-config";
 
 // FR-220: Local (email+password) provider — signup, login, password reset,
 // email verification.
@@ -100,7 +101,11 @@ export async function verifyEmail(rawToken: string): Promise<void> {
   await prismaWithoutTenantScoping.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
 }
 
-export type LoginResult = { status: "ok"; userId: string } | { status: "mfa_required"; userId: string };
+export type LoginResult =
+  | { status: "ok"; userId: string }
+  | { status: "mfa_required"; userId: string }
+  | /** Platform-wide "Require 2FA" (security.require_2fa) is on but this user has no second factor yet — they must enrol before a session is created. */
+  { status: "mfa_enrollment_required"; userId: string };
 
 /** Credential check only — the AuthProvider contract's "authenticate" step. Session creation is a separate concern (session.ts), orchestrated by whatever calls login() (route/action, not yet built). */
 export async function login(input: { email: string; password: string }): Promise<LoginResult> {
@@ -109,6 +114,16 @@ export async function login(input: { email: string; password: string }): Promise
 
   if (!user || !user.passwordHash || !passwordMatches) throw new InvalidCredentialsError();
   if (user.status !== "ACTIVE") throw new AccountNotActiveError();
+
+  // FR security defaults: when the Super Admin has toggled "Require 2FA" on,
+  // a user who can't prove a second factor never reaches a session — they get
+  // routed to MFA *enrollment* (not the challenge, which requires a factor
+  // they don't have yet). An enrolled user's normal challenge still applies.
+  if ((await getSecurityDefaultSettings()).require2fa) {
+    return user.mfaEnabled
+      ? { status: "mfa_required", userId: user.id }
+      : { status: "mfa_enrollment_required", userId: user.id };
+  }
 
   return user.mfaEnabled ? { status: "mfa_required", userId: user.id } : { status: "ok", userId: user.id };
 }
