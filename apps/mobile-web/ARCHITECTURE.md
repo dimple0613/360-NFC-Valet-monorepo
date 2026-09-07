@@ -67,6 +67,8 @@ mobile_web/
 
 Request state is tracked as `request` (`{ eta, minutes }`) — the countdown runs from `request.eta` against a 1s `useNow` clock; when it reaches 0 the app switches to the `ready` view.
 
+Countdown surfaces (`status-count` on the status hero, the header `pill-eta`/`pill-eta-glass`, and the `status` view ring) only render while the timer is actually running (`leftMs > 0`). With no ETA yet (`leftMs == null`) or once the ETA is reached/overdue (`leftMs == 0`) they fall back to the `head-spacer` (hero/header) or a non-numeric ring label (`Now`, `waiting for driver ETA`) instead of a misleading `00:00`.
+
 ## Data Flow
 
 ```

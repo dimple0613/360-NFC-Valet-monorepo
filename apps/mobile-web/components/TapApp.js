@@ -194,7 +194,7 @@ function StatusHero({ order, leftMs, onViewStatus }) {
           {car || "Your car"} is heading to the curb — tap for live status
         </span>
       </span>
-      <span className="status-count">{mmss(leftMs)}</span>
+      {leftMs > 0 ? <span className="status-count">{mmss(leftMs)}</span> : null}
     </button>
   );
 }
@@ -349,12 +349,13 @@ function EtaSheet({ open, onClose, onSubmit, busy, order, card, error }) {
 
 function RequestState({ order, request, leftMs, onBack, onDone }) {
   const total = Math.max(1, request.minutes * 60);
-  const left = Math.max(0, Math.ceil(leftMs / 1000));
+  const counting = leftMs != null && leftMs > 0;
+  const left = counting ? Math.ceil(leftMs / 1000) : 0;
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
   const R = 102;
   const CIRC = 2 * Math.PI * R;
-  const frac = left / total;
+  const frac = counting ? left / total : 0;
   const car = carName(order);
   const driver = order?.driver;
   const driverFirst = driver?.name?.split(" ")[0] || "Valet";
@@ -397,8 +398,17 @@ function RequestState({ order, request, leftMs, onBack, onDone }) {
             />
           </svg>
           <div className="c3-ring-time">
-            <b>{mm}:{ss}</b>
-            <span>{left === 0 ? "driver arriving any moment" : "until your car is out"}</span>
+            {counting ? (
+              <>
+                <b>{mm}:{ss}</b>
+                <span>until your car is out</span>
+              </>
+            ) : (
+              <>
+                <b>{leftMs != null ? "Now" : "ETA"}</b>
+                <span>{leftMs != null ? "driver arriving any moment" : "waiting for driver ETA"}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="driver-chip">
@@ -494,7 +504,7 @@ function Listing({ category, label, offers, onBack, onOpen, leftMs, onViewStatus
           </svg>
         </button>
         <div className="list-title">{label}</div>
-        {leftMs != null ? <CountdownPill leftMs={leftMs} onClick={onViewStatus} /> : <div className="head-spacer" />}
+        {leftMs > 0 ? <CountdownPill leftMs={leftMs} onClick={onViewStatus} /> : <div className="head-spacer" />}
       </div>
       <div className="list-chips">
         <button type="button" className={`list-chip${filter === "all" ? " active" : " idle"}`} onClick={() => setFilter("all")}>
