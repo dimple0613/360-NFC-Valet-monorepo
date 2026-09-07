@@ -169,7 +169,7 @@ function OfferImgCard({ offer, onOpen }) {
         <div className="offer-img-title">{offer.title}</div>
         <div className="offer-img-sub">
           AED {offer.price}
-          {offer.validatesValet ? " · validates valet" : ""}
+          {offer.validatesValet && offer.hasCode ? " · validates valet" : ""}
         </div>
       </div>
     </button>
@@ -583,7 +583,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
               <path d="M15 5l-7 7 7 7" />
             </svg>
           </button>
-          {leftMs != null ? <CountdownPill leftMs={leftMs} onClick={onViewStatus} glass /> : <div className="head-spacer" />}
+          {leftMs > 0 ? <CountdownPill leftMs={leftMs} onClick={onViewStatus} glass /> : <div className="head-spacer" />}
         </div>
       </div>
       <div className="detail-body">
@@ -625,7 +625,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
             </span>
           </a>
         )}
-          {offer.validatesValet && (
+          {offer.validatesValet && offer.hasCode && (
           <>
             <div className="validate-box">
               <div className="validate-icon">
