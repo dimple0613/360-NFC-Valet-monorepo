@@ -1519,6 +1519,7 @@ export async function getOffers(params: { property?: string | null; organization
       live: o.live,
       draft: o.draft,
       validatesValet: o.validates_valet,
+      staffCodeConfigured: Boolean(o.staff_code),
       endsOn: o.ends_on,
       views7d: o.views_7d,
       property: o.property,
@@ -1547,6 +1548,7 @@ export interface OfferTableItem {
   live: boolean;
   draft: boolean;
   validatesValet: boolean;
+  staffCodeConfigured: boolean;
   endsOn: string | null;
   views7d: number;
   property: string | null;
@@ -1624,7 +1626,8 @@ export async function listOffersForTable(params: {
   const rows = await q(
     `SELECT o.id, o.title, o.category, o.price, o.description, o.featured, o.live, o.draft,
             o.validates_valet, o.ends_on, o.views_7d, p.name AS property,
-            o.image_url, o.menu_url, o.was_price, o.rating, o.reviews, o.level, o.property_id
+            o.image_url, o.menu_url, o.was_price, o.rating, o.reviews, o.level, o.property_id,
+            o.staff_code
      FROM offers o
      LEFT JOIN properties p ON p.id = o.property_id
      ${where}
@@ -1646,6 +1649,7 @@ export async function listOffersForTable(params: {
       live: o.live,
       draft: o.draft,
       validatesValet: o.validates_valet,
+      staffCodeConfigured: Boolean(o.staff_code),
       endsOn: o.ends_on,
       views7d: o.views_7d,
       property: o.property,
@@ -1675,6 +1679,15 @@ export interface OfferInput {
   menuUrl?: string | null;
   wasPrice?: number | null;
   propertyId?: string | number | null;
+  validatesValet?: boolean;
+  staffCode?: string | null;
+}
+
+function normalizeStaffCode(code: string | null | undefined): string | null {
+  if (code == null || String(code).trim() === "") return null;
+  const clean = String(code).trim();
+  if (!/^\d{4}$/.test(clean)) throw new Error("Staff validation code must be exactly 4 digits");
+  return clean;
 }
 
 export async function createOffer(input: OfferInput, organizationId?: string | null): Promise<{ id: number }> {
@@ -1687,21 +1700,25 @@ export async function createOffer(input: OfferInput, organizationId?: string | n
     const props = await propertiesForScope(organizationId);
     propertyId = props[0]?.id ?? null;
   }
+  const validatesValet = input.validatesValet ?? true;
+  const staffCode = normalizeStaffCode(input.staffCode);
   await q(
     "SELECT setval('offers_id_seq', GREATEST((SELECT COALESCE(MAX(id),0) FROM offers), (SELECT last_value FROM offers_id_seq)))"
   );
   const rows = await q(
-    `INSERT INTO offers (property_id, title, category, price, description, live, validates_valet, views_7d, image_url, menu_url, was_price)
-     VALUES ($1,$2,$3,$4,$5,true,true,0,$6,$7,$8) RETURNING id`,
+    `INSERT INTO offers (property_id, title, category, price, description, live, validates_valet, views_7d, image_url, menu_url, was_price, staff_code)
+     VALUES ($1,$2,$3,$4,$5,true,$6,0,$7,$8,$9,$10) RETURNING id`,
     [
       propertyId,
       input.title,
       input.category || "Dining",
       Number(input.price),
       input.desc || null,
+      validatesValet,
       input.imageUrl || null,
       input.menuUrl || null,
       input.wasPrice == null ? null : Number(input.wasPrice),
+      staffCode,
     ]
   );
   return { id: Number(rows[0].id) };
@@ -1714,7 +1731,7 @@ export async function updateOffer(id: number, input: OfferInput, organizationId?
     if (!prop) throw new Error("Property not found");
   }
   const sets = ["title=$2", "category=$3", "price=$4", "description=$5", "image_url=$6", "menu_url=$7", "was_price=$8", "property_id=$9"];
-  const vals: Array<string | number | null> = [
+  const vals: Array<string | number | null | boolean> = [
     id,
     input.title,
     input.category || "Dining",
@@ -1725,6 +1742,14 @@ export async function updateOffer(id: number, input: OfferInput, organizationId?
     input.wasPrice == null ? null : Number(input.wasPrice),
     Number(input.propertyId) || null,
   ];
+  if (input.validatesValet !== undefined) {
+    sets.push(`validates_valet=$${vals.length + 1}`);
+    vals.push(Boolean(input.validatesValet));
+  }
+  if (input.staffCode !== undefined) {
+    sets.push(`staff_code=$${vals.length + 1}`);
+    vals.push(normalizeStaffCode(input.staffCode));
+  }
   await q(`UPDATE offers SET ${sets.join(", ")} WHERE id=$1`, vals);
 }
 

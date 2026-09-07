@@ -44,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ uid: str
 
     const { rows: offers } = await query(
       `SELECT id, title, category, price, was_price, description, featured, validates_valet,
-              rating, reviews, level, opens_at, closes_at, deal_tag, image_url, menu_url
+              rating, reviews, level, opens_at, closes_at, deal_tag, image_url, menu_url, staff_code
        FROM offers
        WHERE property_id = $1 AND live = true AND draft = false
        ORDER BY (featured IS NULL), featured, id`,
@@ -112,6 +112,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ uid: str
         desc: o.description,
         featured: o.featured,
         validatesValet: o.validates_valet,
+        hasCode: Boolean(o.staff_code),
         rating: Number(o.rating),
         reviews: Number(o.reviews),
         level: o.level,

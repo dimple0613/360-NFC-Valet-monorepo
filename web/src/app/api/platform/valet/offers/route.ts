@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
-  const { title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};
+  const { title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice, validatesValet, staffCode } = body || {};
   if (!title || !price) return NextResponse.json({ error: "Title and price are required" }, { status: 400 });
   try {
     const created = await createOffer({
@@ -44,6 +44,8 @@ export async function POST(req: Request) {
       imageUrl,
       menuUrl,
       wasPrice: wasPrice == null ? null : Number(wasPrice),
+      validatesValet: typeof validatesValet === "boolean" ? validatesValet : undefined,
+      staffCode: typeof staffCode === "string" ? staffCode : undefined,
     }, identity.session.organizationId ?? null);
     return NextResponse.json(created, { status: 201 });
   } catch (err: any) {
@@ -60,7 +62,7 @@ export async function PATCH(req: Request) {
   }
   const identity = await requireIdentity();
   const body = await req.json().catch(() => ({}));
-  const { id, remove, live, featured, draft, title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice } = body || {};
+  const { id, remove, live, featured, draft, title, price, category, desc, propertyId, imageUrl, menuUrl, wasPrice, validatesValet, staffCode } = body || {};
   const offerId = Number(id);
   if (!offerId) return NextResponse.json({ error: "Offer id is required" }, { status: 400 });
   const organizationId = identity.session.organizationId ?? null;
@@ -80,6 +82,8 @@ export async function PATCH(req: Request) {
         imageUrl,
         menuUrl,
         wasPrice: wasPrice == null ? null : Number(wasPrice),
+        validatesValet: typeof validatesValet === "boolean" ? validatesValet : undefined,
+        staffCode: typeof staffCode === "string" ? staffCode : undefined,
       }, organizationId);
       return NextResponse.json({ id, updated: true });
     }

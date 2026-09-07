@@ -282,7 +282,7 @@ export function OffersManager({
                 <div className="text-[11.5px] font-semibold text-[#6c7a93] mt-0.5">
                   {o.category} · AED {o.price}
                   {o.wasPrice ? ` (was AED ${o.wasPrice})` : ""}
-                  {o.validatesValet ? " · validates valet" : ""}
+                  {o.validatesValet && !o.staffCodeConfigured ? " · validates valet (no code set)" : o.validatesValet ? " · validates valet" : ""}
                   {o.property ? ` · ${o.property}` : ""}
                 </div>
                 {o.desc && (
@@ -557,6 +557,8 @@ export function OffersManager({
                     imageUrl: editing.imageUrl ?? "",
                     menuUrl: editing.menuUrl ?? "",
                     desc: editing.desc ?? "",
+                    validatesValet: editing.validatesValet,
+                    staffCodeConfigured: editing.staffCodeConfigured,
                   }}
                   onSuccess={() => {
                     setEditing(null);

@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Formik, Form } from "formik";
+import { useField, Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
-import { FormField, FormSelectField, FormTextareaField } from "@/components/console-form-field";
+import { FormField, FormSelectField, FormTextareaField, FormToggleField } from "@/components/console-form-field";
 
 const CATEGORIES = ["Dining", "Spa", "Deals", "Stay", "Gym", "Entertainment", "Pool", "Concierge", "Room Service", "Events"];
 
@@ -17,6 +17,10 @@ const SCHEMA = yup.object({
   imageUrl: yup.string().test("url-or-data", "Enter a valid URL", (v) => !v || v.startsWith("data:") || yup.string().url().isValidSync(v)),
   menuUrl: yup.string().test("url-or-data", "Enter a valid URL", (v) => !v || v.startsWith("data:") || yup.string().url().isValidSync(v)),
   desc: yup.string(),
+  validatesValet: yup.boolean(),
+  staffCode: yup
+    .string()
+    .test("four-digits", "Staff validation code must be exactly 4 digits", (v) => !v || /^\d{4}$/.test(String(v).trim())),
 });
 
 export interface OfferFormDefaults {
@@ -28,6 +32,8 @@ export interface OfferFormDefaults {
   imageUrl: string;
   menuUrl: string;
   desc: string;
+  validatesValet: boolean;
+  staffCodeConfigured: boolean;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -39,6 +45,39 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
+}
+
+function StaffCodeField({ configured }: { configured: boolean }) {
+  const [field, meta, helpers] = useField("staffCode");
+  const showHint = configured && !(meta.touched && meta.error);
+  return (
+    <div>
+      <div className="field">
+        <label className="field-label" htmlFor="staffCode">
+          Staff validation code
+        </label>
+        <input
+          id="staffCode"
+          name="staffCode"
+          className="field-value input"
+          placeholder={configured ? "Keep current code" : "4 digits"}
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          value={field.value}
+          onChange={(e) => helpers.setValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+          onBlur={field.onBlur}
+          style={{ letterSpacing: 4, fontVariantNumeric: "tabular-nums" }}
+        />
+      </div>
+      {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      {showHint ? (
+        <div style={{ fontSize: 11, fontWeight: 500, color: "#6c7a93", marginTop: 4 }}>
+          This offer already has a code. Enter a new 4-digit code to replace it — codes are never shown again.
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function OfferForm({
@@ -75,6 +114,8 @@ export function OfferForm({
         imageUrl: defaults?.imageUrl ?? "",
         menuUrl: defaults?.menuUrl ?? "",
         desc: defaults?.desc ?? "",
+        validatesValet: defaults?.validatesValet ?? true,
+        staffCode: "",
       }}
       validationSchema={SCHEMA}
       onSubmit={async (values, { setSubmitting }) => {
@@ -91,6 +132,15 @@ export function OfferForm({
             imageUrl: values.imageUrl || null,
             menuUrl: values.menuUrl || null,
             desc: values.desc || null,
+            validatesValet: values.validatesValet,
+            staffCode:
+              !values.validatesValet
+                ? null
+                : values.staffCode
+                ? values.staffCode.trim()
+                : offerId
+                ? undefined
+                : null,
           };
           const res = await fetch(url, {
             method,
@@ -164,6 +214,13 @@ export function OfferForm({
               <FormField name="price" label="Price (AED)" placeholder="0.00" />
               <FormField name="wasPrice" label="Was price (AED)" placeholder="0.00" />
             </div>
+
+            <FormToggleField
+              name="validatesValet"
+              label="Validates valet parking"
+              description="Guests redeem staff-code validated, fee-free parking."
+            />
+            {values.validatesValet && <StaffCodeField configured={Boolean(defaults?.staffCodeConfigured)} />}
 
             <div>
               <span className="field-label" style={{ fontSize: 12, fontWeight: 800, color: "#48566e", marginBottom: 6, display: "block" }}>

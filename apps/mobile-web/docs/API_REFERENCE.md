@@ -29,12 +29,14 @@ The mobile web has **no API routes of its own**. It consumes the **admin console
   },
   "offers": [{
     "id": 1, "title": "Friday Brunch at Kitchen6", "category": "Dining", "price": 395,
-    "wasPrice": 565, "desc": "...", "featured": 1, "validatesValet": true,
+    "wasPrice": 565, "desc": "...", "featured": 1, "validatesValet": true, "hasCode": true,
     "rating": 4.7, "reviews": 1240, "level": "Level 1",
     "opensAt": "12:30:00", "closesAt": "16:00:00", "dealTag": "FRIDAY ONLY"
   }]
 }
 ```
+
+`hasCode` is `true` when a staff validation code is configured for the offer — the code itself is never returned. The app renders the staff-code validate box only when `validatesValet && hasCode`, so an offer without a configured code never shows a dead input.
 
 ```jsonc
 // POST /api/public/tap/72100112791   body: { "minutes": 10 }
