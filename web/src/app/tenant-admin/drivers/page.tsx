@@ -16,10 +16,6 @@ export default async function DriversPage({
   const identity = await requireValetPage("valet.driver.read");
   const searchParamsResolved = await searchParams;
   const listParams = parseListQueryParams(searchParamsResolved);
-  const propertyRaw = Array.isArray(searchParamsResolved.property)
-    ? searchParamsResolved.property[0]
-    : searchParamsResolved.property;
-  const property = propertyRaw && propertyRaw !== "all" ? propertyRaw : undefined;
 
   const data = await listDriversForTable({
     q: listParams.q,
@@ -28,7 +24,6 @@ export default async function DriversPage({
     sortBy: listParams.sortBy,
     sortDir: listParams.sortDir,
     status: listParams.status,
-    property,
     organizationId: identity.session.organizationId ?? null,
   });
 
@@ -44,14 +39,6 @@ export default async function DriversPage({
       { value: "on_break", label: "On Break" },
       { value: "off_duty", label: "Off Duty" },
     ],
-  };
-
-  const propertyFilter: DataTableFilter = {
-    name: "property",
-    value: property ?? "",
-    label: "Property",
-    allLabel: "All properties",
-    options: data.properties.map((p) => ({ value: String(p.id), label: p.name })),
   };
 
   return (
@@ -80,7 +67,7 @@ export default async function DriversPage({
         sortBy={listParams.sortBy ?? "name"}
         sortDir={listParams.sortDir ?? "asc"}
         searchPlaceholder="Search name, ID, email…"
-        filters={[statusFilter, propertyFilter]}
+        filters={[statusFilter]}
       >
         {data.items.map((driver) => (
           <DriverTableRow key={driver.id} driver={driver} fields={fields} />
@@ -103,7 +90,7 @@ export default async function DriversPage({
             <div>
               <div className="text-[13.5px] font-extrabold text-[#1c2b46]">Add driver = 30 seconds</div>
               <div className="text-[11.5px] font-semibold text-[#6c7a93]">
-                Name + property → auto-generates VD-ID and a first-login PIN sent by SMS.
+                Name → auto-generates VD-ID and a first-login PIN sent by SMS. Property is optional — assign any org property or leave unassigned.
               </div>
             </div>
           </div>

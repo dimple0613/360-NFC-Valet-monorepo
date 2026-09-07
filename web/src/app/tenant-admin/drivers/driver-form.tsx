@@ -7,7 +7,6 @@ import { FormField, FormSelectField } from "@/components/console-form-field";
 
 const ADD_SCHEMA = yup.object({
   name: yup.string().required("Full name is required."),
-  propertyId: yup.string().required("Select a property."),
   password: yup.string().min(6, "Password must be at least 6 characters.").required("Password is required."),
   confirmPassword: yup
     .string()
@@ -19,7 +18,6 @@ const ADD_SCHEMA = yup.object({
 
 const EDIT_SCHEMA = yup.object({
   name: yup.string().required("Full name is required."),
-  propertyId: yup.string().required("Select a property."),
   email: yup.string().email("Enter a valid email address."),
   phone: yup.string().matches(/^[0-9+ ]{7,15}$/, "Enter a valid phone number."),
 });
@@ -87,7 +85,7 @@ export function DriverForm({
             : {
                 name: values.name,
                 password: values.password,
-                propertyId: values.propertyId,
+                propertyId: values.propertyId || null,
                 email: values.email || undefined,
                 phone: values.phone || undefined,
                 emiratesId: values.emiratesId || undefined,
@@ -117,7 +115,7 @@ export function DriverForm({
           <FormSelectField
             name="propertyId"
             label="Property"
-            options={[{ value: "", label: "Select…" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
+            options={[{ value: "", label: "No property" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
           />
           {driverId ? null : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
