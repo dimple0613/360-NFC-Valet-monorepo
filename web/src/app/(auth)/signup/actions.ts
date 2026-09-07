@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
+import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, RegistrationDisabledError, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
 import { signUpNewOrganization } from "@/lib/auth/signup-flow";
 import { setSessionCookie } from "@/lib/auth/session";
 
@@ -33,6 +33,9 @@ export async function signupAction(_prevState: SignupFormState, formData: FormDa
   } catch (error) {
     if (error instanceof EmailAlreadyRegisteredError || error instanceof WeakPasswordError) {
       return { error: error.message };
+    }
+    if (error instanceof RegistrationDisabledError) {
+      return { error: "New account registration is currently disabled." };
     }
     if (error instanceof RateLimitExceededError) {
       return { error: "Too many attempts. Please wait a while and try again." };
