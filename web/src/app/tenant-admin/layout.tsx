@@ -36,8 +36,12 @@ export default async function TenantAdminLayout({ children }: { children: React.
 
   // Valet feature visibility (FR-153: UI derives from the same permission data
   // the page-level requireValetPage checks use — never a separate UI-only list).
+  // NOTE: always use the IMPERSONATED user's ID (identity.user.id) for tenant
+  // permissions — platformUserId points at the impersonator (super admin) whose
+  // broad perms would make the sidebar show every link regardless of the real
+  // user's role.
   const orgPermissions = await getUserOrganizationPermissions(
-    platformUserId,
+    identity.user.id,
     organizationId,
   );
 
