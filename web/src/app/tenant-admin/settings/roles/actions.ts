@@ -38,6 +38,7 @@ async function requireRolesManager(): Promise<{
 
 export interface CreateRoleFormState {
   error: string | null;
+  roleId?: string;
 }
 
 export async function createRoleAction(
@@ -53,10 +54,10 @@ export async function createRoleAction(
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Role name is required." };
 
-  await createRole(organizationId, name);
+  const role = await createRole(organizationId, name);
 
   revalidatePath("/tenant-admin/settings/roles");
-  return { error: null };
+  return { error: null, roleId: role.id };
 }
 
 export async function deleteRoleAction(roleId: string): Promise<void> {

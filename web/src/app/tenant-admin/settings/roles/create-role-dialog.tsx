@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PlusIcon, XIcon } from "lucide-react";
 import { createRoleAction, type CreateRoleFormState } from "./actions";
@@ -11,6 +12,16 @@ const initialState: CreateRoleFormState = { error: null };
 export function CreateRoleDialog() {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createRoleAction, initialState);
+  const router = useRouter();
+  const wasPendingRef = useRef(false);
+
+  useEffect(() => {
+    if (wasPendingRef.current && !pending && !state.error && state.roleId) {
+      setOpen(false);
+      router.push(`/tenant-admin/settings/roles?role=${state.roleId}`);
+    }
+    wasPendingRef.current = pending;
+  }, [pending, state, router]);
 
   return (
     <>
