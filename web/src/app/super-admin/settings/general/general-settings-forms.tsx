@@ -434,7 +434,7 @@ export function GeneralSettingsForms({
               <FormCheckboxField name="maintenanceMode" label="Maintenance mode" description="Show an offline message instead of the application." />
               <FormTextareaField name="maintenanceMessage" label="Maintenance message" placeholder="We'll be back shortly." rows={2} />
               <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Stored, not yet enforced.</span> Maintenance mode needs a middleware gate to actually take the app offline — that is not wired yet.
+                <span className="font-medium text-foreground">Enforced.</span> When on, web/proxy.ts serves the /maintenance page for all browser page navigations (APIs and the Super Admin console stay reachable).
               </p>
               <button type="submit" className="btn-primary w-fit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving…" : "Save access settings"}

@@ -1413,9 +1413,11 @@ export async function listCardsForTable(params: {
       uses: c.uses_count,
       property: c.property,
       propertyId: c.property_id,
-      order: c.plate
-        ? `${c.plate} · ${c.car_make} ${c.car_model}${c.zone ? ` · Zone ${c.zone}-${c.slot}` : ""}`
-        : "—",
+      order: (() => {
+        const car = [c.car_make, c.car_model].filter(Boolean).join(" ");
+        const zone = c.zone ? ` · Zone ${c.zone}-${c.slot}` : "";
+        return c.plate ? `${c.plate}${car ? ` · ${car}` : ""}${zone}` : "—";
+      })(),
       orderMuted: c.order_status !== "active",
       by: c.by_name
         ? `${c.by_name}${c.last_at ? " · " + new Date(c.last_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}`
