@@ -26,6 +26,8 @@ export default async function DriverDetailPage({
 
   const actFrom = typeof raw.dateFrom === "string" ? raw.dateFrom : undefined;
   const actTo = typeof raw.dateTo === "string" ? raw.dateTo : undefined;
+  const actPropertyRaw = typeof raw.property === "string" ? raw.property : undefined;
+  const actProperty = actPropertyRaw && actPropertyRaw !== "all" ? actPropertyRaw : undefined;
   const actPage = raw.page !== undefined ? Number(raw.page) : 1;
   const actPageSize = raw.pageSize !== undefined ? Number(raw.pageSize) : 15;
 
@@ -36,6 +38,7 @@ export default async function DriverDetailPage({
       to: actTo,
       page: actPage,
       pageSize: actPageSize,
+      property: actProperty,
     });
   } catch (e: any) {
     if (e?.message === "Driver not found") notFound();
@@ -57,6 +60,14 @@ export default async function DriverDetailPage({
     label: "Period",
     allLabel: "",
     options: [],
+  };
+
+  const propertyFilter: DataTableFilter = {
+    name: "property",
+    value: actProperty ?? "",
+    label: "Property",
+    allLabel: "All properties",
+    options: fields.map((p) => ({ value: String(p.id), label: p.name })),
   };
 
   return (
@@ -190,7 +201,7 @@ export default async function DriverDetailPage({
             totalCount={detail.activity.byDayTotal}
             totalPages={Math.max(1, Math.ceil(detail.activity.byDayTotal / actPageSize))}
             hideSearch
-            filters={[periodFilter]}
+            filters={[periodFilter, propertyFilter]}
           >
             {detail.activity.byDay.map((row) => (
               <TableRow key={row.date} className="border-b border-[#eef1f6] last:border-0">

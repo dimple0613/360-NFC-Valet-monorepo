@@ -881,6 +881,7 @@ export async function getDriverDetail(
     to?: string;
     page?: number;
     pageSize?: number;
+    property?: string | number | null;
   }
 ): Promise<DriverDetail> {
   const start = startOfDay(new Date());
@@ -952,10 +953,16 @@ export async function getDriverDetail(
   const actTo = activity?.to;
   const actPage = activity?.page && activity.page > 0 ? activity.page : 1;
   const actPageSize = activity?.pageSize && activity.pageSize > 0 ? activity.pageSize : 15;
+  const actProperty = activity?.property ? Number(activity.property) : null;
 
   const activityWhere = buildActivityWindow();
   const actParams: Array<string | number> = [id];
   if (activityWhere) actParams.push(activityWhere.from, activityWhere.to);
+  const propIdx = actParams.length + 1;
+  if (actProperty) actParams.push(actProperty);
+  const propClause = actProperty ? ` AND o.property_id = $${propIdx}` : "";
+  const shiftPropClause = actProperty ? ` AND s.property_id = $${propIdx}` : "";
+  const openShiftPropClause = actProperty ? ` AND d.property_id = $${propIdx}` : "";
 
   function buildActivityWindow(): { from: string; to: string } | null {
     if (!actFrom && !actTo) return null;
@@ -979,19 +986,19 @@ export async function getDriverDetail(
      ),
      parked AS (
        SELECT to_char(o.dropped_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
-       FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL
+       FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL${propClause}
        GROUP BY 1
      ),
      returned AS (
        SELECT to_char(o.returned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
-       FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL
+       FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL${propClause}
        GROUP BY 1
      ),
      validated AS (
        SELECT to_char(v.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) AS n
        FROM validations v
        JOIN orders o ON o.id = v.order_id
-       WHERE o.driver_id = $1
+       WHERE o.driver_id = $1${propClause}
        GROUP BY 1
      ),
      shift_info AS (
@@ -1003,7 +1010,7 @@ export async function getDriverDetail(
                 p.name AS property
          FROM driver_shifts s
          LEFT JOIN properties p ON p.id = s.property_id
-         WHERE s.driver_id = $1
+         WHERE s.driver_id = $1${shiftPropClause}
          UNION ALL
          SELECT to_char(d.shift_started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
                 to_char(d.shift_started_at, 'HH24:MI') AS shift_start,
@@ -1011,7 +1018,7 @@ export async function getDriverDetail(
                 p2.name AS property
          FROM drivers d
          LEFT JOIN properties p2 ON p2.id = d.property_id
-         WHERE d.id = $1 AND d.shift_started_at IS NOT NULL
+         WHERE d.id = $1 AND d.shift_started_at IS NOT NULL${openShiftPropClause}
            AND NOT EXISTS (SELECT 1 FROM driver_shifts s2 WHERE s2.driver_id = d.id AND s2.ended_at IS NULL)
        ) u
        GROUP BY day
@@ -1049,21 +1056,21 @@ export async function getDriverDetail(
              ),
              parked AS (
                SELECT to_char(o.dropped_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
-               FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL
+               FROM orders o WHERE o.driver_id = $1 AND o.dropped_at IS NOT NULL${propClause}
              ),
              returned AS (
                SELECT to_char(o.returned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
-               FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL
+               FROM orders o WHERE o.driver_id = $1 AND o.returned_at IS NOT NULL${propClause}
              ),
              validated AS (
                SELECT to_char(v.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
-               FROM validations v JOIN orders o ON o.id = v.order_id WHERE o.driver_id = $1
+               FROM validations v JOIN orders o ON o.id = v.order_id WHERE o.driver_id = $1${propClause}
              ),
              shift_info AS (
-               SELECT to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM driver_shifts s WHERE s.driver_id = $1
+               SELECT to_char(s.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM driver_shifts s WHERE s.driver_id = $1${shiftPropClause}
                UNION
                SELECT to_char(d.shift_started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day FROM drivers d
-               WHERE d.id = $1 AND d.shift_started_at IS NOT NULL
+               WHERE d.id = $1 AND d.shift_started_at IS NOT NULL${openShiftPropClause}
                  AND NOT EXISTS (SELECT 1 FROM driver_shifts s2 WHERE s2.driver_id = d.id AND s2.ended_at IS NULL)
              )
              SELECT COUNT(*)::int AS n FROM (
@@ -1074,7 +1081,7 @@ export async function getDriverDetail(
                LEFT JOIN validated v ON v.day = d.day
                WHERE s.day IS NOT NULL OR p.day IS NOT NULL OR r.day IS NOT NULL OR v.day IS NOT NULL
              ) t`,
-            [id, activityWhere.from, activityWhere.to]
+            [id, activityWhere.from, activityWhere.to, ...(actProperty ? [actProperty] : [])]
           )
         )[0].n
       )
