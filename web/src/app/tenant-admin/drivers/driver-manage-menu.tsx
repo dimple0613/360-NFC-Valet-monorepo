@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDownIcon, Eye, EyeOff, EyeIcon, KeyRoundIcon, PencilIcon, PowerIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, Eye, EyeOff, EyeIcon, KeyRoundIcon, PencilIcon, PowerIcon, Trash2Icon, XIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DriverForm } from "./driver-form";
@@ -191,9 +191,12 @@ export function DriverManageMenu({
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                position: "absolute",
+                right: 10,
+                top: 10,
               }}
             >
-              ✕
+              <XIcon size={16} />
             </button>
           </div>
           <DriverForm
@@ -224,10 +227,33 @@ export function DriverManageMenu({
           showCloseButton={false}
           style={{ borderRadius: 20, padding: 24 }}
         >
-          <div className="text-[17px] font-extrabold text-[#1c2b46]">Reset password</div>
-          <div className="mt-1 text-[12.5px] font-medium text-[#6c7a93]">
+          <div className="pr-8 text-[17px] font-extrabold text-[#1c2b46]">Reset password</div>
+          <div className="mt-1 pr-8 text-[12.5px] font-medium text-[#6c7a93]">
             Set a new password for {driver.name}. They&apos;ll use it on their next login.
           </div>
+          <button
+            type="button"
+            onClick={() => setResetOpen(false)}
+            aria-label="Close"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "#f6f7f9",
+              color: "#6c7a93",
+              border: "none",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              position: "absolute",
+              right: 10,
+              top: 10,
+            }}
+          >
+            <XIcon size={16} />
+          </button>
           <div className="super-console mt-4 flex flex-col gap-4">
             <div className="field">
               <label className="field-label" htmlFor="dm-new-pw">

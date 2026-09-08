@@ -16,7 +16,6 @@ import {
   BanIcon,
   CheckCircle2Icon,
   ChevronDownIcon,
-  CircleDashedIcon,
   MapPinnedIcon,
   PencilIcon,
   Trash2Icon,
@@ -185,8 +184,31 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
           showCloseButton={false}
           style={{ borderRadius: 20, padding: 24 }}
         >
-          <div className="text-[17px] font-extrabold text-[#1c2b46]">Edit card UID</div>
-          <div className="mt-1 text-[12.5px] font-medium text-[#6c7a93]">Change the UID for card {card.uid}.</div>
+          <div className="pr-8 text-[17px] font-extrabold text-[#1c2b46]">Edit card UID</div>
+          <div className="mt-1 pr-8 text-[12.5px] font-medium text-[#6c7a93]">Change the UID for card {card.uid}.</div>
+          <button
+            type="button"
+            onClick={() => setEditOpen(false)}
+            aria-label="Close"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "#f6f7f9",
+              color: "#6c7a93",
+              border: "none",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              position: "absolute",
+              right: 10,
+              top: 10,
+            }}
+          >
+            <XIcon size={16} />
+          </button>
           <input
             value={newUid}
             onChange={(e) => setNewUid(e.target.value.toUpperCase())}

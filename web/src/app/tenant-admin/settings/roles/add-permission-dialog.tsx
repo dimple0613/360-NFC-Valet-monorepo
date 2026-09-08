@@ -86,6 +86,9 @@ export function AddPermissionDialog({
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                position: "absolute",
+                right: 10,
+                top: 10,
               }}
             >
               <XIcon size={16} />
