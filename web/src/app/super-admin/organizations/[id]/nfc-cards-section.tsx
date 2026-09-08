@@ -23,6 +23,7 @@ export default async function NfcCardsSection({
     <CardsTable
       organizationId={organizationId}
       canFreeze={canPrintCards}
+      showDeck
     />
   );
 }

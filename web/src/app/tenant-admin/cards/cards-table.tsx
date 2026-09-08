@@ -20,9 +20,11 @@ import type { CardTableItem, DeckInfo } from "../_lib/valet-data";
 export function CardsTable({
   organizationId,
   canFreeze,
+  showDeck = false,
 }: {
   organizationId?: string | null;
   canFreeze: boolean;
+  showDeck?: boolean;
 }) {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const getParam = (name: string) => searchParams.get(name) ?? "";
@@ -165,7 +167,7 @@ export function CardsTable({
 
   return (
     <>
-      {deck ? (
+      {showDeck && deck ? (
         <div
           style={{
             display: "flex",
