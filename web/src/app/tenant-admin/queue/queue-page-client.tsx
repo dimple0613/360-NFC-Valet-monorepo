@@ -3,6 +3,7 @@
 import { ListOrderedIcon } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { connectAuthedWs } from "@/lib/ws";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -246,6 +247,34 @@ export default function QueuePageClient({
       window.clearTimeout(kick);
     };
   }, [polling, fetchQueue]);
+
+  // Live mode (M6): when the valet WS is reachable, queue-affecting broadcasts
+  // (order lifecycle, card activated, shift starts/ends) trigger an immediate
+  // refresh — the queue moves as it happens instead of on the 15s poll tick.
+  // If the WS/token is unavailable the socket never opens and the poll above
+  // remains the only refresher (close = fallback, surface stays correct).
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    try {
+      ws = connectAuthedWs();
+      if (ws) {
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(String(ev.data));
+            const event = msg?.event as string | undefined;
+            if (event && /^(valet\.order\.|nfc\.card\.activated|driver\.shift\.)/.test(event)) {
+              void fetchQueue();
+            }
+          } catch {
+            // ignore malformed frames
+          }
+        };
+      }
+    } catch {
+      // leave null; polling fallback covers it
+    }
+    return () => ws?.close();
+  }, [fetchQueue]);
 
   const activeTab = status || "all";
   const countMap: Record<string, number> = {

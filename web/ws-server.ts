@@ -56,15 +56,15 @@ async function sessionHoldsValetPermission(sessionId: string): Promise<boolean> 
     const res = await dbPool.query(
       `SELECT 1
          FROM sessions s
-         JOIN user_roles ur ON ur.user_id = s.user_id
-         JOIN roles r ON r.id = ur.role_id
-         JOIN role_permissions rp ON rp.role_id = r.id
-         JOIN permissions p ON p.id = rp.permission_id
+         JOIN user_roles ur ON ur."userId" = s."userId"
+         JOIN roles r ON r.id = ur."roleId"
+         JOIN role_permissions rp ON rp."roleId" = r.id
+         JOIN permissions p ON p.id = rp."permissionId"
         WHERE s.id = $1
-          AND s.revoked_at IS NULL
-          AND s.expires_at > NOW()
+          AND s."revokedAt" IS NULL
+          AND s."expiresAt" > NOW()
           AND p.key LIKE 'valet.%'
-          AND (r.organization_id = s.organization_id OR r.organization_id IS NULL)
+          AND (r."organizationId" = s."organizationId" OR r."organizationId" IS NULL)
         LIMIT 1`,
       [sessionId],
     );
@@ -113,6 +113,15 @@ const httpServer = createServer((req, res) => {
         const room = data.propertyId ? `property:${data.propertyId}` : "all";
         io.to(room).emit(event, data);
         io.to("admin").emit(event, data);
+        // The admin console's sockets (web/src/lib/ws.ts connectAuthedWs) are
+        // raw `ws` connections on /live/admin, NOT socket.io clients, so they
+        // are invisible to `io.to("admin")`. Every upgrade on that path passed
+        // the ws-token + valet-permission gate, so forward them the same set
+        // of events the socket.io admin room receives.
+        const frame = JSON.stringify({ event, data });
+        for (const client of rawAdminServer.clients) {
+          if (client.readyState === 1) client.send(frame);
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end('{"ok":true}');
       } catch {
