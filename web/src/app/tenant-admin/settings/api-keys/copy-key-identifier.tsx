@@ -17,10 +17,16 @@ export function CopyKeyIdentifier({ name, prefix }: { name: string; prefix: stri
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <code className="rounded-md bg-[#f1f3f6] px-2 py-1 text-[12px] font-semibold text-[#16213a]">
-        {prefix}...
+    <div className="flex min-w-0 items-center gap-1.5">
+      <code
+        className="rounded-md bg-[#f1f3f6] px-2 py-1 text-[12px] font-semibold text-[#16213a]"
+        title={prefix}
+      >
+        {prefix}
       </code>
+      <span aria-hidden className="select-none text-[11px] font-semibold text-[#9aa3b8]">
+        {"\u2026"}
+      </span>
       <Tooltip>
         <TooltipTrigger
           render={
