@@ -1890,7 +1890,7 @@ export async function setOfferState(
     const featuredParams: Array<string | number> = [featured, id];
     if (organizationId) {
       featuredParams.push(organizationId);
-      featuredScope = ` AND id IN (SELECT id FROM offers o JOIN properties p ON p.id = o.property_id WHERE p.organization_id = $${featuredParams.length})`;
+      featuredScope = ` AND id IN (SELECT o.id FROM offers o JOIN properties p ON p.id = o.property_id WHERE p.organization_id = $${featuredParams.length})`;
     }
     await q(`UPDATE offers SET featured = NULL WHERE featured = $1 AND id <> $2${featuredScope}`, featuredParams);
   }

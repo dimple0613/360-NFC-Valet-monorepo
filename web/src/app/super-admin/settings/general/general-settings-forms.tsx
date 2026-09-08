@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useId, useState, type ChangeEvent } from "react";
 import { Formik, Form, useFormikContext } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
-import { ImagePlusIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, UploadIcon } from "lucide-react";
 import { FormField, FormTextareaField, FormCheckboxField, FormSelectField } from "@/components/console-form-field";
 import { saveBrandingAction, saveAccessAction, saveBillingAction, saveSecurityAction, saveContentAction } from "./actions";
 
@@ -104,10 +104,38 @@ const securitySchema = yup.object({
   captchaSecretKey: yup.string().nullable(),
 });
 
-// File-picker + hosted-URL image input for the branding logos/favicon. Picked
-// files are read to an inline data URL and saved straight into the platform
-// settings row — nothing hits the filesystem, so the stored image can never
-// 404 in production (the classic "works in dev, URL breaks deployment" issue).
+const ICON_BTN: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+  width: 20,
+  height: 20,
+  padding: 0,
+  borderRadius: 6,
+  border: "none",
+  background: "transparent",
+  cursor: "pointer",
+  color: "#6c7a93",
+};
+
+const HIDDEN_FILE: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  whiteSpace: "nowrap",
+};
+
+// File-picker + hosted-URL image input for the branding logos/favicon, styled to
+// match the location/offer uploaders elsewhere in the console (read-only field row
+// with an eye toggle, dashed preview box, Remove pill). Picked files are read to an
+// inline data URL and saved straight into the platform settings row — nothing hits
+// the filesystem, so the stored image can never 404 in production (the classic
+// "works in dev, URL breaks deployment" issue).
 function ImageUploadField({
   name,
   label,
@@ -118,13 +146,12 @@ function ImageUploadField({
   hint?: string;
 }) {
   const formik = useFormikContext();
+  const fileId = useId();
   const value = (formik.values as Record<string, string>)[name] ?? "";
   const meta = formik.getFieldMeta(name);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [urlMode, setUrlMode] = useState(false);
   const [urlDraft, setUrlDraft] = useState("");
-
-  const openPicker = () => fileRef.current?.click();
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -148,6 +175,7 @@ function ImageUploadField({
       formik.setFieldValue(name, dataUrl);
       formik.setFieldError(name, undefined);
       setUrlMode(false);
+      setPreviewOpen(true);
     };
     reader.onerror = () => formik.setFieldError(name, "Couldn't read that file. Try another image.");
     reader.readAsDataURL(file);
@@ -158,6 +186,7 @@ function ImageUploadField({
     setUrlMode(next);
     if (next) {
       setUrlDraft(value.startsWith("data:") ? "" : value);
+      setPreviewOpen(false);
     }
   };
 
@@ -166,79 +195,149 @@ function ImageUploadField({
     formik.setFieldError(name, undefined);
     setUrlDraft("");
     setUrlMode(false);
+    setPreviewOpen(false);
   };
 
   return (
     <div>
       <div className="field">
-        <label className="field-label" htmlFor={name}>
-          {label}
+        <label className="field-label">{label}</label>
+        <label
+          htmlFor={value ? undefined : fileId}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: value ? "default" : "pointer" }}
+        >
+          <input
+            className="field-value input"
+            readOnly
+            placeholder="Upload image (PNG/JPEG/SVG/ICO)"
+            value={value ? (value.startsWith("data:") ? "Image attached" : value) : urlDraft}
+            style={{ flex: 1, minWidth: 0, paddingRight: 40, cursor: value ? "default" : "pointer", pointerEvents: "none" }}
+          />
+          {value ? (
+            <button
+              type="button"
+              aria-label={previewOpen ? "Hide preview" : "Show preview"}
+              onClick={() => setPreviewOpen((o) => !o)}
+              style={ICON_BTN}
+            >
+              <EyeIcon size={16} strokeWidth={2} />
+            </button>
+          ) : (
+            <span style={ICON_BTN} aria-hidden="true">
+              <UploadIcon size={16} strokeWidth={2} />
+            </span>
+          )}
         </label>
-        <div className="flex items-center gap-3">
+      </div>
+      {previewOpen && value ? (
+        <>
           <div
             style={{
-              width: 64,
-              height: 64,
+              marginTop: 8,
+              border: "1.5px dashed #C3CAD6",
               borderRadius: 12,
-              border: "1.5px dashed #dfe4ec",
-              background: "#fafbfc",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              padding: 8,
+              background: "none",
+              position: "relative",
               overflow: "hidden",
-              flexShrink: 0,
             }}
           >
-            {value ? (
-              // Inline data URLs (uploads) can't use next/image's optimizer — render as-is.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={value} alt={label} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-            ) : (
-              <ImagePlusIcon size={22} className="text-muted-foreground" style={{ opacity: 0.6 }} />
-            )}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", flex: 1 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" onClick={openPicker} className="btn-primary" style={{ fontSize: 12.5, padding: "8px 14px" }}>
-                Upload image
-              </button>
-              {value ? (
-                <button type="button" onClick={clear} aria-label={`Remove ${label}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, padding: "8px 14px", borderRadius: 99, border: "1.5px solid #e7eaf0", background: "#fff", cursor: "pointer", color: "#b3402a" }}>
-                  <Trash2Icon size={14} /> Remove
-                </button>
-              ) : null}
+            <div
+              aria-label={`${label} preview`}
+              style={{
+                width: "100%",
+                height: 180,
+                borderRadius: 10,
+                background: "#FAFBFC",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}
+            >
+              {
+                // Inline data URLs (uploads) can't use next/image's optimizer — render as-is.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={value} alt={label} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+              }
             </div>
-            {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
-            {urlMode ? (
-              <input
-                className="field-value input"
-                style={{ maxWidth: 320 }}
-                placeholder="https://…/logo.svg"
-                value={urlDraft}
-                onChange={(e) => {
-                  setUrlDraft(e.target.value);
-                  formik.setFieldValue(name, e.target.value);
-                }}
-                onBlur={() => formik.setFieldTouched(name, true)}
-              />
-            ) : (
-              <button type="button" onClick={toggleUrl} className="text-xs underline" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#6c7a93" }}>
-                or paste an image URL instead…
-              </button>
-            )}
           </div>
+          <button
+            type="button"
+            onClick={clear}
+            style={{
+              marginTop: 6,
+              border: "1px solid #e7eaf0",
+              background: "#fff",
+              color: "#d6430f",
+              fontSize: 11,
+              fontWeight: 800,
+              padding: "6px 12px",
+              borderRadius: 999,
+              cursor: "pointer",
+            }}
+          >
+            Remove image
+          </button>
+        </>
+      ) : null}
+      {hint ? (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            fontWeight: 500,
+            color: "#6c7a93",
+            lineHeight: "16px",
+          }}
+        >
+          {hint}
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
-          className="hidden"
-          aria-hidden="true"
-          tabIndex={-1}
-          onChange={onFile}
-        />
-      </div>
+      ) : null}
       {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      <input
+        id={fileId}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+        onChange={onFile}
+        tabIndex={-1}
+        aria-hidden="true"
+        style={HIDDEN_FILE}
+      />
+      <div style={{ marginTop: 8 }}>
+        {urlMode ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input
+              className="field-value input"
+              style={{ flex: 1, minWidth: 0 }}
+              placeholder="https://…/logo.svg"
+              value={urlDraft}
+              onChange={(e) => {
+                setUrlDraft(e.target.value);
+                formik.setFieldValue(name, e.target.value);
+              }}
+              onBlur={() => formik.setFieldTouched(name, true)}
+            />
+            <button
+              type="button"
+              onClick={toggleUrl}
+              className="btn-primary"
+              style={{ fontSize: 12, padding: "8px 14px" }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleUrl}
+            className="text-xs underline"
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#6c7a93" }}
+          >
+            or paste a hosted image URL instead…
+          </button>
+        )}
+      </div>
     </div>
   );
 }
