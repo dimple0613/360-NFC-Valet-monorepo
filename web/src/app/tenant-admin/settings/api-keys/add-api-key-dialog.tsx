@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { CopyableSecretDialog } from "@/components/copyable-secret-dialog";
 import { PermissionPicker } from "@/components/permission-picker";
@@ -24,9 +24,17 @@ export function AddApiKeyDialog({
   canManage: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [formNonce, setFormNonce] = useState(0);
   const [state, formAction, pending] = useActionState(createApiKeyAction, initialState);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const dialogOpen = state.createdKey !== null && state.createdKey.rawKey !== dismissedKey;
+
+  useEffect(() => {
+    // Closing the create form here (not in the submit handler) is the only
+    // way to keep it open for server-side validation errors while still
+    // collapsing it the moment a key is actually created.
+    if (state.createdKey) setOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [state.createdKey]);
 
   if (!canManage) return null;
 
@@ -34,7 +42,10 @@ export function AddApiKeyDialog({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          setFormNonce((n) => n + 1);
+        }}
         className="inline-flex items-center gap-2"
         style={{
           background: "#f4531f",
@@ -94,7 +105,7 @@ export function AddApiKeyDialog({
           <div className="super-console">
             <form
               action={formAction}
-              key={state.createdKey ? state.createdKey.rawKey : "form"}
+              key={formNonce}
               className="flex flex-col gap-4"
             >
               {state.error ? <div className="field-error">{state.error}</div> : null}
