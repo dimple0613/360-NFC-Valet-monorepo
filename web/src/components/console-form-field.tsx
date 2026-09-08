@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useField } from "formik";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Check } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function FormField({
@@ -22,7 +22,6 @@ export function FormField({
 }) {
   const [field, meta] = useField(name);
   const isPassword = type === "password";
-  const [showPassword, setShowPassword] = useState(false);
   return (
     <div>
       <div className="field">
@@ -30,44 +29,31 @@ export function FormField({
           {label}
           {required ? " *" : ""}
         </label>
-        <div className={isPassword ? "relative" : undefined}>
-          <input
+        {isPassword ? (
+          <PasswordInput
             id={name}
             name={field.name}
             className="field-value input"
-            type={isPassword && showPassword ? "text" : type}
+            style={{ paddingRight: 40 }}
             placeholder={placeholder}
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
             disabled={disabled}
-            style={isPassword ? { paddingRight: 40 } : undefined}
           />
-          {isPassword ? (
-            <button
-              type="button"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              aria-pressed={showPassword}
-              onClick={() => setShowPassword((v) => !v)}
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 4,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer",
-                color: "#6c7a93",
-              }}
-            >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          ) : null}
-        </div>
+        ) : (
+          <input
+            id={name}
+            name={field.name}
+            className="field-value input"
+            type={type}
+            placeholder={placeholder}
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            disabled={disabled}
+          />
+        )}
       </div>
       {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
     </div>

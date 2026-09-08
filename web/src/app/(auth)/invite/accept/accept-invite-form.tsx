@@ -3,6 +3,7 @@
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/password-input";
 import { acceptInviteAction, type AcceptInviteFormState } from "./actions";
 
 export function AcceptInviteForm({ token }: { token: string }) {
@@ -66,10 +67,9 @@ export function AcceptInviteForm({ token }: { token: string }) {
                 <label className="login-field-label" htmlFor="password">
                   Password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   className="login-field-input dots"
                   placeholder="••••••••••"
                   value={formik.values.password}

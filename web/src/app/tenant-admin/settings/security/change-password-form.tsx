@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { PasswordInput } from "@/components/password-input";
 import { changePasswordAction, type ChangePasswordState } from "./actions";
 
 const initialState: ChangePasswordState = { error: null, success: false };
@@ -22,11 +23,10 @@ export function ChangePasswordForm() {
         <label className="field-label" htmlFor="currentPassword">
           Current password
         </label>
-        <input
+        <PasswordInput
           id="currentPassword"
           name="currentPassword"
           className="field-value input"
-          type="password"
           autoComplete="current-password"
           required
         />
@@ -35,11 +35,10 @@ export function ChangePasswordForm() {
         <label className="field-label" htmlFor="newPassword">
           New password
         </label>
-        <input
+        <PasswordInput
           id="newPassword"
           name="newPassword"
           className="field-value input"
-          type="password"
           autoComplete="new-password"
           required
         />
@@ -48,11 +47,10 @@ export function ChangePasswordForm() {
         <label className="field-label" htmlFor="confirmPassword">
           Confirm new password
         </label>
-        <input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
           className="field-value input"
-          type="password"
           autoComplete="new-password"
           required
         />

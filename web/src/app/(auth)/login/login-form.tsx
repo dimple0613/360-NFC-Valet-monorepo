@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
-import { CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
 import type { CaptchaProvider } from "@saasclaude/db";
 import { loginAction } from "./actions";
 import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
+import { PasswordInput } from "@/components/password-input";
 
 export interface AdapterLoginOption {
   id: string;
@@ -45,8 +46,7 @@ export function LoginForm({
   /** CAPTCHA config from Settings > General > Security defaults; renders the widget and verifies the token when a provider is configured. */
   captcha?: AuthCaptchaConfig;
 }) {
-  const [showPw, setShowPw] = useState(false);
-  const [keep, setKeep] = useState(true);
+const [keep, setKeep] = useState(true);
   const captchaRef = useRef<CaptchaWidgetHandle>(null);
 
   const captchaEnabled = !!captcha && captcha.provider !== "none" && !!captcha.siteKey;
@@ -167,10 +167,9 @@ export function LoginForm({
                 <label className="login-field-label" htmlFor="password">
                   Password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type={showPw ? "text" : "password"}
                   className="login-field-input dots"
                   placeholder="••••••••••"
                   value={formik.values.password}
@@ -180,14 +179,6 @@ export function LoginForm({
                   aria-invalid={showPasswordError ? "true" : undefined}
                 />
               </div>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label="Toggle password visibility"
-                onClick={() => setShowPw((v) => !v)}
-              >
-                {showPw ? <EyeOffIcon size={19} strokeWidth={2} /> : <EyeIcon size={19} strokeWidth={2} />}
-              </button>
             </div>
             {showPasswordError ? <div className="field-error">{formik.errors.password}</div> : null}
           </div>

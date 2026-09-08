@@ -1,31 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
 import { resetPasswordAction, type ResetPasswordFormState } from "./actions";
 import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
+import { PasswordInput } from "@/components/password-input";
 import type { AuthCaptchaConfig } from "../login/login-form";
-
-function EyeIcon({ size = 19, color = "#6C7A93" }: { size?: number; color?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" />
-      <circle cx="12" cy="12" r="2.6" />
-    </svg>
-  );
-}
 
 export function ResetPasswordForm({
   token,
@@ -34,7 +17,6 @@ export function ResetPasswordForm({
   token: string;
   captcha?: AuthCaptchaConfig;
 }) {
-  const [showPw, setShowPw] = useState(false);
   const captchaRef = useRef<CaptchaWidgetHandle>(null);
   const captchaEnabled = !!captcha && captcha.provider !== "none" && !!captcha.siteKey;
 
@@ -127,10 +109,9 @@ export function ResetPasswordForm({
               <label className="login-field-label" htmlFor="rp-pw">
                 New password
               </label>
-              <input
+              <PasswordInput
                 id="rp-pw"
                 name="password"
-                type={showPw ? "text" : "password"}
                 className="login-field-input dots"
                 placeholder="••••••••••"
                 value={formik.values.password}
@@ -139,14 +120,6 @@ export function ResetPasswordForm({
                 autoComplete="new-password"
               />
             </div>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Toggle password visibility"
-              onClick={() => setShowPw((v) => !v)}
-            >
-              <EyeIcon />
-            </button>
           </div>
           {showPwError ? <div className="field-error">{formik.errors.password}</div> : null}
         </div>
@@ -156,10 +129,9 @@ export function ResetPasswordForm({
               <label className="login-field-label" htmlFor="rp-cpw">
                 Confirm password
               </label>
-              <input
+              <PasswordInput
                 id="rp-cpw"
                 name="confirmPassword"
-                type={showPw ? "text" : "password"}
                 className="login-field-input dots"
                 placeholder="••••••••••"
                 value={formik.values.confirmPassword}
@@ -168,14 +140,6 @@ export function ResetPasswordForm({
                 autoComplete="new-password"
               />
             </div>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Toggle password visibility"
-              onClick={() => setShowPw((v) => !v)}
-            >
-              <EyeIcon />
-            </button>
           </div>
           {showCpError ? <div className="field-error">{formik.errors.confirmPassword}</div> : null}
         </div>
