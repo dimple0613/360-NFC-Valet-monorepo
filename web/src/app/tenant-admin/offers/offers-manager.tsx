@@ -458,9 +458,9 @@ export function OffersManager({
 
       <Dialog open={showNew} onOpenChange={setShowNew}>
         <DialogContent
-          className="sm:max-w-[480px] overflow-y-auto"
+          className="sm:max-w-[480px]"
           showCloseButton={false}
-          style={{ borderRadius: 20, padding: 24, maxHeight: "88vh" }}
+          style={{ borderRadius: 20, padding: 24 }}
         >
           <div className="flex items-start justify-between gap-4 mb-2">
             <div>
@@ -508,9 +508,9 @@ export function OffersManager({
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent
-          className="sm:max-w-[480px] overflow-y-auto"
+          className="sm:max-w-[480px]"
           showCloseButton={false}
-          style={{ borderRadius: 20, padding: 24, maxHeight: "88vh" }}
+          style={{ borderRadius: 20, padding: 24 }}
         >
           {editing && (
             <>
