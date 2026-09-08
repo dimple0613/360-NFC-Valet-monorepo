@@ -328,4 +328,4 @@ Live-verified this session against `valet_monorepo` (web :3000, mobile-web :3001
 | Guest staff-code box | Offer-detail staff-validation UI hidden (`display:none` hide-only); guest web build clean. | `TapApp.js`; live check |
 | #48 NFC card mgmt | Scoped to a plan-only issue comment (schema nulls/statuses/print profiles, deck counter, services, dual-portal UI, QR+print, permission model) — **no code** per issue scope. | issue comment 5581782363 |
 
-**Open after this session:** #4, #6 (M1), #9 (M4), #10 (M5), #11 (M6), #13 (M8), #14 (M9), #16, #22, #48.
+**Open after this session:** #4, #14 (M9 — CI workflow deferred pending `workflow` token scope, commit `69933a4` local), #48 (plan-only feature backlog, no code). M1 (#6) closed `cf1b6ca`; M9 implemented locally `69933a4` (deferred push); #16 closed `d3bb6cf` (D-005); #22 closed via PR #49 `1f7699b` + D-006.
