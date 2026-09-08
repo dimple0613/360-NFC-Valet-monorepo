@@ -251,6 +251,7 @@ export async function getDashboardData(days = 7, property: string | null = null,
 export async function getQueueOrders(params: {
   days?: number;
   property?: string | null;
+  driver?: string | null;
   status?: string | null;
   q?: string;
   sort?: string;
@@ -261,6 +262,7 @@ export async function getQueueOrders(params: {
 }) {
   const days = Math.min(30, Math.max(1, params.days || 1));
   const propertyId = params.property && params.property !== "all" ? Number(params.property) : null;
+  const driverId = params.driver && params.driver !== "all" ? Number(params.driver) : null;
   const start = new Date(startOfDay(new Date()).getTime() - (days - 1) * 24 * 60 * 60 * 1000);
   const end = new Date(startOfDay(new Date()).getTime() + 24 * 60 * 60 * 1000);
 
@@ -273,6 +275,10 @@ export async function getQueueOrders(params: {
   if (propertyId) {
     dbParams.push(propertyId);
     where += ` AND o.property_id = $${dbParams.length}`;
+  }
+  if (driverId) {
+    dbParams.push(driverId);
+    where += ` AND d.id = $${dbParams.length}`;
   }
 
   const qValue = String(params.q || "").trim();
@@ -386,7 +392,39 @@ export async function getQueueOrders(params: {
     page,
     pageSize,
     properties: await propertiesForScope(params.organizationId),
+    drivers: await queueDriverOptions({ start, end, organizationId: params.organizationId, propertyId }),
   };
+}
+
+async function queueDriverOptions(params: {
+  start: Date;
+  end: Date;
+  organizationId?: string | null;
+  propertyId: number | null;
+}) {
+  const dvParams: Array<string | Date | number> = [params.start, params.end];
+  let dvWhere = "o.created_at >= $1 AND o.created_at < $2";
+  if (params.organizationId) {
+    dvParams.push(params.organizationId);
+    dvWhere += ` AND p.organization_id = $${dvParams.length}`;
+  }
+  if (params.propertyId) {
+    dvParams.push(params.propertyId);
+    dvWhere += ` AND o.property_id = $${dvParams.length}`;
+  }
+  const driverRows = await q(
+    `SELECT DISTINCT d.id, d.full_name, d.status
+     FROM orders o
+     JOIN drivers d ON d.id = o.driver_id
+     JOIN properties p ON p.id = o.property_id
+     WHERE ${dvWhere}
+     ORDER BY d.full_name`,
+    dvParams
+  );
+  return driverRows.map((d) => ({
+    id: d.id,
+    label: STATUS_LABEL[d.status] ? `${d.full_name} · ${STATUS_LABEL[d.status]}` : d.full_name,
+  }));
 }
 
 export async function getLocations(organizationId?: string | null) {

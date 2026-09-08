@@ -44,6 +44,7 @@ interface QueueData {
   orders: QueueOrder[];
   counts: QueueCounts;
   properties: { id: number; name: string; area: string }[];
+  drivers: { id: number; label: string }[];
   total: number;
   page: number;
   pageSize: number;
@@ -133,11 +134,13 @@ export default function QueuePageClient({
   initialData,
   days: initialDays,
   property: initialProperty,
+  driver: initialDriver,
   status: initialStatus,
 }: {
   initialData: QueueData;
   days: number;
   property: string;
+  driver: string;
   status: string | null;
 }) {
   const router = useRouter();
@@ -149,6 +152,7 @@ export default function QueuePageClient({
 
   const days = initialDays;
   const property = initialProperty;
+  const driver = initialDriver;
   const status = initialStatus;
 
   const page = Number(searchParams.get("page")) || 1;
@@ -169,6 +173,7 @@ export default function QueuePageClient({
       const params = new URLSearchParams();
       params.set("days", String(days));
       if (property !== "all") params.set("property", property);
+      if (driver !== "all") params.set("driver", driver);
       if (status) params.set("status", status);
       if (page > 1) params.set("page", String(page));
       if (pageSize !== 20) params.set("pageSize", String(pageSize));
@@ -182,7 +187,7 @@ export default function QueuePageClient({
     } catch {
       // silently retry next interval
     }
-  }, [days, property, status, page, pageSize, q, sortBy, sortDir]);
+  }, [days, property, driver, status, page, pageSize, q, sortBy, sortDir]);
 
   useEffect(() => {
     setData(initialData);
@@ -232,6 +237,13 @@ export default function QueuePageClient({
       label: "Property",
       allLabel: "All properties",
       options: data.properties.map((p) => ({ value: String(p.id), label: p.name })),
+    },
+    {
+      name: "driver",
+      value: driver,
+      label: "Driver",
+      allLabel: "All drivers",
+      options: (data.drivers ?? []).map((d) => ({ value: String(d.id), label: d.label })),
     },
   ];
 
