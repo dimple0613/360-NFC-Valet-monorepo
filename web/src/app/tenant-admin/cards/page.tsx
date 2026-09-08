@@ -4,10 +4,21 @@ import { PageHeader } from "@/components/page-header";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { getUserPlatformPermissions } from "@saasclaude/db";
-import { listCardsForTable } from "../_lib/valet-data";
+import { listCardsForTable, CARD_STATUSES } from "../_lib/valet-data";
 import { CardTableRow } from "./card-row";
 import { RegisterCardsDialog } from "./register-cards-dialog";
 import { NfcIcon } from "lucide-react";
+
+const CARD_STATUS_LABELS: Record<string, string> = {
+  unassigned: "Unassigned",
+  assigned: "Assigned",
+  printed: "Printed",
+  defect: "Defect",
+  ready: "Ready",
+  with_guest: "With guest",
+  returned: "Returned",
+  blocked: "Blocked / Lost",
+};
 
 export default async function CardsPage({
   searchParams,
@@ -35,25 +46,20 @@ export default async function CardsPage({
 
   const fields = data.properties.map((p) => ({ id: p.id, name: p.name }));
 
-  // Minting new card batches is platform inventory work — visible to Super
-  // Admins only (including while impersonating a tenant). Matches the
-  // POST /api/platform/valet/cards gate: honest UI, no dead button.
-  const platformPermissions = await getUserPlatformPermissions(
-    identity.session.impersonatorUserId ?? identity.user.id,
-  );
-  const canRegisterCards = platformPermissions.length > 0;
+  // #48: minting new deck cards + running the print/export workflow are
+  // platform permissions (valet.card.create / valet.card.print). The image is
+  // mirrored in the row actions so no dead buttons show.
+  const platformUserId = identity.session.impersonatorUserId ?? identity.user.id;
+  const platformPermissions = await getUserPlatformPermissions(platformUserId);
+  const canCreateCards = platformPermissions.includes("valet.card.create");
+  const canPrintCards = platformPermissions.includes("valet.card.print");
 
   const statusFilter: DataTableFilter = {
     name: "status",
     value: listParams.status ?? "",
     label: "Status",
     allLabel: "All statuses",
-    options: [
-      { value: "ready", label: "Ready" },
-      { value: "with_guest", label: "With guest" },
-      { value: "returned", label: "Returned" },
-      { value: "blocked", label: "Blocked / Lost" },
-    ],
+    options: CARD_STATUSES.map((s) => ({ value: s, label: CARD_STATUS_LABELS[s] ?? s })),
   };
 
   const propertyFilter: DataTableFilter = {
@@ -61,16 +67,19 @@ export default async function CardsPage({
     value: property ?? "",
     label: "Property",
     allLabel: "All properties",
-    options: data.properties.map((p) => ({ value: String(p.id), label: p.name })),
+    options: [
+      { value: "unassigned", label: "Unassigned (deck)" },
+      ...data.properties.map((p) => ({ value: String(p.id), label: p.name })),
+    ],
   };
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="NFC Cards"
-        description={`${data.totalCount} cards across ${data.properties.length} properties`}
+        description={`${data.totalCount} cards${data.properties.length ? ` across ${data.properties.length} properties` : ""}`}
         icon={<NfcIcon />}
-        actions={canRegisterCards ? <RegisterCardsDialog fields={fields} /> : null}
+        actions={canCreateCards ? <RegisterCardsDialog fields={fields} /> : null}
       />
 
       <DataTable
@@ -89,11 +98,11 @@ export default async function CardsPage({
         totalPages={data.totalPages}
         sortBy={listParams.sortBy ?? "uid"}
         sortDir={listParams.sortDir ?? "asc"}
-        searchPlaceholder="Search card UID…"
+        searchPlaceholder="Search card UID or property…"
         filters={[statusFilter, propertyFilter]}
       >
         {data.items.map((card) => (
-          <CardTableRow key={card.id} card={card} />
+          <CardTableRow key={card.id} card={card} canPrint={canPrintCards} properties={fields} />
         ))}
         {data.items.length === 0 ? (
           <TableRow>

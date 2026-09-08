@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prismaWithoutTenantScoping } from "@saasclaude/db";
 import {
+  assignCardToProperty,
+  createDeckCards,
   createDriver,
   createLocation,
   createOffer,
@@ -13,14 +15,15 @@ import {
   getReports,
   listCardsForTable,
   listOffersForTable,
-  registerCards,
+  markCardDefect,
+  markCardPrinted,
   removeCard,
   removeDriver,
   resetDriverPassword,
   setCardStatus,
   setOfferState,
   toggleDriverShift,
-  updateCardUid,
+  unassignCard,
   updateDriver,
   updateOffer,
 } from "@/app/tenant-admin/_lib/valet-data";
@@ -192,9 +195,11 @@ describe("drivers business logic (M8)", () => {
   });
 });
 
-describe("cards business logic (M8)", () => {
+describe("cards business logic (#48 deck)", () => {
   let org: { id: string };
   let propId: number;
+  let firstCard: { id: number; uid: string } | null = null;
+  const createdCardIds: number[] = [];
 
   beforeAll(async () => {
     org = await prismaWithoutTenantScoping.organization.create({
@@ -205,30 +210,37 @@ describe("cards business logic (M8)", () => {
   });
 
   afterAll(async () => {
+    await prismaWithoutTenantScoping.nfcCard.deleteMany({ where: { id: { in: createdCardIds } } });
     await prismaWithoutTenantScoping.nfcCard.deleteMany({ where: { propertyId: propId } });
     await prismaWithoutTenantScoping.zone.deleteMany({ where: { propertyId: propId } });
     await prismaWithoutTenantScoping.property.delete({ where: { id: propId } }).catch(() => undefined);
     await prismaWithoutTenantScoping.organization.delete({ where: { id: org.id } }).catch(() => undefined);
   });
 
-  it("registerCards creates a zero-padded batch and rejects duplicate ranges", async () => {
-    const batch = await registerCards({ propertyId: propId, prefix: "MQZ", from: 1, to: 3, organizationId: org.id });
+  it("createDeckCards mints an assigned batch from the deck series when bound to a property", async () => {
+    const batch = await createDeckCards({ count: 3, propertyId: propId, organizationId: org.id });
     expect(batch.created).toBe(3);
-    expect(batch.from).toBe("MQZ-00001");
-    expect(batch.to).toBe("MQZ-00003");
+    expect(batch.propertyId).toBe(propId);
+    expect(batch.from < batch.to).toBe(true);
 
-    await expect(
-      registerCards({ propertyId: propId, prefix: "MQZ", from: 1, to: 3, organizationId: org.id })
-    ).rejects.toThrow(/UIDs already exist/);
+    const rows = await prismaWithoutTenantScoping.nfcCard.findMany({
+      where: { uid: { gte: batch.from, lte: batch.to } },
+    });
+    expect(rows.length).toBe(3);
+    createdCardIds.push(...rows.map((r) => r.id));
+    firstCard = rows[0];
 
-    const list = await listCardsForTable({ organizationId: org.id, page: 1, pageSize: 20, sortBy: "", sortDir: "asc", status: "all", property: "all", q: "" });
-    const mine = list.items.filter((c) => c.uid.startsWith("MQZ-"));
+    const list = await listCardsForTable({ organizationId: org.id, page: 1, pageSize: 50, sortBy: "", sortDir: "asc", status: "all", property: "all", q: "" });
+    const mine = list.items.filter((c) => c.uid >= batch.from && c.uid <= batch.to);
     expect(mine.length).toBe(3);
-    expect(mine.every((c) => c.status === "ready")).toBe(true);
+    expect(mine.every((c) => c.status === "assigned")).toBe(true);
+    expect(mine.every((c) => c.propertyId === propId)).toBe(true);
+    expect(mine.every((c) => c.printsCount === 0)).toBe(true);
   });
 
   it("setCardStatus block/unblock/lost drive the stored status", async () => {
-    const card = (await prismaWithoutTenantScoping.nfcCard.findFirst({ where: { propertyId: propId, uid: "MQZ-00001" } }))!;
+    expect(firstCard).not.toBeNull();
+    const card = firstCard!;
     await setCardStatus(card.id, "block", org.id);
     expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.status).toBe("blocked");
     await setCardStatus(card.id, "unblock", org.id);
@@ -237,12 +249,48 @@ describe("cards business logic (M8)", () => {
     expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.status).toBe("blocked");
   });
 
-  it("updateCardUid re-keys the card and removeCard deletes it", async () => {
-    const card = (await prismaWithoutTenantScoping.nfcCard.findFirst({ where: { propertyId: propId, uid: "MQZ-00002" } }))!;
-    const res = await updateCardUid(card.id, "MQZ-99999", org.id);
-    expect(res.uid).toBe("MQZ-99999");
-    await removeCard(card.id, org.id);
-    expect(await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } })).toBeNull();
+  it("assign/unassign/print lifecycle: freeze + defect guard every mutation", async () => {
+    const deck = await createDeckCards({ count: 2, organizationId: org.id });
+    const cards = await prismaWithoutTenantScoping.nfcCard.findMany({
+      where: { uid: { in: [deck.from, deck.to] } },
+    });
+    expect(cards.length).toBe(2);
+    createdCardIds.push(...cards.map((r) => r.id));
+    const [c1, c2] = cards;
+
+    // minted without a property → unassigned deck inventory
+    expect(c1.status).toBe("unassigned");
+    expect(c1.propertyId).toBeNull();
+
+    // org assign option: unassigned → assigned to its own property
+    await assignCardToProperty(c1.uid, propId, org.id);
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c1.id } }))!.status).toBe("assigned");
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c1.id } }))!.propertyId).toBe(propId);
+
+    // unassign returns the card to the deck
+    await unassignCard(c1.uid, org.id);
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c1.id } }))!.status).toBe("unassigned");
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c1.id } }))!.propertyId).toBeNull();
+
+    // printing freezes UID + property and records the print
+    await markCardPrinted(c1.uid, "test-user-123");
+    const printed = (await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c1.id } }))!;
+    expect(printed.status).toBe("printed");
+    expect(printed.printsCount).toBe(1);
+    expect(printed.printedBy).toBe("test-user-123");
+    expect(printed.printedAt).not.toBeNull();
+
+    // frozen: assign/unassign/remove all reject on a printed card
+    await expect(assignCardToProperty(c1.uid, propId, org.id)).rejects.toThrow(/frozen/);
+    await expect(unassignCard(c1.uid, org.id)).rejects.toThrow(/frozen/);
+    await expect(removeCard(c1.id, org.id)).rejects.toThrow(/Only unassigned, assigned or defect/);
+
+    // defect retires the other card; printed cards keep their history
+    await markCardDefect(c2.uid);
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c2.id } }))!.status).toBe("defect");
+    // Deck defect cards are platform inventory — remove as super admin (no orgId).
+    await removeCard(c2.id);
+    expect(await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: c2.id } })).toBeNull();
   });
 });
 

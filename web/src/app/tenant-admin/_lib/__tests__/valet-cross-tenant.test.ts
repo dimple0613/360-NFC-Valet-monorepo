@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prismaWithoutTenantScoping } from "@saasclaude/db";
 import {
+  assignCardToProperty,
+  createDeckCards,
   getDrivers,
   getLocations,
   getOffers,
@@ -13,13 +15,11 @@ import {
   createLocation,
   deleteLocation,
   deleteOffer,
-  registerCards,
   removeCard,
   removeDriver,
   setCardStatus,
   setOfferState,
   toggleDriverShift,
-  updateCardUid,
   updateDriver,
   updateLocation,
   updateOffer,
@@ -73,8 +73,8 @@ describe("valet cross-tenant isolation (M4)", () => {
     driverA = a1;
     driverB = b1;
 
-    const ra = await registerCards({ propertyId: propA.id, prefix: "MAA", from: 1, to: 1, organizationId: orgA.id });
-    const rb = await registerCards({ propertyId: propB.id, prefix: "MBB", from: 1, to: 1, organizationId: orgB.id });
+    const ra = await createDeckCards({ count: 1, propertyId: propA.id, organizationId: orgA.id });
+    const rb = await createDeckCards({ count: 1, propertyId: propB.id, organizationId: orgB.id });
     cardA = { id: 0, uid: ra.from };
     cardB = { id: 0, uid: rb.from };
     const cards = await prismaWithoutTenantScoping.nfcCard.findMany({
@@ -125,14 +125,14 @@ describe("valet cross-tenant isolation (M4)", () => {
       await expect(createDriver({ name: "x", propertyId: propB.id, password: "Probe#123" }, orgA.id)).rejects.toThrow("Property not found");
     });
 
-    it("cards: setStatus/updateUid/remove throw Card not found for B's id under org A", async () => {
+    it("cards: setStatus/assign/remove throw Card not found for B's card under org A", async () => {
       await expect(setCardStatus(cardB.id, "block", orgA.id)).rejects.toThrow("Card not found");
-      await expect(updateCardUid(cardB.id, "M4A-X", orgA.id)).rejects.toThrow("Card not found");
+      await expect(assignCardToProperty(cardB.uid, propA.id, orgA.id)).rejects.toThrow("Card not found");
       await expect(removeCard(cardB.id, orgA.id)).rejects.toThrow("Card not found");
     });
 
-    it("cards: registerCards under A cannot bind to B's property", async () => {
-      await expect(registerCards({ propertyId: propB.id, prefix: "MXX", from: 1, to: 1, organizationId: orgA.id })).rejects.toThrow(
+    it("cards: createDeckCards under A cannot bind to B's property", async () => {
+      await expect(createDeckCards({ count: 1, propertyId: propB.id, organizationId: orgA.id })).rejects.toThrow(
         "Property doesn't belong to this organization."
       );
     });

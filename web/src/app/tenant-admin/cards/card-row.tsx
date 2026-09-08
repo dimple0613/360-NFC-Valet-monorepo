@@ -19,13 +19,16 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   MapPinnedIcon,
-  PencilIcon,
+  ShieldAlertIcon,
+  TagIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Formik, Form } from "formik";
+import { FormSelectField } from "@/components/console-form-field";
 import { CardStatusBadge } from "../_lib/valet-ui";
 import type { CardTableItem } from "../_lib/valet-data";
 
@@ -133,18 +136,126 @@ function QrPrintDialog({
   );
 }
 
-export function CardTableRow({ card }: { card: CardTableItem }) {
+const REMOVABLE_STATUSES = ["unassigned", "assigned", "defect"];
+
+function AssignToPropertyDialog({
+  open,
+  onOpenChange,
+  uid,
+  properties,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  uid: string;
+  properties: { id: number; name: string }[];
+}) {
+  const router = useRouter();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-[420px]"
+        showCloseButton={false}
+        style={{ borderRadius: 20, padding: 24 }}
+      >
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <div>
+            <div className="text-[17px] font-extrabold text-[#1c2b46]">Assign card {uid}</div>
+            <div className="mt-0.5 text-[12.5px] font-medium text-[#6c7a93]">
+              Bind the card to a branch property. The property freezes once the card is printed.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "#f6f7f9",
+              color: "#6c7a93",
+              border: "none",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              position: "absolute",
+              right: 10,
+              top: 10,
+            }}
+          >
+            <XIcon size={16} />
+          </button>
+        </div>
+        <Formik
+          initialValues={{ propertyId: "" }}
+          validate={(values) => {
+            if (!values.propertyId) return { propertyId: "Pick a property." };
+            return {};
+          }}
+          onSubmit={async (values, { setSubmitting }) => {
+            try {
+              const res = await fetch("/api/platform/valet/cards", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: 0, uid, action: "assign", propertyId: Number(values.propertyId) }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error || "Failed to assign card");
+              toast.success(`Card ${uid} assigned.`);
+              onOpenChange(false);
+              router.refresh();
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Something went wrong.");
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+        >
+          {({ isSubmitting }) => (
+            <Form style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <FormSelectField
+                name="propertyId"
+                label="Property"
+                options={[{ value: "", label: "Select…" }, ...properties.map((p) => ({ value: String(p.id), label: p.name }))]}
+              />
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ marginTop: 18, padding: 14, width: "100%", fontSize: 14 }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Assigning…" : "Assign card"}
+              </button>
+            </Form>
+          )}
+        </Formik>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function CardTableRow({
+  card,
+  canPrint,
+  properties,
+}: {
+  card: CardTableItem;
+  canPrint: boolean;
+  properties: { id: number; name: string }[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [editOpen, setEditOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [newUid, setNewUid] = useState(card.uid);
-  const [savingUid, setSavingUid] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const isBlocked = card.status === "blocked";
   const isWithGuest = card.status === "with_guest";
   const isReturned = card.status === "returned";
+  const isDeckCard = card.status === "unassigned" || card.status === "assigned";
+  const removable = REMOVABLE_STATUSES.includes(card.status);
 
   function runAction(action: "block" | "unblock" | "mark-returned" | "lost", successMsg: string) {
     startTransition(async () => {
@@ -164,26 +275,20 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
     });
   }
 
-  function submitEditUid() {
-    const value = newUid.trim().toUpperCase();
-    if (!value) return;
-    setSavingUid(true);
+  function runUidAction(action: "unassign" | "printed" | "defect", successMsg: string) {
     startTransition(async () => {
       try {
         const res = await fetch("/api/platform/valet/cards", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: card.id, action: "updateUid", uid: value }),
+          body: JSON.stringify({ id: card.id, uid: card.uid, action }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Failed to update UID");
-        toast.success("Card UID updated.");
-        setEditOpen(false);
+        if (!res.ok) throw new Error(data.error || "Failed to update card");
+        toast.success(successMsg);
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong.");
-      } finally {
-        setSavingUid(false);
       }
     });
   }
@@ -214,7 +319,7 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
       <TableCell>
         <CardStatusBadge status={card.statusLabel} tone={card.statusTone} />
       </TableCell>
-      <TableCell className="text-[12.5px] font-bold text-[#6c7a93]">{card.property}</TableCell>
+      <TableCell className="text-[12.5px] font-bold text-[#6c7a93]">{card.property ?? "Unassigned"}</TableCell>
       <TableCell className="text-[12px] font-semibold text-[#9aa6bc]">{card.by}</TableCell>
       <TableCell className="text-[12.5px] font-extrabold text-[#1c2b46]">{card.uses}</TableCell>
       <TableCell className={`text-[12px] font-semibold ${card.orderMuted ? "text-[#9aa6bc]" : "text-[#6c7a93]"}`}>
@@ -248,18 +353,36 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
               </button>
             }
           />
-          <DropdownMenuContent align="end" style={{ minWidth: 210, borderRadius: 14, padding: 6 }}>
+          <DropdownMenuContent align="end" style={{ minWidth: 220, borderRadius: 14, padding: 6 }}>
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-[11px] font-bold uppercase tracking-wide text-[#9aa6bc]">
                 {card.uid}
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setEditOpen(true)}>
-              <PencilIcon className="size-4" /> Edit UID
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setQrOpen(true)} disabled={pending}>
               <PrinterIcon className="size-4" /> Print card / QR
             </DropdownMenuItem>
+            {isDeckCard ? (
+              <DropdownMenuItem onClick={() => setAssignOpen(true)} disabled={pending}>
+                <TagIcon className="size-4" /> Assign to property
+              </DropdownMenuItem>
+            ) : null}
+            {card.status === "assigned" ? (
+              <DropdownMenuItem onClick={() => runUidAction("unassign", "Card unassigned.")} disabled={pending}>
+                <MapPinnedIcon className="size-4" /> Unassign from property
+              </DropdownMenuItem>
+            ) : null}
+            {canPrint && card.status !== "defect" ? (
+              <>
+                <DropdownMenuItem onClick={() => runUidAction("printed", "Card marked printed (frozen).")} disabled={pending}>
+                  <CheckCircle2Icon className="size-4" /> Mark printed / freeze
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runUidAction("defect", "Card marked defect.")} disabled={pending}>
+                  <ShieldAlertIcon className="size-4" /> Mark defect
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            <DropdownMenuSeparator />
             {isWithGuest ? null : (
               <DropdownMenuItem onClick={() => runAction("block", "Card blocked.")} disabled={pending}>
                 <BanIcon className="size-4" /> Block card
@@ -280,77 +403,36 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
                 <MapPinnedIcon className="size-4" /> Mark lost
               </DropdownMenuItem>
             ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setRemoveOpen(true)} className="text-[#e23d3d] focus:text-[#e23d3d]">
-              <Trash2Icon className="size-4" /> Remove
-            </DropdownMenuItem>
+            {removable ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setRemoveOpen(true)} className="text-[#e23d3d] focus:text-[#e23d3d]">
+                  <Trash2Icon className="size-4" /> Remove
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent
-          className="sm:max-w-[420px]"
-          showCloseButton={false}
-          style={{ borderRadius: 20, padding: 24 }}
-        >
-          <div className="pr-8 text-[17px] font-extrabold text-[#1c2b46]">Edit card UID</div>
-          <div className="mt-1 pr-8 text-[12.5px] font-medium text-[#6c7a93]">Change the UID for card {card.uid}.</div>
-          <button
-            type="button"
-            onClick={() => setEditOpen(false)}
-            aria-label="Close"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              background: "#f6f7f9",
-              color: "#6c7a93",
-              border: "none",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              position: "absolute",
-              right: 10,
-              top: 10,
-            }}
-          >
-            <XIcon size={16} />
-          </button>
-          <input
-            value={newUid}
-            onChange={(e) => setNewUid(e.target.value.toUpperCase())}
-            placeholder="A–Z, 0–9 and dashes (max 24)"
-            className="mt-4 w-full rounded-xl border-[1.5px] border-[#e7eaf0] bg-white px-4 py-3 text-[13px] font-semibold text-[#1c2b46] uppercase outline-none focus:border-[#f4531f]"
-          />
-          <button
-            type="button"
-            onClick={submitEditUid}
-            disabled={savingUid || !newUid.trim()}
-            className="mt-4 w-full rounded-full bg-[#f4531f] py-3 text-[13px] font-extrabold text-white disabled:opacity-50"
-          >
-            {savingUid ? "Saving…" : "Save UID"}
-          </button>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={`Remove card "${card.uid}"?`}
-        message="This will permanently remove the card from the property pool."
+        message="This permanently removes the card from the deck. Printed and operational cards cannot be removed."
         confirmLabel="Remove"
         onConfirm={handleRemove}
         pending={pending}
       />
 
-      <QrPrintDialog
-        open={qrOpen}
-        onOpenChange={setQrOpen}
-        cardNumber={card.uid}
+      <AssignToPropertyDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        uid={card.uid}
+        properties={properties}
       />
+
+      <QrPrintDialog open={qrOpen} onOpenChange={setQrOpen} cardNumber={card.uid} />
     </TableRow>
   );
 }

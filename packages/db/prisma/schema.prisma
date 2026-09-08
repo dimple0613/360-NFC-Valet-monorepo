@@ -1241,18 +1241,49 @@ model NfcCard {
   uid         String   @unique
   physicalUid String?                         @map("physical_uid")
   cardNumber  String?                         @map("card_number")
-  propertyId  Int                             @map("property_id")
-  status      String   @default("ready")
+  propertyId  Int?                            @map("property_id")
+  status      String   @default("unassigned")
   usesCount   Int      @default(0)            @map("uses_count")
   lostAt      DateTime?                       @map("lost_at")
+  printedAt   DateTime?                       @map("printed_at")
+  printedBy   String?                         @map("printed_by")
+  printsCount Int      @default(0)            @map("prints_count")
   createdAt   DateTime @default(now())        @map("created_at")
 
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   orders   Order[]
 
   @@index([propertyId])
   @@index([physicalUid])
+  @@index([status])
   @@map("nfc_cards")
+}
+
+// Platform-wide card deck — the single series (prefix + next number) that mints
+// new NFC cards. One row (id = 1), mutated atomically under a row lock so
+// concurrent mint batches never hand out overlapping UIDs. Replaces the legacy
+// per-property `card_pool`/`uid_start` auto-generation on createLocation.
+model CardDeck {
+  id        Int      @id
+  prefix    String   @default("NFC")
+  nextUid   BigInt   @default(7405) @map("next_uid")
+  updatedAt DateTime @updatedAt     @map("updated_at")
+
+  @@map("card_deck")
+}
+
+// Per-org print artwork profiles used by the card print designer: one front +
+// one back template image, then a QR + UID are placed when exporting.
+model NfcPrintProfile {
+  id             Int      @id @default(autoincrement())
+  organizationId String?  @map("organization_id")
+  name           String
+  frontImageUrl  String?  @map("front_image_url")
+  backImageUrl   String?  @map("back_image_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@map("nfc_print_profiles")
 }
 
 model Offer {
