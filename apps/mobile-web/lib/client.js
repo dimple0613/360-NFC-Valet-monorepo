@@ -1,5 +1,9 @@
 const BASE = process.env.NEXT_PUBLIC_ADMIN_API || "http://localhost:3000/api";
 
+export function adminUrl(path) {
+  return `${BASE}${path}`;
+}
+
 export async function api(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method: options.method || "GET",

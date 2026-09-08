@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useField, Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
+import { EyeIcon, UploadIcon } from "lucide-react";
 import { FormField, FormSelectField, FormTextareaField, FormToggleField } from "@/components/console-form-field";
 
 const CATEGORIES = ["Dining", "Spa", "Deals", "Stay", "Gym", "Entertainment", "Pool", "Concierge", "Room Service", "Events"];
@@ -45,6 +46,261 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
+}
+
+const ICON_BTN: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+  width: 20,
+  height: 20,
+  padding: 0,
+  borderRadius: 6,
+  border: "none",
+  background: "transparent",
+  cursor: "pointer",
+  color: "#6c7a93",
+};
+
+const HIDDEN_FILE: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  opacity: 0,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  whiteSpace: "nowrap",
+};
+
+function OfferImageUpload() {
+  const fileId = useId();
+  const [field, meta, helpers] = useField("imageUrl");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const value = String(field.value || "");
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      helpers.setValue(dataUrl);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to read file");
+    } finally {
+      if (e.target) e.target.value = "";
+      setPreviewOpen(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="field">
+        <label className="field-label">Offer image (optional)</label>
+        <label
+          htmlFor={value ? undefined : fileId}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: value ? "default" : "pointer" }}
+        >
+          <input
+            className="field-value input"
+            readOnly
+            placeholder="Upload image (JPG/PNG)"
+            value={value ? "Image attached" : ""}
+            style={{ flex: 1, minWidth: 0, paddingRight: 40, cursor: value ? "default" : "pointer", pointerEvents: "none" }}
+          />
+          {value ? (
+            <button
+              type="button"
+              aria-label={previewOpen ? "Hide preview" : "Show preview"}
+              onClick={() => setPreviewOpen((o) => !o)}
+              style={ICON_BTN}
+            >
+              <EyeIcon size={16} strokeWidth={2} />
+            </button>
+          ) : (
+            <span style={ICON_BTN} aria-hidden="true">
+              <UploadIcon size={16} strokeWidth={2} />
+            </span>
+          )}
+        </label>
+      </div>
+      {previewOpen && value ? (
+        <>
+          <div
+            style={{
+              marginTop: 8,
+              border: "1.5px dashed #C3CAD6",
+              borderRadius: 12,
+              padding: 8,
+              background: "none",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              aria-label="Offer preview"
+              style={{
+                width: "100%",
+                height: 180,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundImage: value.startsWith("data:") ? `url("${value}")` : `url(${value})`,
+                borderRadius: 10,
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              helpers.setValue("");
+              setPreviewOpen(false);
+            }}
+            style={{
+              marginTop: 6,
+              border: "1px solid #e7eaf0",
+              background: "#fff",
+              color: "#d6430f",
+              fontSize: 11,
+              fontWeight: 800,
+              padding: "6px 12px",
+              borderRadius: 999,
+              cursor: "pointer",
+            }}
+          >
+            Remove image
+          </button>
+        </>
+      ) : null}
+      {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      <input id={fileId} type="file" accept="image/*" onChange={handleFile} tabIndex={-1} aria-hidden="true" style={HIDDEN_FILE} />
+    </div>
+  );
+}
+
+function OfferMenuUpload() {
+  const fileId = useId();
+  const [field, meta, helpers] = useField("menuUrl");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [menuName, setMenuName] = useState("");
+  const value = String(field.value || "");
+  const isImage = value.startsWith("data:image");
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setMenuName(file.name);
+      helpers.setValue(dataUrl);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to read file");
+    } finally {
+      if (e.target) e.target.value = "";
+      setPreviewOpen(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="field">
+        <label className="field-label">Menu / PDF (optional)</label>
+        <label
+          htmlFor={value ? undefined : fileId}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: value ? "default" : "pointer" }}
+        >
+          <input
+            className="field-value input"
+            readOnly
+            placeholder="Upload menu (PDF or image)"
+            value={menuName || (value ? "Menu attached" : "")}
+            style={{ flex: 1, minWidth: 0, paddingRight: 40, cursor: value ? "default" : "pointer", pointerEvents: "none" }}
+          />
+          {value ? (
+            <button
+              type="button"
+              aria-label={previewOpen ? "Hide preview" : "Show preview"}
+              onClick={() => setPreviewOpen((o) => !o)}
+              style={ICON_BTN}
+            >
+              <EyeIcon size={16} strokeWidth={2} />
+            </button>
+          ) : (
+            <span style={ICON_BTN} aria-hidden="true">
+              <UploadIcon size={16} strokeWidth={2} />
+            </span>
+          )}
+        </label>
+      </div>
+      {previewOpen && value ? (
+        <>
+          <div
+            style={{
+              marginTop: 8,
+              border: "1.5px dashed #C3CAD6",
+              borderRadius: 12,
+              padding: 8,
+              background: isImage ? "none" : "#FEEFE8",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {isImage ? (
+              <div
+                aria-label="Menu preview"
+                style={{
+                  width: "100%",
+                  height: 180,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundImage: `url("${value}")`,
+                  borderRadius: 10,
+                }}
+              />
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 60, padding: "0 4px" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4531F" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M12 18v-6" />
+                  <path d="M9 15h6" />
+                </svg>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#D6430F" }}>
+                    {menuName || (value.startsWith("data:") ? "Menu attached" : "Current menu attached")}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#6C7A93", fontWeight: 600 }}>File attached</div>
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              helpers.setValue("");
+              setMenuName("");
+              setPreviewOpen(false);
+            }}
+            style={{
+              marginTop: 6,
+              border: "1px solid #e7eaf0",
+              background: "#fff",
+              color: "#d6430f",
+              fontSize: 11,
+              fontWeight: 800,
+              padding: "6px 12px",
+              borderRadius: 999,
+              cursor: "pointer",
+            }}
+          >
+            Remove menu
+          </button>
+        </>
+      ) : null}
+      {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      <input id={fileId} type="file" accept="image/*,.pdf" onChange={handleFile} tabIndex={-1} aria-hidden="true" style={HIDDEN_FILE} />
+    </div>
+  );
 }
 
 function StaffCodeField({ configured }: { configured: boolean }) {
@@ -93,16 +349,6 @@ export function OfferForm({
   onSuccess?: () => void;
   submitLabel: string;
 }) {
-  const imageRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLInputElement>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(defaults?.imageUrl || null);
-  const [menuPreview, setMenuPreview] = useState<string | null>(
-    defaults?.menuUrl && String(defaults.menuUrl).startsWith("data:") ? String(defaults.menuUrl) : null
-  );
-  const [menuName, setMenuName] = useState(
-    defaults?.menuUrl && !String(defaults.menuUrl).startsWith("data:") ? "Current menu attached" : ""
-  );
-
   return (
     <Formik
       initialValues={{
@@ -158,43 +404,7 @@ export function OfferForm({
         }
       }}
     >
-      {({ isSubmitting, values, setFieldValue }) => {
-        const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          try {
-            const dataUrl = await fileToDataUrl(file);
-            setImagePreview(dataUrl);
-            setFieldValue("imageUrl", dataUrl);
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to read file");
-          } finally {
-            if (e.target) e.target.value = "";
-          }
-        };
-        const clearImage = () => {
-          setImagePreview(null);
-          setFieldValue("imageUrl", "");
-        };
-        const handleMenu = async (e: React.ChangeEvent<HTMLInputElement>) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          try {
-            const dataUrl = await fileToDataUrl(file);
-            setMenuPreview(dataUrl);
-            setMenuName(file.name);
-            setFieldValue("menuUrl", dataUrl);
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to read file");
-          } finally {
-            if (e.target) e.target.value = "";
-          }
-        };
-        const clearMenu = () => {
-          setMenuPreview(null);
-          setMenuName("");
-          setFieldValue("menuUrl", "");
-        };
+      {({ isSubmitting, values }) => {
         return (
           <Form style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <FormField name="title" label="Title" placeholder="e.g. Friday Brunch at Kitchen6" />
@@ -215,117 +425,19 @@ export function OfferForm({
               <FormField name="wasPrice" label="Was price (AED)" placeholder="0.00" />
             </div>
 
-            <FormToggleField
-              name="validatesValet"
-              label="Validates valet parking"
-              description="Guests redeem staff-code validated, fee-free parking."
-            />
-            {values.validatesValet && <StaffCodeField configured={Boolean(defaults?.staffCodeConfigured)} />}
-
-            <div>
-              <span className="field-label" style={{ fontSize: 12, fontWeight: 800, color: "#48566e", marginBottom: 6, display: "block" }}>
-                Offer image
-              </span>
-              <div
-                onClick={() => imageRef.current?.click()}
-                style={{
-                  border: "1.5px dashed #C3CAD6",
-                  borderRadius: 12,
-                  padding: imagePreview ? 8 : "18px 14px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "column",
-                  gap: 6,
-                  minHeight: imagePreview ? 120 : 76,
-                  background: imagePreview ? "none" : "#F8F9FB",
-                  overflow: "hidden",
-                  position: "relative",
-                }}
-              >
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Offer"
-                    style={{ width: "100%", height: "auto", maxHeight: 180, objectFit: "cover", borderRadius: 10 }}
-                  />
-                ) : (
-                  <>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6C7A93" strokeWidth="1.8" strokeLinecap="round">
-                      <rect x="3" y="3" width="18" height="18" rx="3" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <path d="M21 15l-5-5L5 21" />
-                    </svg>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#6C7A93" }}>
-                      Click to upload offer image (JPG/PNG, max 5 MB)
-                    </span>
-                  </>
-                )}
-              </div>
-              {imagePreview && (
-                <button
-                  type="button"
-                  onClick={clearImage}
-                  style={{
-                    marginTop: 6,
-                    border: "1px solid #e7eaf0",
-                    background: "#fff",
-                    color: "#d6430f",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    cursor: "pointer",
-                  }}
-                >
-                  Remove image
-                </button>
-              )}
-              <input ref={imageRef} type="file" accept="image/*" hidden onChange={handleImage} />
+            {/* Validates-valet toggle hidden until client approval */}
+            <div style={{ display: "none" }}>
+              <FormToggleField
+                name="validatesValet"
+                label="Validates valet parking"
+                description="Guests redeem staff-code validated, fee-free parking."
+              />
+              {values.validatesValet && <StaffCodeField configured={Boolean(defaults?.staffCodeConfigured)} />}
             </div>
 
-            <div>
-              <span className="field-label" style={{ fontSize: 12, fontWeight: 800, color: "#48566e", marginBottom: 6, display: "block" }}>
-                Menu / PDF
-              </span>
-              <div
-                onClick={() => menuRef.current?.click()}
-                style={{
-                  border: "1.5px dashed #C3CAD6",
-                  borderRadius: 12,
-                  padding: "14px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  background: menuPreview ? "#FEEFE8" : "#F8F9FB",
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={menuPreview ? "#F4531F" : "#6C7A93"} strokeWidth="1.8" strokeLinecap="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                  <path d="M14 2v6h6" />
-                  <path d="M12 18v-6" />
-                  <path d="M9 15h6" />
-                </svg>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: menuPreview ? "#D6430F" : "#1C2B46" }}>
-                    {menuName || "Upload menu (PDF or image)"}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#6C7A93", fontWeight: 600 }}>
-                    {menuPreview ? "File attached" : "Guests can view your menu from the offer detail page"}
-                  </div>
-                </div>
-              </div>
-              <input ref={menuRef} type="file" accept="image/*,.pdf" hidden onChange={handleMenu} />
-            </div>
+            <OfferImageUpload />
 
-            {values.imageUrl && !String(values.imageUrl).startsWith("data:") ? (
-              <FormField name="imageUrl" label="Image URL" placeholder="https://…" />
-            ) : null}
-            {values.menuUrl && !String(values.menuUrl).startsWith("data:") ? (
-              <FormField name="menuUrl" label="Menu URL" placeholder="https://…" />
-            ) : null}
+            <OfferMenuUpload />
 
             <FormTextareaField name="desc" label="Description" placeholder="Short description shown to guests" />
             <button

@@ -1,26 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useField, Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
 import { BuildingIcon, ChevronRight, TrashIcon, LoadingIcon } from "@/app/tenant-admin/_components/valet-icons";
-import { PlusIcon, MapPinIcon } from "lucide-react";
+import { PlusIcon, MapPinIcon, UploadIcon, EyeIcon } from "lucide-react";
 import { FormField, FormToggleField } from "@/components/console-form-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 
-const SCHEMA = yup.object({
-  name: yup.string().required("Name is required."),
-  area: yup.string().required("Area / city is required."),
-  zones: yup.number().typeError("Zones must be a number.").integer("Zones must be a whole number.").min(1).max(50).required(),
-  slots: yup.number().typeError("Slots must be a number.").integer("Slots must be a whole number.").min(1).max(5000).required(),
-  cards: yup.number().typeError("Card pool must be a number.").integer("Card pool must be a whole number.").min(1).max(5000).required(),
-  validatesValet: yup.boolean(),
-  staffCode: yup
-    .string()
-    .test("four-digits", "Staff validation code must be exactly 4 digits", (v) => !v || /^\d{4}$/.test(String(v).trim())),
-});
+const makeSchema = (configured: boolean) =>
+  yup.object({
+    name: yup.string().required("Name is required."),
+    area: yup.string().required("Area / city is required."),
+    zones: yup.number().typeError("Zones must be a number.").integer("Zones must be a whole number.").min(1).max(50).required(),
+    slots: yup.number().typeError("Slots must be a number.").integer("Slots must be a whole number.").min(1).max(5000).required(),
+    cards: yup.number().typeError("Card pool must be a number.").integer("Card pool must be a whole number.").min(1).max(5000).required(),
+    imageUrl: yup.string().test("url-or-data", "Enter a valid URL", (v) => !v || v.startsWith("data:") || yup.string().url().isValidSync(v)),
+    validatesValet: yup.boolean(),
+    staffCode: yup.string().test("staff-code", "Enter a valid 4-digit staff code", (v, ctx) => {
+      const val = String(v || "").trim();
+      const enabled = Boolean(ctx.parent.validatesValet);
+      if (!enabled) return true;
+      if (val && !/^\d{4}$/.test(val)) return false;
+      if (!configured && !val) return false;
+      return true;
+    }),
+  });
 
 interface Zone {
   id: number;
@@ -125,11 +132,149 @@ function StaffCodeField({ configured }: { configured: boolean }) {
   );
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    if (file.size > 5 * 1024 * 1024) return reject(new Error("File must be under 5 MB"));
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function LocationImageUpload() {
+  const fileId = useId();
+  const [field, meta, helpers] = useField("imageUrl");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const value = String(field.value || "");
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      helpers.setValue(dataUrl);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to read file");
+    } finally {
+      if (e.target) e.target.value = "";
+      setPreviewOpen(false);
+    }
+  };
+
+  const iconBtn: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: 20,
+    height: 20,
+    padding: 0,
+    borderRadius: 6,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    color: "#6c7a93",
+  };
+
+  return (
+    <div>
+      <div className="field">
+        <label className="field-label">Location image (optional)</label>
+        <label
+          htmlFor={value ? undefined : fileId}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, cursor: value ? "default" : "pointer" }}
+        >
+          <input
+            className="field-value input"
+            readOnly
+            placeholder="Upload image (JPG/PNG)"
+            value={value ? "Image attached" : ""}
+            style={{ flex: 1, minWidth: 0, paddingRight: 40, cursor: value ? "default" : "pointer", pointerEvents: "none" }}
+          />
+          {value ? (
+            <button
+              type="button"
+              aria-label={previewOpen ? "Hide preview" : "Show preview"}
+              onClick={() => setPreviewOpen((o) => !o)}
+              style={iconBtn}
+            >
+              <EyeIcon size={16} strokeWidth={2} />
+            </button>
+          ) : (
+            <span style={iconBtn} aria-hidden="true">
+              <UploadIcon size={16} strokeWidth={2} />
+            </span>
+          )}
+        </label>
+      </div>
+      {previewOpen && value ? (
+        <>
+          <div
+            style={{
+              marginTop: 8,
+              border: "1.5px dashed #C3CAD6",
+              borderRadius: 12,
+              padding: 8,
+              background: "none",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              aria-label="Location preview"
+              style={{
+                width: "100%",
+                height: 180,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundImage: `url("${value}")`,
+                borderRadius: 10,
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              helpers.setValue("");
+              setPreviewOpen(false);
+            }}
+            style={{
+              marginTop: 6,
+              border: "1px solid #e7eaf0",
+              background: "#fff",
+              color: "#d6430f",
+              fontSize: 11,
+              fontWeight: 800,
+              padding: "6px 12px",
+              borderRadius: 999,
+              cursor: "pointer",
+            }}
+          >
+            Remove image
+          </button>
+        </>
+      ) : null}
+      {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
+      <input
+        id={fileId}
+        type="file"
+        accept="image/*"
+        onChange={handleFile}
+        tabIndex={-1}
+        aria-hidden="true"
+        style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", clip: "rect(0 0 0 0)", clipPath: "inset(50%)", whiteSpace: "nowrap" }}
+      />
+    </div>
+  );
+}
+
 function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Formik
       initialValues={{ name: "", area: "", zones: 4, slots: 160, cards: 200, imageUrl: "", validatesValet: false, staffCode: "" }}
-      validationSchema={SCHEMA}
+      validationSchema={makeSchema(false)}
       onSubmit={async (values, { setSubmitting, resetForm }) => {
         try {
           const res = await fetch("/api/platform/valet/locations", {
@@ -167,7 +312,7 @@ function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 18 }}>
               <FormField name="name" label="Hotel / Center name" placeholder="Marriott Resort Palm Jumeirah" />
               <FormField name="area" label="Area / City" placeholder="Palm Jumeirah, Dubai" />
-              <FormField name="imageUrl" label="Image URL (optional)" placeholder="https://example.com/hotel.jpg" />
+              <LocationImageUpload />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
                 <FormField name="zones" label="Zones" type="number" />
                 <FormField name="slots" label="Slots" type="number" />
@@ -208,7 +353,7 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
         staffCode: "",
       }}
       enableReinitialize
-      validationSchema={SCHEMA}
+      validationSchema={makeSchema(location.staffCodeConfigured)}
       onSubmit={async (values, { setSubmitting }) => {
         try {
           const res = await fetch(`/api/platform/valet/locations/${location.id}`, {
@@ -283,7 +428,7 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
           <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 18 }}>
             <FormField name="name" label="Hotel / Center name" />
             <FormField name="area" label="Area / City" />
-            <FormField name="imageUrl" label="Image URL (optional)" placeholder="https://example.com/hotel.jpg" />
+            <LocationImageUpload />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
               <FormField name="zones" label="Zones" type="number" />
               <FormField name="slots" label="Slots" type="number" />

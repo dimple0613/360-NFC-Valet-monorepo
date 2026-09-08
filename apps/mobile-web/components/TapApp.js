@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { io } from "socket.io-client";
-import { api } from "@/lib/client";
+import { api, adminUrl } from "@/lib/client";
 
 const ETA_CHIPS = [5, 10, 15, 20, 30];
 
@@ -108,7 +108,10 @@ function Hero({ property, card }) {
 
 function C1Banner({ property }) {
   return (
-    <div className="c1-banner">
+    <div
+      className="c1-banner"
+      style={property?.imageUrl ? { backgroundImage: `url(${property.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+    >
       <div className="c1-banner-tag">
         <b>{property?.name}</b>
         <span>Welcome. Your car is in good hands.</span>
@@ -279,13 +282,6 @@ function Home({ data, onOpenEta, onBrowse, onReload, onViewStatus, leftMs, apiCa
   const effectiveActive = activeCat ?? visibleCats[0]?.filter ?? null;
   return (
     <div className="home">
-      <div className="url-pill">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6C7A93" strokeWidth="2.4" strokeLinecap="round">
-          <rect x="5" y="10" width="14" height="10" rx="2" />
-          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-        </svg>
-        <span>tap.360valet.ae/{data.property?.slug}</span>
-      </div>
       <C1Banner property={data.property} />
       {hasRequest ? (
         <StatusHero order={data.order} leftMs={leftMs} onViewStatus={onViewStatus} />
@@ -630,6 +626,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
   const grad = OFFER_GRADIENT[offer.category] || "linear-gradient(135deg,#2A3C61,#6C7A93)";
   const pct = savePercent(offer);
   const meta = [offer.level, offer.opensAt && offer.closesAt ? `${offer.opensAt} – ${offer.closesAt}` : "24 hours"].filter(Boolean);
+  const menuHref = offer.menuUrl?.startsWith("data:") ? adminUrl(`/public/offer/${offer.id}/menu`) : offer.menuUrl;
 
   const doValidate = async () => {
     setValidating(true);
@@ -681,7 +678,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
         {offer.menuUrl && (
           <a
             className="reserve-wrap"
-            href={offer.menuUrl}
+            href={menuHref}
             target="_blank"
             rel="noopener noreferrer"
             style={{ display: "block", textDecoration: "none", marginBottom: 12 }}
@@ -696,7 +693,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
           </a>
         )}
           {offer.validatesValet && offer.hasCode && (
-          <>
+          <div style={{ display: "none" }}>
             <div className="validate-box">
               <div className="validate-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -740,7 +737,7 @@ function OfferDetail({ offer, property, onBack, leftMs, onViewStatus, apiCall })
                 {err && <div className="validate-err">{err}</div>}
               </>
             )}
-          </>
+          </div>
         )}
         <div className="reserve-wrap">
           <a className="reserve-btn" href={`tel:${(property?.phone || "").replace(/\s+/g, "")}`}>

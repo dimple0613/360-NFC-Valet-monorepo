@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ uid: str
   try {
     const { rows: cards } = await query(
       `SELECT c.id AS card_id, c.uid, c.status AS card_status, c.uses_count,
-              p.id AS property_id, p.name AS property_name, p.area, p.slug, p.city, p.phone, p.validates_valet, p.staff_code
+              p.id AS property_id, p.name AS property_name, p.area, p.slug, p.city, p.phone, p.validates_valet, p.staff_code, p.image_url
        FROM nfc_cards c
        JOIN properties p ON p.id = c.property_id
        WHERE c.uid = $1 OR UPPER(c.physical_uid) = UPPER($2)`,
@@ -40,6 +40,7 @@ property_id: number;
       phone: string | null;
       validates_valet: boolean | null;
       staff_code: string | null;
+      image_url: string | null;
     }
       | undefined;
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
@@ -90,6 +91,7 @@ property_id: number;
         phone: card.phone,
         validatesValet: card.validates_valet,
         hasCode: Boolean(card.staff_code),
+        imageUrl: card.image_url,
       },
       order: order
         ? {

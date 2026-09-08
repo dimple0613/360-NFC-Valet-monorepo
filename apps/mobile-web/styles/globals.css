@@ -1123,19 +1123,6 @@ button {
 
 /* ---------- Shared module-3 extras ---------- */
 
-.url-pill {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  background: var(--mist);
-  border-radius: 99px;
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--slate);
-  margin-bottom: 12px;
-}
-
 .pill-eta {
   display: flex;
   gap: 6px;
