@@ -28,7 +28,6 @@ export default async function QueuePage({
       property={property}
       driver={driver}
       status={status}
-      canManageQueue={identity.permissions.includes("valet.queue.manage")}
     />
   );
 }

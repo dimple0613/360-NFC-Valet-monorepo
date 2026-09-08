@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PrinterIcon } from "lucide-react";
 import { generateCardQr } from "./card-qr";
+import { buildCardPrintPdf } from "./card-print";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   BanIcon,
+  Check,
   CheckCircle2Icon,
   ChevronDownIcon,
   MapPinnedIcon,
@@ -36,12 +38,19 @@ function QrPrintDialog({
   open,
   onOpenChange,
   cardNumber,
+  propertyName,
+  canPrint,
+  onPrinted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cardNumber: string;
+  propertyName?: string | null;
+  canPrint: boolean;
+  onPrinted: () => void;
 }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const generatedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -61,6 +70,28 @@ function QrPrintDialog({
       cancelled = true;
     };
   }, [open, cardNumber]);
+
+  // #48 Step 3: exporting the card as a print sheet is a real print run — it
+  // freezes the card's UID + property (mark printed) after generating the PDF.
+  async function handleExportPdf() {
+    setPdfBusy(true);
+    try {
+      const { blob, filename } = await buildCardPrintPdf({
+        faces: [{ uid: cardNumber, property: propertyName ?? null, drawQr: true, drawUid: true }],
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (canPrint) onPrinted();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create the print sheet.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,6 +153,12 @@ function QrPrintDialog({
         <div className="mt-2 text-center text-[12px] font-medium leading-relaxed text-[#6c7a93]">
           Guest scans this QR (or taps the card&apos;s NFC tag) to pull up the car. Prints a guest
           card bound to <span className="font-bold text-[#1c2b46]">#{cardNumber}</span>.
+          {canPrint ? (
+            <>
+              {" "}
+              Exporting a print sheet freezes the card&apos;s UID and property.
+            </>
+          ) : null}
         </div>
 
         <button
@@ -131,6 +168,17 @@ function QrPrintDialog({
         >
           Print card
         </button>
+
+        {canPrint ? (
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={pdfBusy}
+            className="mt-2 w-full rounded-full border border-[#1c2b46] bg-white py-3 text-[13px] font-extrabold text-[#1c2b46]"
+          >
+            {pdfBusy ? "Preparing PDF…" : "Download print sheet (PDF) · Freeze"}
+          </button>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -143,11 +191,13 @@ function AssignToPropertyDialog({
   onOpenChange,
   uid,
   properties,
+  organizationId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   uid: string;
   properties: { id: number; name: string }[];
+  organizationId?: string | null;
 }) {
   const router = useRouter();
   return (
@@ -188,7 +238,8 @@ function AssignToPropertyDialog({
             <XIcon size={16} />
           </button>
         </div>
-        <Formik
+        <div className="super-console">
+          <Formik
           initialValues={{ propertyId: "" }}
           validate={(values) => {
             if (!values.propertyId) return { propertyId: "Pick a property." };
@@ -199,7 +250,13 @@ function AssignToPropertyDialog({
               const res = await fetch("/api/platform/valet/cards", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: 0, uid, action: "assign", propertyId: Number(values.propertyId) }),
+                body: JSON.stringify({
+                  id: 0,
+                  uid,
+                  action: "assign",
+                  propertyId: Number(values.propertyId),
+                  ...(organizationId ? { organizationId } : {}),
+                }),
               });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(data.error || "Failed to assign card");
@@ -230,7 +287,8 @@ function AssignToPropertyDialog({
               </button>
             </Form>
           )}
-        </Formik>
+          </Formik>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -240,10 +298,18 @@ export function CardTableRow({
   card,
   canPrint,
   properties,
+  organizationId,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   card: CardTableItem;
   canPrint: boolean;
   properties: { id: number; name: string }[];
+  organizationId?: string | null;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (uid: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -257,13 +323,22 @@ export function CardTableRow({
   const isDeckCard = card.status === "unassigned" || card.status === "assigned";
   const removable = REMOVABLE_STATUSES.includes(card.status);
 
+  // #48 org-scope: the Super Admin's per-org tab scopes assign/unassign/ops to
+  // the org it views, but unassigned (deck) cards are platform inventory — only
+  // remove them org-scoped when they are property-bound.
+  const orgScope = organizationId && card.propertyId ? organizationId : undefined;
+
   function runAction(action: "block" | "unblock" | "mark-returned" | "lost", successMsg: string) {
     startTransition(async () => {
       try {
         const res = await fetch("/api/platform/valet/cards", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: card.id, action }),
+          body: JSON.stringify({
+            id: card.id,
+            action,
+            ...(orgScope ? { organizationId: orgScope } : {}),
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to update card");
@@ -281,7 +356,12 @@ export function CardTableRow({
         const res = await fetch("/api/platform/valet/cards", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: card.id, uid: card.uid, action }),
+          body: JSON.stringify({
+            id: card.id,
+            uid: card.uid,
+            action,
+            ...(orgScope ? { organizationId: orgScope } : {}),
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to update card");
@@ -299,7 +379,11 @@ export function CardTableRow({
         const res = await fetch("/api/platform/valet/cards", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: card.id, remove: true }),
+          body: JSON.stringify({
+            id: card.id,
+            remove: true,
+            ...(organizationId ? { organizationId } : {}),
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to remove card");
@@ -315,14 +399,30 @@ export function CardTableRow({
 
   return (
     <TableRow>
-      <TableCell className="text-[12.5px] font-extrabold text-[#1c2b46]">{card.uid}</TableCell>
+      {selectable ? (
+        <TableCell className="w-10 pr-0">
+          <label className="checkbox" aria-label={`Select ${card.uid}`} style={{ cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={!!selected}
+              onChange={() => onToggleSelect?.(card.uid)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className={`checkbox-box${selected ? " checked" : ""}`}>
+              <Check size={12} strokeWidth={3.5} color="#ffffff" />
+            </span>
+          </label>
+        </TableCell>
+      ) : null}
+      <TableCell className="text-[13px] font-extrabold text-[#1c2b46]">{card.uid}</TableCell>
       <TableCell>
         <CardStatusBadge status={card.statusLabel} tone={card.statusTone} />
       </TableCell>
-      <TableCell className="text-[12.5px] font-bold text-[#6c7a93]">{card.property ?? "Unassigned"}</TableCell>
-      <TableCell className="text-[12px] font-semibold text-[#9aa6bc]">{card.by}</TableCell>
-      <TableCell className="text-[12.5px] font-extrabold text-[#1c2b46]">{card.uses}</TableCell>
-      <TableCell className={`text-[12px] font-semibold ${card.orderMuted ? "text-[#9aa6bc]" : "text-[#6c7a93]"}`}>
+      <TableCell className="text-[13px] font-bold text-[#6c7a93]">{card.property ?? "Unassigned"}</TableCell>
+      <TableCell className="text-[13px] font-semibold text-[#9aa6bc]">{card.by}</TableCell>
+      <TableCell className="text-[13px] font-extrabold text-[#1c2b46]">{card.uses}</TableCell>
+      <TableCell className={`text-[13px] font-semibold ${card.orderMuted ? "text-[#9aa6bc]" : "text-[#6c7a93]"}`}>
         {card.order}
       </TableCell>
       <TableCell className="text-right">
@@ -430,9 +530,17 @@ export function CardTableRow({
         onOpenChange={setAssignOpen}
         uid={card.uid}
         properties={properties}
+        organizationId={orgScope}
       />
 
-      <QrPrintDialog open={qrOpen} onOpenChange={setQrOpen} cardNumber={card.uid} />
+      <QrPrintDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        cardNumber={card.uid}
+        propertyName={card.property}
+        canPrint={canPrint}
+        onPrinted={() => runUidAction("printed", "Card marked printed (frozen).")}
+      />
     </TableRow>
   );
 }

@@ -504,6 +504,18 @@ export async function getLocations(organizationId?: string | null) {
      GROUP BY p.id ORDER BY p.id`,
     propsParams
   );
+  const cardCounts = await q(
+    `SELECT property_id,
+            COUNT(*) FILTER (WHERE status IN ('assigned','ready')) AS ready_cards,
+            COUNT(*) FILTER (WHERE status = 'printed') AS printed_cards
+     FROM nfc_cards
+     GROUP BY property_id`,
+    []
+  );
+  const cardCountsByProp: Record<number, { ready: number; printed: number }> = {};
+  for (const r of cardCounts) {
+    cardCountsByProp[Number(r.property_id)] = { ready: r.ready_cards ?? 0, printed: r.printed_cards ?? 0 };
+  }
   const zones = await q("SELECT id, property_id, code, slot_count FROM zones ORDER BY property_id, id", []);
   const zonesByProp: Record<string, Array<{ id: number; code: string; slots: number }>> = {};
   for (const z of zones) {
@@ -531,6 +543,7 @@ export async function getLocations(organizationId?: string | null) {
       overdue: p.overdue,
       validatesValet: p.validates_valet,
       staffCodeConfigured: Boolean(p.staff_code),
+      cardCounts: cardCountsByProp[p.id] ?? { ready: 0, printed: 0 },
       zones: zonesByProp[p.id] || [],
     })),
   };
@@ -1613,6 +1626,62 @@ export async function createDeckCards(input: {
   return { created: count, from: result.from, to: result.to, propertyId };
 }
 
+// Legacy batch registration form (kept for the current UX): pick a 3-letter
+// prefix and a From–To range; cards are minted with `${PREFIX}-${padded
+// number}` UIDs. No property in the form — cards are created for the platform
+// deck as 'unassigned'; assignment to a property happens afterwards through the
+// org's card assigning option (or by passing propertyId here). When
+// organizationId is given the property must belong to that org.
+export async function registerCards(input: {
+  propertyId?: number | null;
+  prefix: string;
+  from: number;
+  to: number;
+  organizationId?: string | null;
+}): Promise<{ created: number; from: string; to: string }> {
+  const pfx = String(input.prefix || "").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(pfx)) throw new Error("Prefix must be exactly 3 letters (A–Z)");
+  const startNum = Number(input.from);
+  const endNum = Number(input.to);
+  if (!Number.isInteger(startNum) || !Number.isInteger(endNum)) throw new Error("From and To must be whole numbers");
+  if (startNum < 1 || endNum < startNum) throw new Error("Range is invalid");
+  if (endNum - startNum + 1 > 500) throw new Error("Create at most 500 cards per batch");
+
+  const propertyId = input.propertyId ? Number(input.propertyId) : null;
+  if (propertyId) {
+    const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [propertyId]))[0];
+    if (!prop) throw new Error("Property not found.");
+    if (input.organizationId && String(prop.organization_id) !== input.organizationId) {
+      throw new Error("Property doesn't belong to this organization.");
+    }
+  }
+  const status = propertyId ? "assigned" : "unassigned";
+
+  const pad = Math.max(5, String(endNum).length);
+  const uids: string[] = [];
+  for (let n = startNum; n <= endNum; n++) {
+    uids.push(`${pfx}-${String(n).padStart(pad, "0")}`);
+  }
+  const clashes = (
+    await q("SELECT uid FROM nfc_cards WHERE uid = ANY($1::text[]) ORDER BY uid LIMIT 5", [uids])
+  ).map((r) => r.uid);
+  if (clashes.length > 0) {
+    throw new Error(`UIDs already exist in this range (e.g. ${clashes.join(", ")}). Pick another range.`);
+  }
+
+  const result = await transaction(async (exec) => {
+    const sync = await exec(
+      "SELECT setval('nfc_cards_id_seq', GREATEST((SELECT COALESCE(MAX(id),0) FROM nfc_cards), (SELECT last_value FROM nfc_cards_id_seq)))"
+    );
+    void sync;
+    for (const uid of uids) {
+      await exec("INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1,$2,$3)", [uid, propertyId, status]);
+    }
+  });
+  void result;
+  return { created: uids.length, from: uids[0], to: uids[uids.length - 1] };
+}
+
 // The org's "card assigning option" (#48 E): assign an unassigned/assigned card
 // to one of the org's own properties (branch-specific) or unassign it back to
 // the deck. Printed and defect cards are frozen and cannot be moved. No create /
@@ -1708,6 +1777,71 @@ export async function removeCard(id: number, organizationId?: string | null): Pr
     throw new Error("Card not found");
   }
   await q("DELETE FROM nfc_cards WHERE id = $1", [id]);
+}
+
+// #48 Step 3: card print profiles. Super Admin (platform) owned — each profile
+// is a named pair of front + back artwork images that the batch print designer
+// places the QR + card UID over. Profiles are org-less (platform-level); they
+// are used to print any card from the platform deck.
+export interface PrintProfileRow {
+  id: number;
+  name: string;
+  frontImageUrl: string | null;
+  backImageUrl: string | null;
+}
+
+export async function listPrintProfiles(): Promise<PrintProfileRow[]> {
+  const rows = await q(
+    `SELECT id, name, front_image_url, back_image_url
+     FROM nfc_print_profiles
+     ORDER BY id`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    frontImageUrl: r.front_image_url ?? null,
+    backImageUrl: r.back_image_url ?? null,
+  }));
+}
+
+export async function createPrintProfile(input: {
+  name: string;
+  frontImageUrl?: string | null;
+  backImageUrl?: string | null;
+}): Promise<{ id: number }> {
+  const name = String(input.name || "").trim();
+  if (!name) throw new Error("Profile name is required.");
+  const rows = await q(
+    `INSERT INTO nfc_print_profiles (name, front_image_url, back_image_url)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
+    [name, input.frontImageUrl || null, input.backImageUrl || null]
+  );
+  return { id: rows[0].id };
+}
+
+export async function updatePrintProfile(
+  id: number,
+  input: { name?: string; frontImageUrl?: string | null; backImageUrl?: string | null }
+): Promise<void> {
+  const existing = (await q("SELECT id FROM nfc_print_profiles WHERE id = $1", [id]))[0];
+  if (!existing) throw new Error("Print profile not found");
+  const name = input.name != null ? String(input.name).trim() : undefined;
+  if (name === "") throw new Error("Profile name is required.");
+  await q(
+    `UPDATE nfc_print_profiles
+     SET name = COALESCE($2, name),
+         front_image_url = COALESCE($3, front_image_url),
+         back_image_url = COALESCE($4, back_image_url)
+     WHERE id = $1`,
+    [id, name ?? null, input.frontImageUrl ?? null, input.backImageUrl ?? null]
+  );
+}
+
+export async function deletePrintProfile(id: number): Promise<void> {
+  const existing = (await q("SELECT id FROM nfc_print_profiles WHERE id = $1", [id]))[0];
+  if (!existing) throw new Error("Print profile not found");
+  await q("DELETE FROM nfc_print_profiles WHERE id = $1", [id]);
 }
 
 export async function getOffers(params: { property?: string | null; organizationId?: string | null }) {
