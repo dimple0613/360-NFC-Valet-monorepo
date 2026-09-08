@@ -2,6 +2,8 @@
 
 Real-time contract between the 360 NFC Valet clients (guest web, driver app, tenant-admin console) and the standalone socket server on `WS_PORT` (default **3002**). The server is `web/ws-server.ts` (run with `pnpm --filter web vws`); the Next app publishes through it via `web/src/lib/valet-live.ts` (POST `/broadcast` on `WS_BROADCAST_URL`).
 
+> **Successor to the legacy `360-NFC-Valet/admin/ws-server.js`**: the old server was a thin relay — it received `{ event, data }` over HTTP `POST /broadcast` and re-emitted to the `property:<id>` + `admin` rooms, exact same contract as today. The event names/payloads below are the live source of truth, captured from the current monorepo broadcast call sites (`web/src/app/api/driver/**`, `web/src/app/api/public/**`). The new server keeps the legacy event names verbatim so both apps require zero client changes.
+
 ## Connection
 
 | Client | Endpoint | Auth |
@@ -21,25 +23,26 @@ Drivers are additionally auto-joined to their shift `property:<id>` from the JWT
 
 ## Rooms / fan-out
 
-Every server→client event carries `{ propertyId, ... }`. Events are fanned out to **both** `property:<propertyId>` and the `admin` room, so:
+Every server→client event carries `{ propertyId, ... }`. Events are fanned out to **both** `property:<propertyId>` and the socket.io `admin` room, so:
 
 - the guest web watching card `7001` (subscribed to its property) gets the live status update,
 - the driver app on a shift at that property gets it,
-- the tenant-admin console's raw admin socket gets it too (used today only as a connectivity heartbeat).
+- any socket.io client in the `admin` room (join via token on `/live/`) gets every broadcast — resource-level filtering is a later concern (see `web/ws-server.ts`).
+- the tenant-admin console's **raw** WebSocket at `/live/admin` (see `web/src/lib/ws.ts`) is a SEPARATE, non-socket.io path: it does NOT receive fan-out payloads today — it is used only as a connectivity heartbeat (queue/offers still fall back to polling).
 
 ## Server → client events
 
 | Event | Emitted when | Payload (beyond `propertyId`, `timestamp`) |
 | --- | --- | --- |
-| `valet.order.created` | driver creates an order (car dropped) | `orderId`, `cardUid?`, `driverId`, `plate`, `carMake?`, `carModel?`, `carColor?`, `status: "active"` |
+| `valet.order.created` | driver creates an order (car dropped) | `orderId`, `cardUid?`, `driverId`, `plate`, `status: "active"` |
 | `valet.order.parked` | driver marks an order parked (`status: "parked"`, zone/slot assigned) | `orderId`, `driverId`, `status`, `zone?`, `slot?` |
-| `valet.order.return.requested` | **guest taps "car on the way"** (public tap POST) **or** driver marks `returning` with ETA | `orderId`, `minutes?`, `guestEta?`, `status: "returning"` |
-| `valet.order.retrieving` | driver marks an order retrieving | `orderId`, `driverId`, `status` |
+| `valet.order.return.requested` | **guest taps "car on the way"** (public tap POST) **or** driver marks `returning` with ETA | via guest: `orderId`, `minutes?`, `guestEta?`, `status: "returning"` — via driver: same `orderId`/`status` plus `driverId`, `zone?`, `slot?` |
+| `valet.order.retrieving` | driver marks an order retrieving (`status: "retrieving"`) | `orderId`, `driverId`, `status` |
 | `valet.order.completed` | order returned (card back to `ready`) | `orderId`, `driverId`, `status: "returned"` |
-| `valet.delay.notified` | driver notifies guest of a delay (`notify-delay`) | `orderId`, `plate?`, `delayMinutes?`, `message?` |
+| `valet.delay.notified` | driver notifies guest of a delay (`notify-delay`) | `orderId`, `driverId` |
 | `valet.order.updated` | generic fallback for any other transition | `orderId`, `status?` |
 | `driver.shift.started` / `driver.shift.ended` | driver starts/ends a shift | `driverId`, `driverName`, `valetId`, `status?` |
-| `nfc.card.activated` | card used to create an order | `cardUid?`, `orderId`, `driverId`, `plate`, etc. |
+| `nfc.card.activated` | card used to create an order | `orderId`, `driverId`, `plate`, `cardUid?`, `carMake?`, `carModel?`, `carColor?` |
 
 ## Client → server control messages
 
