@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PrinterIcon } from "lucide-react";
+import { generateCardQr } from "./card-qr";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,11 +29,116 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CardStatusBadge } from "../_lib/valet-ui";
 import type { CardTableItem } from "../_lib/valet-data";
 
+function QrPrintDialog({
+  open,
+  onOpenChange,
+  cardNumber,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  cardNumber: string;
+}) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const generatedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    if (generatedFor.current === cardNumber) return;
+    let cancelled = false;
+    generateCardQr(cardNumber)
+      .then((uri) => {
+        if (cancelled) return;
+        setDataUrl(uri);
+        generatedFor.current = cardNumber;
+      })
+      .catch(() => {
+        if (!cancelled) setDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, cardNumber]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <style>{`
+@media print {
+  body * { visibility: hidden !important; }
+  .print-card-dialog, .print-card-dialog * { visibility: visible !important; }
+  .print-card-dialog {
+    position: absolute !important;
+    inset: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  button { display: none !important; }
+}
+`}</style>
+      <DialogContent
+        className="sm:max-w-[360px] print-card-dialog"
+        showCloseButton={false}
+        style={{ borderRadius: 20, padding: 24 }}
+      >
+        <div className="pr-8 text-[17px] font-extrabold text-[#1c2b46]">Card #{cardNumber}</div>
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Close"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: "#f6f7f9",
+            color: "#6c7a93",
+            border: "none",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            position: "absolute",
+            right: 10,
+            top: 10,
+          }}
+        >
+          <XIcon size={16} />
+        </button>
+
+        <div
+          className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-[#e7eaf0] bg-white p-5"
+          style={{ minHeight: 260 }}
+        >
+          {dataUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={dataUrl} alt={`QR code for card ${cardNumber}`} width={240} height={240} />
+          ) : (
+            <div className="text-[12.5px] font-semibold text-[#9aa6bc]">Generating…</div>
+          )}
+        </div>
+
+        <div className="mt-2 text-center text-[12px] font-medium leading-relaxed text-[#6c7a93]">
+          Guest scans this QR (or taps the card&apos;s NFC tag) to pull up the car. Prints a guest
+          card bound to <span className="font-bold text-[#1c2b46]">#{cardNumber}</span>.
+        </div>
+
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="mt-4 w-full rounded-full bg-[#1c2b46] py-3 text-[13px] font-extrabold text-white"
+        >
+          Print card
+        </button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function CardTableRow({ card }: { card: CardTableItem }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const [newUid, setNewUid] = useState(card.uid);
   const [savingUid, setSavingUid] = useState(false);
 
@@ -150,6 +257,9 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
             <DropdownMenuItem onClick={() => setEditOpen(true)}>
               <PencilIcon className="size-4" /> Edit UID
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setQrOpen(true)} disabled={pending}>
+              <PrinterIcon className="size-4" /> Print card / QR
+            </DropdownMenuItem>
             {isWithGuest ? null : (
               <DropdownMenuItem onClick={() => runAction("block", "Card blocked.")} disabled={pending}>
                 <BanIcon className="size-4" /> Block card
@@ -234,6 +344,12 @@ export function CardTableRow({ card }: { card: CardTableItem }) {
         confirmLabel="Remove"
         onConfirm={handleRemove}
         pending={pending}
+      />
+
+      <QrPrintDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        cardNumber={card.uid}
       />
     </TableRow>
   );
