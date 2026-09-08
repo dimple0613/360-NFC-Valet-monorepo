@@ -13,6 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  OrderConditionDialog,
+  type OrderCondition,
+} from "./order-condition-dialog";
 
 interface QueueOrder {
   id: number;
@@ -29,6 +33,9 @@ interface QueueOrder {
   driver: string;
   cardUid: string | null;
   validations: number;
+  condition: OrderCondition | null;
+  conditionUpdatedAt: Date | string | null;
+  conditionUpdatedBy: string | null;
 }
 
 interface QueueCounts {
@@ -118,6 +125,35 @@ function StatusBadge({ label, tone }: { label: string; tone: string }) {
   );
 }
 
+const DAMAGE_LABELS: Record<string, string> = {
+  scratches: "Scratches",
+  dents: "Dents",
+  glass: "Glass",
+  lights: "Lights",
+  mirrors: "Mirrors",
+  wheels: "Wheels / tyres",
+  other: "Other",
+};
+
+function conditionSummary(o: QueueOrder): string {
+  const parts: string[] = [];
+  if (o.condition?.damage?.length) {
+    parts.push(o.condition.damage.slice(0, 3).map((k) => DAMAGE_LABELS[k] ?? k).join(", "));
+    if (o.condition.damage.length > 3) parts[parts.length - 1] += ` +${o.condition.damage.length - 3}`;
+  }
+  if (o.condition?.mileageKm != null) parts.push(`${o.condition.mileageKm.toLocaleString("en-GB")} km`);
+  if (o.condition?.notes) parts.push("notes");
+  return parts.length ? parts.join(" · ") : "—";
+}
+
+function hasCondition(o: QueueOrder): boolean {
+  return (
+    (o.condition?.damage?.length ?? 0) > 0 ||
+    o.condition?.mileageKm != null ||
+    (o.condition?.notes ?? "").trim() !== ""
+  );
+}
+
 function timerCell(o: QueueOrder, now: number): string {
   if (o.status === "returned" && o.droppedAt && o.returnedAt) {
     return fmtDuration((new Date(o.returnedAt).getTime() - new Date(o.droppedAt).getTime()) / 60000);
@@ -136,12 +172,14 @@ export default function QueuePageClient({
   property: initialProperty,
   driver: initialDriver,
   status: initialStatus,
+  canManageQueue,
 }: {
   initialData: QueueData;
   days: number;
   property: string;
   driver: string;
   status: string | null;
+  canManageQueue: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -162,6 +200,7 @@ export default function QueuePageClient({
   const sortDir = (searchParams.get("sortDir") as "asc" | "desc") ?? "desc";
 
   const [data, setData] = useState<QueueData>(initialData);
+  const [conditionOrder, setConditionOrder] = useState<QueueOrder | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30_000);
@@ -341,6 +380,7 @@ export default function QueuePageClient({
             { key: "property", label: "Property", sortable: true },
             { key: "driver", label: "Driver", sortable: true },
             { key: "zone", label: "Zone · Slot", sortable: true },
+            { key: "condition", label: "Condition" },
             { key: "status", label: "Status" },
             { key: "timer", label: "Timer", className: "text-right" },
           ]}
@@ -374,6 +414,31 @@ export default function QueuePageClient({
                 {o.zone ? `${o.zone} · ${o.slot ?? "—"}` : "—"}
               </TableCell>
               <TableCell>
+                {canManageQueue ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setConditionOrder(o)}
+                      aria-label={`${hasCondition(o) ? "Edit" : "Add"} condition for order ${o.id}`}
+                      className={`inline-flex items-center gap-1 rounded-full border-[1.5px] px-2.5 py-1 text-[11px] font-extrabold transition ${
+                        hasCondition(o)
+                          ? "border-[#f4531f]/40 bg-[#f4531f]/5 text-[#f4531f] hover:bg-[#f4531f]/10"
+                          : "border-[#e7eaf0] bg-white text-[#6c7a93] hover:border-[#cdd5e0]"
+                      }`}
+                    >
+                      {hasCondition(o) ? "Edit" : "Add"} condition
+                    </button>
+                    <div className="mt-1 max-w-[180px] truncate text-[11px] font-semibold text-[#9AA6BC]" title={conditionSummary(o)}>
+                      {conditionSummary(o)}
+                    </div>
+                  </>
+                ) : (
+                  <div className="max-w-[180px] truncate text-[11.5px] font-semibold text-[#6c7a93]" title={conditionSummary(o)}>
+                    {hasCondition(o) ? conditionSummary(o) : "—"}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
                 <StatusBadge label={o.meta.label} tone={o.meta.tone} />
               </TableCell>
               <TableCell className="text-right">
@@ -388,13 +453,30 @@ export default function QueuePageClient({
           ))}
           {data.orders.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                 No orders for this filter.
               </TableCell>
             </TableRow>
           ) : null}
         </DataTable>
       </div>
+
+      {conditionOrder ? (
+        <OrderConditionDialog
+          key={conditionOrder.id}
+          orderId={conditionOrder.id}
+          plate={conditionOrder.plate}
+          car={conditionOrder.car}
+          initial={conditionOrder.condition}
+          onSaved={(condition) => {
+            setData((d) => ({
+              ...d,
+              orders: d.orders.map((r) => (r.id === conditionOrder.id ? { ...r, condition } : r)),
+            }));
+          }}
+          onClose={() => setConditionOrder(null)}
+        />
+      ) : null}
     </div>
   );
 }

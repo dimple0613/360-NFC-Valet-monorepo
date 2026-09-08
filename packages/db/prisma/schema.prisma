@@ -1304,6 +1304,15 @@ model Order {
   returnedAt DateTime?                        @map("returned_at")
   guestEta   DateTime?                        @map("guest_eta")
 
+  // #32 vehicle-condition record (pre-existing damage / mileage / notes). JSONB
+  // of the shape { damage: string[], mileageKm: number?, notes: string? }. The
+  // trailing audit fields record who last captured it and when, so a damage
+  // claim can be tied back to a capture event. Driver-app + guest-web capture
+  // flows land later; tenant-admin records it against the order meanwhile.
+  condition              Json?    @map("condition")
+  conditionUpdatedAt     DateTime? @map("condition_updated_at")
+  conditionUpdatedBy     String?  @map("condition_updated_by")
+
   property Property @relation(fields: [propertyId], references: [id])
   card     NfcCard? @relation(fields: [cardId], references: [id])
   driver   Driver?  @relation(fields: [driverId], references: [id])

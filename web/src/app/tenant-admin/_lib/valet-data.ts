@@ -349,6 +349,7 @@ export async function getQueueOrders(params: {
   const rows = await q(
     `SELECT o.id, o.plate, o.car_make, o.car_model, o.car_color, o.zone, o.slot,
             o.status, o.created_at, o.dropped_at, o.returned_at, o.guest_eta,
+            o.condition, o.condition_updated_at, o.condition_updated_by,
             p.name AS property,
             d.full_name AS driver,
             c.uid AS card_uid,
@@ -379,6 +380,9 @@ export async function getQueueOrders(params: {
       driver: o.driver || "—",
       cardUid: o.card_uid,
       validations: o.validations,
+      condition: o.condition ?? null,
+      conditionUpdatedAt: o.condition_updated_at ?? null,
+      conditionUpdatedBy: o.condition_updated_by ?? null,
     })),
     counts: {
       all: counts.all,
@@ -394,6 +398,51 @@ export async function getQueueOrders(params: {
     properties: await propertiesForScope(params.organizationId),
     drivers: await queueDriverOptions({ start, end, organizationId: params.organizationId, propertyId }),
   };
+}
+
+interface OrderConditionBody {
+  damage: string[];
+  mileageKm: number | null;
+  notes: string | null;
+}
+
+/**
+ * Record/replace the vehicle-condition record on an order (tenant-admin
+ * surface of #32; driver-app/guest-web capture lands later). When an
+ * organizationId is provided the order must sit under a property of that org —
+ * a cross-tenant order id throws exactly like a missing id (→ 404, no existence
+ * leak). The JSONB is stored with :jsonb so a text param can't be misread, and
+ * the capture is audited with who + when.
+ */
+export async function updateOrderCondition(input: {
+  organizationId?: string | null;
+  orderId: number;
+  condition: OrderConditionBody;
+  updatedBy: string;
+}): Promise<void> {
+  if (input.organizationId) {
+    const row = (
+      await q(
+        `SELECT o.id FROM orders o
+         JOIN properties p ON p.id = o.property_id
+         WHERE o.id = $1 AND p.organization_id = $2`,
+        [input.orderId, input.organizationId]
+      )
+    )[0];
+    if (!row) throw new Error("Order not found");
+  }
+  const body = {
+    damage: Array.from(new Set((input.condition.damage ?? []).map((d) => String(d).trim().slice(0, 40).toLowerCase()).filter(Boolean))).slice(0, 8),
+    mileageKm: Number.isFinite(input.condition.mileageKm) ? Math.round(input.condition.mileageKm!) : null,
+    notes: input.condition.notes ? String(input.condition.notes).trim().slice(0, 1000) : null,
+  };
+  if (body.mileageKm !== null && body.mileageKm! < 0) body.mileageKm = null;
+  await q(
+    `UPDATE orders
+     SET condition = $2::jsonb, condition_updated_at = NOW(), condition_updated_by = $3
+     WHERE id = $1`,
+    [input.orderId, JSON.stringify(body), input.updatedBy]
+  );
 }
 
 async function queueDriverOptions(params: {
