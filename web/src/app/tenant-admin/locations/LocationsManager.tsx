@@ -47,6 +47,7 @@ interface Property {
   slots: number;
   zonesCount: number;
   cardPool: number;
+  cardCounts?: { ready: number; printed: number };
   occupied: number;
   overdue: number;
   validatesValet: boolean;
@@ -639,6 +640,7 @@ export default function LocationsManager() {
                     <div style={{ fontSize: 15.5, fontWeight: 800, color: "#1C2B46" }}>{l.name}</div>
                     <div style={{ fontSize: 12, color: "#6C7A93", fontWeight: 600, marginTop: 2 }}>
                       {l.area} · {l.drivers} drivers · {l.zonesCount} zones · {l.slots} slots
+                      {l.cardCounts ? ` · ${l.cardCounts.ready} card(s) ready · ${l.cardCounts.printed} printed` : ""}
                       {l.validatesValet ? (l.staffCodeConfigured ? " · validates valet" : " · validates valet (no code set)") : ""}
                     </div>
                   </div>

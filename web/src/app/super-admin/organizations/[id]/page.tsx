@@ -24,6 +24,7 @@ import { OrganizationProfileForm } from "./profile-form";
 import { OrganizationContactForm } from "./contact-form";
 import { MemberRow } from "./member-row";
 import { AddMemberButton } from "./add-member-button";
+import NfcCardsSection from "./nfc-cards-section";
 import {
   archiveOrganizationAction,
   cancelDeletionAction,
@@ -80,7 +81,13 @@ export default async function OrganizationDetailPage({
   };
   const memberFilters = [memberStatusFilter, memberRoleFilter];
 
-  const tab = rawParams.tab === "contact" || rawParams.tab === "users" || rawParams.tab === "subscriptions" ? rawParams.tab : "profile";
+  const tab =
+    rawParams.tab === "contact" ||
+    rawParams.tab === "users" ||
+    rawParams.tab === "subscriptions" ||
+    rawParams.tab === "nfc-cards"
+      ? rawParams.tab
+      : "profile";
 
   const tabHref = (target: string) => {
     const params = new URLSearchParams();
@@ -99,6 +106,7 @@ export default async function OrganizationDetailPage({
     { value: "contact", label: "Contact information" },
     { value: "users", label: "Users" },
     ...(canViewBilling ? [{ value: "subscriptions", label: "Subscriptions" }] : []),
+    { value: "nfc-cards", label: "NFC Cards" },
   ];
 
   return (
@@ -106,7 +114,7 @@ export default async function OrganizationDetailPage({
       <PageHeader
         icon={<Building2Icon className="size-5" />}
         title={organization.name}
-        description="Manage the profile, contact information, users, and subscriptions for this customer."
+        description="Manage the profile, contact information, users, subscriptions, and NFC cards for this customer."
         titleTrailing={<StatusBadge value={organization.status} styles={ORG_STATUS_STYLES} />}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -292,6 +300,13 @@ export default async function OrganizationDetailPage({
 
         {tab === "subscriptions" && canViewBilling ? (
           <OrganizationBillingSection organizationId={organization.id} rawParams={rawParams} />
+        ) : null}
+
+        {tab === "nfc-cards" ? (
+          <NfcCardsSection
+            organizationId={organization.id}
+            platformUserId={identity.session.impersonatorUserId ?? identity.session.userId}
+          />
         ) : null}
       </>
     </div>

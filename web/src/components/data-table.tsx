@@ -18,7 +18,7 @@ import { DateRangeFilterButton } from "@/components/date-range-filter";
 
 export interface DataTableHeader {
   key: string;
-  label: string;
+  label: React.ReactNode;
   sortable?: boolean;
   className?: string;
 }
