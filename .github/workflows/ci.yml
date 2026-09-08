@@ -1,0 +1,73 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  ci:
+    name: lint ┬╖ typecheck ┬╖ test ┬╖ build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saasclaude
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saasclaude
+      CI: "true"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations (test database)
+        run: pnpm --filter @saasclaude/db exec prisma migrate deploy
+
+      # M9: prisma generate smoke in a CLEAN checkout. Locally on Windows this
+      # regularly trips the Prisma query-engine .dll file lock whenever a dev
+      # server is running (TASKS.md's documented hazard), so it can't be trusted
+      # to prove the schema generates. With no dev processes on this Ubuntu
+      # runner, a fresh generate here is the reliable gate that the client
+      # regenerates clean from the committed schema/migrations.
+      - name: Prisma generate smoke (clean checkout)
+        run: pnpm --filter @saasclaude/db exec prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
