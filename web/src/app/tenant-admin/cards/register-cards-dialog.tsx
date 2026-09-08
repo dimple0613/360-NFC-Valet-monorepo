@@ -10,25 +10,8 @@ import { FormField, FormSelectField } from "@/components/console-form-field";
 import { useRouter } from "next/navigation";
 
 const SCHEMA = yup.object({
-  propertyId: yup.string().required("Select a property."),
-  prefix: yup
-    .string()
-    .matches(/^[A-Za-z]{3}$/, "Exactly 3 letters (A–Z)")
-    .required("Prefix is required."),
-  from: yup.number().typeError("Whole number").min(1, "Must be at least 1").required("From is required."),
-  to: yup
-    .number()
-    .typeError("Whole number")
-    .min(1, "Must be at least 1")
-    .test("range", "To must be >= From", function (value) {
-      const from = this.parent.from;
-      return !(from && value != null && value < from);
-    })
-    .test("batch", "At most 500 cards per batch", function (value) {
-      const from = this.parent.from;
-      return !(from && value != null && value - from + 1 > 500);
-    })
-    .required("To is required."),
+  count: yup.number().typeError("Whole number").min(1, "At least 1").required("Count is required.").max(500, "At most 500 per batch"),
+  propertyId: yup.string(),
 });
 
 export function RegisterCardsDialog({ fields }: { fields: { id: number; name: string }[] }) {
@@ -56,7 +39,7 @@ export function RegisterCardsDialog({ fields }: { fields: { id: number; name: st
         }}
       >
         <PlusIcon className="size-4" />
-        Register cards
+        Create cards
       </button>
       <DialogContent
         className="sm:max-w-[460px]"
@@ -65,9 +48,10 @@ export function RegisterCardsDialog({ fields }: { fields: { id: number; name: st
       >
         <div className="flex items-start justify-between gap-4 mb-2">
           <div>
-            <div className="text-[17px] font-extrabold text-[#1c2b46]">Register cards</div>
+            <div className="text-[17px] font-extrabold text-[#1c2b46]">Create cards</div>
             <div className="text-[12.5px] font-medium text-[#6c7a93] mt-0.5">
-              Create a batch of NFC cards for a property.
+              Mint cards from the platform deck series. Leave the property empty to add unassigned
+              inventory (the org assigns it later).
             </div>
           </div>
           <button
@@ -96,7 +80,7 @@ export function RegisterCardsDialog({ fields }: { fields: { id: number; name: st
         </div>
         <div className="super-console">
           <Formik
-            initialValues={{ propertyId: "", prefix: "", from: "", to: "" }}
+            initialValues={{ count: "", propertyId: "" }}
             validationSchema={SCHEMA}
             onSubmit={async (values, { setSubmitting }) => {
               try {
@@ -104,14 +88,12 @@ export function RegisterCardsDialog({ fields }: { fields: { id: number; name: st
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    propertyId: values.propertyId,
-                    prefix: values.prefix,
-                    from: Number(values.from),
-                    to: Number(values.to),
+                    count: Number(values.count),
+                    propertyId: values.propertyId ? Number(values.propertyId) : null,
                   }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || "Failed to register cards");
+                if (!res.ok) throw new Error(data.error || "Failed to create cards");
                 toast.success(`Created ${data.created} cards (${data.from} → ${data.to}).`);
                 setOpen(false);
                 router.refresh();
@@ -124,23 +106,19 @@ export function RegisterCardsDialog({ fields }: { fields: { id: number; name: st
           >
             {({ isSubmitting }) => (
               <Form style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <FormField name="count" label="Number of cards" placeholder="e.g. 25" />
                 <FormSelectField
                   name="propertyId"
-                  label="Property"
-                  options={[{ value: "", label: "Select…" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
+                  label="Property (optional)"
+                  options={[{ value: "", label: "Unassigned (deck)" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
                 />
-                <FormField name="prefix" label="Prefix" placeholder="3 letters, e.g. ABC" />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <FormField name="from" label="From" placeholder="1001" />
-                  <FormField name="to" label="To" placeholder="1050" />
-                </div>
                 <button
                   type="submit"
                   className="btn-primary"
                   style={{ marginTop: 18, padding: 14, width: "100%", fontSize: 14 }}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Creating…" : "Register cards"}
+                  {isSubmitting ? "Creating…" : "Create cards"}
                 </button>
               </Form>
             )}

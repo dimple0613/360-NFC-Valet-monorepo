@@ -49,5 +49,35 @@ export async function registerPermissions(definitions: PermissionDefinition[]): 
         description: definition.description,
       },
     });
+
+    // A newly-registered PLATFORM-scope permission is granted to the default
+    // super-admin platform role (slug `super-admin`) immediately, so it heals
+    // existing installs whose role snapshot predates the permission — the same
+    // grant the signup-time bootstrap performs for a fresh Super Admin.
+    if (definition.scope === "PLATFORM") {
+      const platformRole = await prismaWithoutTenantScoping.platformRole.findUnique({
+        where: { slug: "super-admin" },
+      });
+      if (platformRole) {
+        const permissionRecord = await prismaWithoutTenantScoping.permission.findUnique({
+          where: { key: definition.key },
+        });
+        if (permissionRecord) {
+          await prismaWithoutTenantScoping.platformRolePermission.upsert({
+            where: {
+              platformRoleId_permissionId: {
+                platformRoleId: platformRole.id,
+                permissionId: permissionRecord.id,
+              },
+            },
+            create: {
+              platformRoleId: platformRole.id,
+              permissionId: permissionRecord.id,
+            },
+            update: {},
+          });
+        }
+      }
+    }
   }
 }

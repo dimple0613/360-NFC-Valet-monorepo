@@ -14,8 +14,15 @@ export function fmtDateTime(ts: Date | string | null | undefined): string {
 }
 
 export function CardStatusBadge({ status, tone }: { status: string; tone: string }) {
-  const color =
-    tone === "green" ? "#0C9D61" : tone === "orange" ? "#F4531F" : tone === "amber" ? "#B97B17" : "#E23D3D";
+  const colors: Record<string, string> = {
+    green: "#0C9D61",
+    orange: "#F4531F",
+    amber: "#B97B17",
+    red: "#E23D3D",
+    slate: "#64748B",
+    blue: "#2563EB",
+  };
+  const color = colors[tone] || "#E23D3D";
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.4px]"

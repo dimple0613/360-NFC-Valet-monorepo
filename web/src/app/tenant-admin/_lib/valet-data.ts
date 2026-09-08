@@ -1,6 +1,5 @@
 import { query, transaction } from "./db";
 import { startOfDay } from "./valet-api";
-import { nextUidStart } from "./uid";
 import { hashPassword, makePin, makeValetId } from "./valet-auth";
 
 // Row type for the raw SQL query helper. Mirrors pg's own QueryResultRow
@@ -514,9 +513,9 @@ export async function getLocations(organizationId?: string | null) {
       slots: z.slot_count,
     });
   }
-  const nextUid = await nextUidStart();
+  const deck = (await q("SELECT next_uid FROM card_deck WHERE id = 1"))[0];
   return {
-    nextUid: nextUid.toString(),
+    nextUid: deck ? deck.next_uid.toString() : "—",
     properties: props.map((p) => ({
       id: p.id,
       name: p.name,
@@ -561,7 +560,6 @@ export async function createLocation(input: LocationInput, organizationId?: stri
   const zoneCount = Math.max(1, Number(input.zones) || 1);
   const slotCount = Math.max(1, Number(input.slots) || 1);
   const pool = Math.max(1, Number(input.cards) || slotCount * 2);
-  const uidStart = await nextUidStart();
   const validatesValet = input.validatesValet ?? false;
   const staffCode = normalizeStaffCode(input.staffCode);
 
@@ -578,24 +576,22 @@ export async function createLocation(input: LocationInput, organizationId?: stri
         slotCount,
         slugifyName(input.name),
         pool,
-        uidStart.toString(),
+        "7001",
         input.imageUrl || null,
         validatesValet,
         staffCode,
       ]
     );
     const propId = Number(rows[0].id);
+    // #48: creating a location no longer auto-mints a card pool. Cards are
+    // platform inventory minted from the card_deck series; the property only
+    // carries display-only card_pool/uid_start legacy values. Card counts come
+    // from nfc_cards (assigned/pending views).
     const perZone = Math.ceil(slotCount / zoneCount);
     for (let z = 0; z < zoneCount; z++) {
       await exec(
         "INSERT INTO zones (property_id, code, slot_count) VALUES ($1,$2,$3)",
         [propId, String.fromCharCode(65 + z), perZone]
-      );
-    }
-    for (let i = 0; i < pool; i++) {
-      await exec(
-        "INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1,$2,'ready')",
-        [String(uidStart + BigInt(i)), propId]
       );
     }
     return { id: propId, name: input.name };
@@ -648,16 +644,8 @@ export async function updateLocation(id: number, input: LocationInput, organizat
         [id, String.fromCharCode(65 + z), perZone]
       );
     }
-    const existing = Number((await exec("SELECT COUNT(*)::int AS n FROM nfc_cards WHERE property_id=$1", [id])).rows[0].n);
-    if (existing < pool) {
-      const uidStart = await nextUidStart();
-      for (let i = 0; i < pool - existing; i++) {
-        await exec(
-          "INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1,$2,'ready')",
-          [String(uidStart + BigInt(i)), id]
-        );
-      }
-    }
+    // #48: no auto-mint/topup of cards on edit — the deck is the only source of
+    // new cards; properties only carry display-only pool counts.
     return { id, name: input.name };
   });
 }
@@ -1396,12 +1384,39 @@ export interface CardTableItem {
   statusLabel: string;
   statusTone: string;
   uses: number;
-  property: string;
-  propertyId: number;
+  property: string | null;
+  propertyId: number | null;
+  printedAt: string | null;
+  printsCount: number;
   order: string;
   orderMuted: boolean;
   by: string;
 }
+
+// Full lifecycle status vocabulary (#48): deck inventory states (unassigned /
+// assigned / printed / defect) plus the operational states (ready → with guest
+// → returned; blocked/lost) that were already in production.
+const CARD_STATUS_META: Record<string, { label: string; tone: string }> = {
+  unassigned: { label: "UNASSIGNED", tone: "slate" },
+  assigned: { label: "ASSIGNED", tone: "blue" },
+  printed: { label: "PRINTED", tone: "green" },
+  defect: { label: "DEFECT", tone: "red" },
+  ready: { label: "READY", tone: "green" },
+  with_guest: { label: "● WITH GUEST", tone: "orange" },
+  returned: { label: "● RETURNED", tone: "amber" },
+  blocked: { label: "BLOCKED / LOST", tone: "red" },
+};
+
+export const CARD_STATUSES = [
+  "unassigned",
+  "assigned",
+  "printed",
+  "defect",
+  "ready",
+  "with_guest",
+  "returned",
+  "blocked",
+] as const;
 
 export async function listCardsForTable(params: {
   q?: string;
@@ -1434,19 +1449,25 @@ export async function listCardsForTable(params: {
   const conds: string[] = [];
   if (params.organizationId) {
     filterParams.push(params.organizationId);
-    conds.push(`p.organization_id = $${filterParams.length}`);
+    // Org sees the cards on its own properties plus the platform deck's
+    // unassigned inventory (so the org can assign unassigned cards).
+    conds.push(`(p.organization_id = $${filterParams.length} OR c.property_id IS NULL)`);
   }
   if (status) {
     filterParams.push(status);
     conds.push(`c.status = $${filterParams.length}`);
   }
   if (property) {
-    filterParams.push(property);
-    conds.push(`c.property_id = $${filterParams.length}`);
+    if (property === "unassigned") {
+      conds.push(`c.property_id IS NULL`);
+    } else {
+      filterParams.push(property);
+      conds.push(`c.property_id = $${filterParams.length}`);
+    }
   }
   if (qValue) {
     filterParams.push(`%${qValue}%`);
-    conds.push(`c.uid ILIKE $${filterParams.length}`);
+    conds.push(`(c.uid ILIKE $${filterParams.length} OR p.name ILIKE $${filterParams.length})`);
   }
   const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
 
@@ -1454,7 +1475,7 @@ export async function listCardsForTable(params: {
     await q(
       `SELECT COUNT(*)::int AS total
        FROM nfc_cards c
-       JOIN properties p ON p.id = c.property_id
+       LEFT JOIN properties p ON p.id = c.property_id
        ${where}`,
       filterParams
     )
@@ -1462,10 +1483,11 @@ export async function listCardsForTable(params: {
 
   const rows = await q(
     `SELECT c.id, c.uid, c.status, c.uses_count, c.property_id, p.name AS property,
+            c.printed_at, c.prints_count,
             last.plate, last.car_make, last.car_model, last.zone, last.slot,
             last.order_status, last.by_name, last.last_at
      FROM nfc_cards c
-     JOIN properties p ON p.id = c.property_id
+     LEFT JOIN properties p ON p.id = c.property_id
      LEFT JOIN LATERAL (
        SELECT o.plate, o.car_make, o.car_model, o.zone, o.slot, o.status AS order_status,
               d.full_name AS by_name, o.created_at AS last_at
@@ -1482,33 +1504,28 @@ export async function listCardsForTable(params: {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   return {
-    items: rows.map<CardTableItem>((c) => ({
-      id: c.id,
-      uid: c.uid,
-      status: c.status,
-      statusLabel:
-        c.status === "with_guest"
-          ? "● WITH GUEST"
-          : c.status === "returned"
-            ? "● RETURNED"
-            : c.status === "ready"
-              ? "READY"
-              : "LOST · BLOCKED",
-      statusTone:
-        c.status === "with_guest" ? "orange" : c.status === "returned" ? "amber" : c.status === "ready" ? "green" : "red",
-      uses: c.uses_count,
-      property: c.property,
-      propertyId: c.property_id,
-      order: (() => {
-        const car = [c.car_make, c.car_model].filter(Boolean).join(" ");
-        const zone = c.zone ? ` · Zone ${c.zone}-${c.slot}` : "";
-        return c.plate ? `${c.plate}${car ? ` · ${car}` : ""}${zone}` : "—";
-      })(),
-      orderMuted: c.order_status !== "active",
-      by: c.by_name
-        ? `${c.by_name}${c.last_at ? " · " + new Date(c.last_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}`
-        : "—",
-    })),
+    items: rows.map<CardTableItem>((c) => {
+      const meta = CARD_STATUS_META[c.status] ?? { label: String(c.status || "").toUpperCase(), tone: "slate" };
+      const car = [c.car_make, c.car_model].filter(Boolean).join(" ");
+      const zone = c.zone ? ` · Zone ${c.zone}-${c.slot}` : "";
+      return {
+        id: c.id,
+        uid: c.uid,
+        status: c.status,
+        statusLabel: meta.label,
+        statusTone: meta.tone,
+        uses: c.uses_count,
+        property: c.property ?? null,
+        propertyId: c.property_id == null ? null : Number(c.property_id),
+        printedAt: c.printed_at ? new Date(c.printed_at).toISOString() : null,
+        printsCount: c.prints_count ?? 0,
+        order: c.plate ? `${c.plate}${car ? ` · ${car}` : ""}${zone}` : "—",
+        orderMuted: c.order_status !== "active",
+        by: c.by_name
+          ? `${c.by_name}${c.last_at ? " · " + new Date(c.last_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}`
+          : "—",
+      };
+    }),
     totalCount,
     page,
     pageSize,
@@ -1517,60 +1534,149 @@ export async function listCardsForTable(params: {
   };
 }
 
-export async function registerCards(input: {
-  propertyId: number;
+export interface DeckInfo {
   prefix: string;
-  from: number;
-  to: number;
-  organizationId?: string | null;
-}): Promise<{ created: number; from: string; to: string }> {
-  const pfx = String(input.prefix || "").trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(pfx)) throw new Error("Prefix must be exactly 3 letters (A–Z)");
-  const startNum = Number(input.from);
-  const endNum = Number(input.to);
-  if (!Number.isInteger(startNum) || !Number.isInteger(endNum)) throw new Error("From and To must be whole numbers");
-  if (startNum < 1 || endNum < startNum) throw new Error("Range is invalid");
-  if (endNum - startNum + 1 > 500) throw new Error("Create at most 500 cards per batch");
-
-  // FR-153/tenant isolation: a card batch can only be bound to a property the
-  // acting organization actually owns — never another org's property.
-  const property = (await q("SELECT id, organization_id FROM properties WHERE id = $1", [input.propertyId]))[0];
-  if (!property) throw new Error("Property not found.");
-  if (input.organizationId && String(property.organization_id) !== input.organizationId) {
-    throw new Error("Property doesn't belong to this organization.");
-  }
-
-  const pad = Math.max(5, String(endNum).length);
-  const uids: string[] = [];
-  for (let n = startNum; n <= endNum; n++) {
-    uids.push(`${pfx}-${String(n).padStart(pad, "0")}`);
-  }
-  const clashes = (
-    await q("SELECT uid FROM nfc_cards WHERE uid = ANY($1::text[]) ORDER BY uid LIMIT 5", [uids])
-  ).map((r) => r.uid);
-  if (clashes.length > 0) {
-    throw new Error(`UIDs already exist in this range (e.g. ${clashes.join(", ")}). Pick another range.`);
-  }
-
-  const sync = (await q("SELECT setval('nfc_cards_id_seq', GREATEST((SELECT COALESCE(MAX(id),0) FROM nfc_cards), (SELECT last_value FROM nfc_cards_id_seq)))"))[0];
-  void sync;
-
-  for (const uid of uids) {
-    await q("INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1,$2,'ready')", [uid, input.propertyId]);
-  }
-  return { created: uids.length, from: uids[0], to: uids[uids.length - 1] };
+  nextUid: string;
+  total: number;
+  unassigned: number;
+  assigned: number;
+  printed: number;
+  defect: number;
+  active: number;
 }
 
-export async function updateCardUid(id: number, uid: string, organizationId?: string | null): Promise<{ uid: string }> {
-  const next = String(uid || "").trim().toUpperCase();
-  if (!/^[A-Z0-9-]{1,24}$/.test(next)) {
-    throw new Error("UID may only contain A–Z, 0–9 and dashes (max 24)");
+export async function getCardDeck(): Promise<DeckInfo> {
+  const deck = (await q("SELECT prefix, next_uid FROM card_deck WHERE id = 1"))[0];
+  if (!deck) throw new Error("Card deck is not initialized.");
+  const rows = await q(`SELECT status, COUNT(*)::int AS n FROM nfc_cards GROUP BY status`);
+  const counts: Record<string, number> = {};
+  let total = 0;
+  for (const r of rows) {
+    counts[r.status] = r.n;
+    total += r.n;
   }
-  const clash = (await q("SELECT id FROM nfc_cards WHERE uid = $1 AND id <> $2", [next, id]))[0];
-  if (clash) throw new Error(`UID ${next} is already used by another card`);
-  await requireOrgOwned(organizationId, "nfc_cards", id);
-  await q("UPDATE nfc_cards SET uid = $2 WHERE id = $1", [id, next]);
-  return { uid: next };
+  return {
+    prefix: deck.prefix,
+    nextUid: deck.next_uid.toString(),
+    total,
+    unassigned: counts.unassigned ?? 0,
+    assigned: counts.assigned ?? 0,
+    printed: counts.printed ?? 0,
+    defect: counts.defect ?? 0,
+    active: (counts.ready ?? 0) + (counts.with_guest ?? 0) + (counts.returned ?? 0) + (counts.blocked ?? 0),
+  };
+}
+
+// #48: mint cards from the platform deck series (single or bulk). The single
+// deck row is locked FOR UPDATE inside the transaction so two concurrent mint
+// batches can never hand out overlapping UIDs. Created cards are 'unassigned'
+// (no property) or 'assigned' when bound to a property. Registration is
+// platform inventory work — the caller must gate on the platform
+// `valet.card.create` permission (see the /api/platform/valet/cards route).
+export async function createDeckCards(input: {
+  count: number;
+  propertyId?: number | null;
+  organizationId?: string | null;
+}): Promise<{ created: number; from: string; to: string; propertyId: number | null }> {
+  const count = Number(input.count);
+  if (!Number.isInteger(count) || count < 1) throw new Error("Count must be a whole number of at least 1.");
+  if (count > 500) throw new Error("Create at most 500 cards per batch.");
+
+  const propertyId: number | null = input.propertyId ? Number(input.propertyId) : null;
+  if (propertyId) {
+    const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [propertyId]))[0];
+    if (!prop) throw new Error("Property not found.");
+    if (input.organizationId && String(prop.organization_id) !== input.organizationId) {
+      throw new Error("Property doesn't belong to this organization.");
+    }
+  }
+  const status = propertyId ? "assigned" : "unassigned";
+
+  const result = await transaction(async (exec) => {
+    const deck = (await exec("SELECT prefix, next_uid FROM card_deck WHERE id = 1 FOR UPDATE")).rows[0];
+    if (!deck) throw new Error("Card deck is not initialized.");
+    const prefix = String(deck.prefix || "NFC").toUpperCase();
+    const start = BigInt(deck.next_uid);
+    const end = start + BigInt(count) - 1n;
+    const pad = Math.max(5, String(end).length);
+    const uids: string[] = [];
+    for (let n = start; n <= end; n++) {
+      uids.push(`${prefix}-${String(n).padStart(pad, "0")}`);
+    }
+    for (const uid of uids) {
+      await exec("INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1, $2, $3)", [uid, propertyId, status]);
+    }
+    await exec("UPDATE card_deck SET next_uid = $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [String(end + 1n)]);
+    return { from: uids[0], to: uids[uids.length - 1] };
+  });
+
+  return { created: count, from: result.from, to: result.to, propertyId };
+}
+
+// The org's "card assigning option" (#48 E): assign an unassigned/assigned card
+// to one of the org's own properties (branch-specific) or unassign it back to
+// the deck. Printed and defect cards are frozen and cannot be moved. No create /
+// no print for the org — those are platform-only.
+export async function assignCardToProperty(
+  uid: string,
+  propertyId: number,
+  organizationId?: string | null
+): Promise<void> {
+  const card = (await q("SELECT id, status, property_id FROM nfc_cards WHERE uid = $1", [uid]))[0];
+  if (!card) throw new Error("Card not found");
+  // Cross-tenant: an org may assign an unassigned (deck) card or a card it
+  // already owns — never another org's bound card (404 semantics).
+  if (organizationId && card.property_id != null) {
+    const curProp = (await q("SELECT organization_id FROM properties WHERE id = $1", [card.property_id]))[0];
+    if (curProp && String(curProp.organization_id) !== organizationId) throw new Error("Card not found");
+  }
+  if (card.status === "printed" || card.status === "defect") {
+    throw new Error("Printed or defect cards are frozen — they cannot be reassigned.");
+  }
+  const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [propertyId]))[0];
+  if (!prop) throw new Error("Property not found.");
+  if (organizationId && String(prop.organization_id) !== organizationId) {
+    throw new Error("Property doesn't belong to this organization.");
+  }
+  await q("UPDATE nfc_cards SET property_id = $1, status = 'assigned' WHERE id = $2", [propertyId, card.id]);
+}
+
+export async function unassignCard(uid: string, organizationId?: string | null): Promise<void> {
+  const card = (await q("SELECT id, status, property_id FROM nfc_cards WHERE uid = $1", [uid]))[0];
+  if (!card) throw new Error("Card not found");
+  if (card.status === "printed" || card.status === "defect") {
+    throw new Error("Printed or defect cards are frozen — they cannot be unassigned.");
+  }
+  if (card.property_id != null && organizationId) {
+    const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [card.property_id]))[0];
+    if (prop && String(prop.organization_id) !== organizationId) {
+      throw new Error("Card's property doesn't belong to this organization.");
+    }
+  }
+  await q("UPDATE nfc_cards SET property_id = NULL, status = 'unassigned' WHERE id = $1", [card.id]);
+}
+
+// Platform-only deck ops: mark a card defect (unusable), or complete its print
+// run — freezes UID + property, records who/when and counts each export.
+export async function markCardDefect(uid: string): Promise<void> {
+  const card = (await q("SELECT id FROM nfc_cards WHERE uid = $1", [uid]))[0];
+  if (!card) throw new Error("Card not found");
+  await q("UPDATE nfc_cards SET status = 'defect' WHERE id = $1", [card.id]);
+}
+
+export async function markCardPrinted(uid: string, printedBy: string): Promise<void> {
+  const card = (await q("SELECT id, status FROM nfc_cards WHERE uid = $1", [uid]))[0];
+  if (!card) throw new Error("Card not found");
+  if (card.status === "defect") throw new Error("Defect cards cannot be printed.");
+  await q(
+    `UPDATE nfc_cards
+     SET status = 'printed',
+         printed_at = COALESCE(printed_at, CURRENT_TIMESTAMP),
+         printed_by = $2,
+         prints_count = prints_count + 1
+     WHERE id = $1`,
+    [card.id, printedBy]
+  );
 }
 
 export async function setCardStatus(id: number, action: "block" | "unblock" | "mark-returned" | "lost", organizationId?: string | null): Promise<void> {
@@ -1589,7 +1695,18 @@ export async function setCardStatus(id: number, action: "block" | "unblock" | "m
 }
 
 export async function removeCard(id: number, organizationId?: string | null): Promise<void> {
-  await requireOrgOwned(organizationId, "nfc_cards", id);
+  const card = (await q("SELECT status, property_id FROM nfc_cards WHERE id = $1", [id]))[0];
+  if (!card) throw new Error("Card not found");
+  if (!["unassigned", "assigned", "defect"].includes(card.status)) {
+    throw new Error("Only unassigned, assigned or defect cards can be removed.");
+  }
+  // Deck cards (no property) are platform inventory — only super admin may remove.
+  // Property-bound cards are scoped to the org that owns that property.
+  if (card.property_id != null) {
+    await requireOrgOwned(organizationId, "nfc_cards", id);
+  } else if (organizationId) {
+    throw new Error("Card not found");
+  }
   await q("DELETE FROM nfc_cards WHERE id = $1", [id]);
 }
 

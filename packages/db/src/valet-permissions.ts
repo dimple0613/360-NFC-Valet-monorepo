@@ -62,7 +62,23 @@ export const VALET_PERMISSIONS: PermissionDefinition[] = [
     key: "valet.card.manage",
     module: "valet",
     scope: "TENANT",
-    description: "Register, assign, or deactivate NFC cards.",
+    description: "Assign or unassign NFC cards to/from this organization's properties.",
+  },
+  // #48 platform-scope deck operations: minting new cards from the platform
+  // series and running the print/export workflow are Super Admin only. They
+  // register with scope PLATFORM so the super-admin platform role picks them up
+  // (see registerPermissions' self-healing grant below).
+  {
+    key: "valet.card.create",
+    module: "valet",
+    scope: "PLATFORM",
+    description: "Mint new NFC cards into the platform deck (single or bulk).",
+  },
+  {
+    key: "valet.card.print",
+    module: "valet",
+    scope: "PLATFORM",
+    description: "Run the card print/export workflow and mark cards printed (freezes UID + property).",
   },
   {
     key: "valet.offer.read",
