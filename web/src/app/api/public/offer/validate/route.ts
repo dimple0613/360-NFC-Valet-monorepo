@@ -26,18 +26,21 @@ export async function POST(req: Request) {
     let stockCode: string | null = null;
     let targetOffer = offerId;
     let targetProperty = propertyId;
+    let offerPropertyId: number | null = null;
 
     if (offerId) {
-      const { rows } = await query("SELECT id, staff_code FROM offers WHERE id = $1 AND live = true AND draft = false", [
-        offerId,
-      ]);
-      const offer = rows[0] as { id: number; staff_code: string | null } | undefined;
+      const { rows } = await query(
+        "SELECT id, staff_code, property_id FROM offers WHERE id = $1 AND live = true AND draft = false",
+        [offerId]
+      );
+      const offer = rows[0] as { id: number; staff_code: string | null; property_id: number } | undefined;
       if (!offer) return NextResponse.json({ error: "Offer not found" }, { status: 404 });
       if (!offer.staff_code) {
         return NextResponse.json({ error: "This offer has no validation code" }, { status: 400 });
       }
       stockCode = offer.staff_code;
       targetProperty = null;
+      offerPropertyId = offer.property_id;
     } else if (propertyId) {
       const { rows } = await query("SELECT staff_code, validates_valet FROM properties WHERE id = $1", [propertyId]);
       const prop = rows[0] as { staff_code: string | null; validates_valet: boolean | null } | undefined;
@@ -57,18 +60,37 @@ export async function POST(req: Request) {
     }
 
     let orderId: number | null = null;
+    let orderPropertyId: number | null = null;
     if (cardUid) {
       const { rows: cards } = await query("SELECT id FROM nfc_cards WHERE uid = $1", [cardUid]);
       if (cards.length) {
         const { rows: orderRows } = await query(
-          "SELECT id FROM orders WHERE card_id = $1 AND status IN ('active','parked','returning') ORDER BY created_at DESC LIMIT 1",
+          "SELECT id, property_id FROM orders WHERE card_id = $1 AND status IN ('active','parked','returning') ORDER BY created_at DESC LIMIT 1",
           [cards[0].id]
         );
         orderId = orderRows[0]?.id || null;
+        orderPropertyId = orderRows[0]?.property_id ?? null;
       }
     }
 
     if (orderId) {
+      // #8 M3: the card's order must sit under the same property as the offer /
+      // location being validated. Without this a crafted request could record a
+      // foreign offer or a foreign property's validation against a card at a
+      // different location. In-app flows always match, so this only rejects
+      // mismatched manual/API calls.
+      if (targetOffer != null && orderPropertyId !== offerPropertyId) {
+        return NextResponse.json(
+          { ok: false, validated: false, error: "This offer belongs to a different location than the card" },
+          { status: 400 }
+        );
+      }
+      if (targetOffer == null && targetProperty != null && orderPropertyId !== targetProperty) {
+        return NextResponse.json(
+          { ok: false, validated: false, error: "This card does not belong to that location" },
+          { status: 400 }
+        );
+      }
       if (targetOffer != null) {
         const { rows: dupes } = await query("SELECT id FROM validations WHERE order_id = $1 AND offer_id = $2", [
           orderId,
