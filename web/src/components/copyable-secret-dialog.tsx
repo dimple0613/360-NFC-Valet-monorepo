@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +39,7 @@ export function CopyableSecretDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[480px]"
+        className="sm:max-w-[460px]"
         showCloseButton={false}
         style={{ borderRadius: 20, padding: 24 }}
       >
@@ -67,21 +66,42 @@ export function CopyableSecretDialog({
         >
           <XIcon size={16} />
         </button>
-        <DialogTitle className="text-[17px] font-extrabold text-[#1c2b46]">{title}</DialogTitle>
-        <DialogDescription className="text-[12.5px] font-medium text-[#6c7a93]">
-          {description}
-        </DialogDescription>
-        <code className="block break-all rounded-[10px] border border-[#e7eaf0] bg-[#f6f7f9] p-3 text-[12.5px] font-semibold text-[#1c2b46]">
+        <div className="mb-3 min-w-0">
+          <DialogTitle className="text-[17px] font-extrabold text-[#1c2b46]">{title}</DialogTitle>
+          <DialogDescription className="mt-0.5 text-[12.5px] font-medium text-[#6c7a93]">
+            {description}
+          </DialogDescription>
+        </div>
+        <code className="mb-3 block break-all rounded-[10px] border border-[#e7eaf0] bg-[#f6f7f9] p-3 text-[12.5px] font-semibold text-[#1c2b46]">
           {value}
         </code>
-        <div className="rounded-lg border border-[#fbe3d6] bg-[#fff4ec] px-3 py-2 text-[12.5px] font-semibold text-[#c2410c]">
+        <div className="mb-3 rounded-lg border border-[#fbe3d6] bg-[#fff4ec] px-3 py-2 text-[12.5px] font-semibold text-[#c2410c]">
           Copy this now — once you close this dialog, it can&apos;t be shown again.
         </div>
         <div className="flex justify-end">
-          <Button type="button" onClick={handleCopy} className="gap-1.5">
+          <button
+            type="button"
+            onClick={handleCopy}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "9px 18px",
+              borderRadius: 99,
+              border: "none",
+              background: "#f4531f",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 6px 18px -6px rgba(244, 83, 31, 0.55)",
+              fontFamily: "inherit",
+            }}
+          >
             {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
             {copied ? "Copied" : "Copy"}
-          </Button>
+          </button>
         </div>
       </DialogContent>
     </Dialog>
