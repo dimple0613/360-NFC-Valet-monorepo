@@ -503,7 +503,15 @@ GitHub-backed task workflow:
   0 console errors (one dev-only WS warning mapped to backlog M6). Verdict GO/READY.
 - [x] **.github/workflows/ci.yml** — the Phase-0 CI workflow the task list references but that was never
   actually written is now real: install + prisma migrate deploy (real Postgres service) +
-  lint + typecheck + test + build on push/PR to master.
+  a **clean-checkout `prisma generate` smoke** (M9) + lint + typecheck + test + build on
+  push/PR to master. The smoke step exists because locally on Windows a running dev server
+  holds the query-engine `.dll.node` lock and `prisma generate` silently strands `*.tmp<pid>`
+  files (six were found in `packages/db/generated/client`); a fresh Ubuntu checkout has no
+  such process, so the step is the reliable gate that the client regenerates clean.
+- [x] **M9 (#14) `prisma generate` smoke in clean CI** — added as the dedicated step above;
+  the CI workflow itself is committed only once the `workflow` seatbelt is lifted (see the
+  sweep note in `audit/360-NFC-Valet-Monorepo-Audit.md`), so the whole workflow change ships
+  in that same deferred push.
 - [x] **udit/backlog.json** — machine-readable mirror of merged-audit.md sec 4 (M1-M9) used by the
   issue workflow; issue numbers get written back on sync.
 - [x] **scripts/audit/issues.ps1** — manages the backlog as GitHub issues (gh CLI, label udit):
