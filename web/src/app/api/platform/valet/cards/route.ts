@@ -10,6 +10,7 @@ import {
   markCardPrinted,
   setCardStatus,
   removeCard,
+  getCardDeck,
 } from "@/app/tenant-admin/_lib/valet-data";
 import { assertValetPermission, errorMessage } from "@/app/tenant-admin/_lib/valet-permissions";
 
@@ -64,7 +65,13 @@ export async function GET(req: Request) {
   const status = url.searchParams.get("status") || "all";
   const property = url.searchParams.get("property") || "all";
   const data = await listCardsForTable({ q, page, pageSize, sortBy, sortDir, status, property, organizationId: orgScope });
-  return NextResponse.json(data);
+  let deck = null;
+  try {
+    deck = await getCardDeck();
+  } catch {
+    deck = null;
+  }
+  return NextResponse.json({ ...data, deck });
 }
 
 export async function POST(req: Request) {

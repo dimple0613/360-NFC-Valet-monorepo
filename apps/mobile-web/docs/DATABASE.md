@@ -14,10 +14,40 @@ The mobile web app has **no database of its own**. It reads and writes the **sup
 | Column | Type | Notes |
 |---|---|---|
 | `id` | serial PK | |
-| `uid` | text | unique identifier printed on the card — the mobile app's key |
-| `property_id` | int FK → properties | |
-| `status` | text | `ready` / `with_guest` / `blocked` |
+| `uid` | text | unique identifier printed on the card — the mobile app's key; **immutable once created** |
+| `physical_uid` | text nullable | alias column, unpopulated |
+| `card_number` | text nullable | alias column, unpopulated |
+| `property_id` | int FK → properties | **nullable** — `NULL` = unassigned (deck inventory) |
+| `status` | text | `unassigned` (deck, no property) / `assigned` (property picked, not printed) / `printed` (print run finished — UID + property frozen) / `defect` (retired after print) / legacy `ready` / `with_guest` / `returned` / `blocked` / `lost` |
 | `uses_count` | int | lifetime activations |
+| `lost_at` | timestamptz nullable | when marked lost |
+| `printed_at` | timestamptz nullable | when the print/export run completed |
+| `printed_by` | text nullable | user id that recorded the print |
+| `prints_count` | int | number of export runs recorded against the card |
+
+### `card_deck`
+
+Platform-wide inventory single series (prefix + next number) that mints new NFC cards. One row (`id = 1`), advanced atomically under a row lock so concurrent batches never overlap UIDs. Migrated from the legacy per-location `card_pool`/`uid_start` auto-generation (locations no longer mint cards on create).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | int PK | fixed `1` |
+| `prefix` | text | series prefix, e.g. `NFC` |
+| `next_uid` | bigint | next card number handed out |
+| `updated_at` | timestamptz | |
+
+### `nfc_print_profiles`
+
+Per-organization print artwork used by the card print designer: a front + back template image, with QR code and UID placed by the export flow.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `organization_id` | text nullable FK → organizations | org scope of the profile |
+| `name` | text | profile name |
+| `front_image_url` | text nullable | front template image |
+| `back_image_url` | text nullable | back template image |
+| `created_at` | timestamptz | |
 
 ### `properties`
 
