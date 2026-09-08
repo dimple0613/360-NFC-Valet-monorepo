@@ -1839,7 +1839,7 @@ export async function updateOffer(id: number, input: OfferInput, organizationId?
     const prop = (await q("SELECT id FROM properties WHERE id = $1 AND organization_id = $2", [Number(input.propertyId), organizationId]))[0];
     if (!prop) throw new Error("Property not found");
   }
-  const sets = ["title=$2", "category=$3", "price=$4", "description=$5", "image_url=$6", "menu_url=$7", "was_price=$8", "property_id=$9"];
+  const sets = ["title=$2", "category=$3", "price=$4", "description=$5", "image_url=$6", "menu_url=$7", "was_price=$8"];
   const vals: Array<string | number | null | boolean> = [
     id,
     input.title,
@@ -1849,8 +1849,11 @@ export async function updateOffer(id: number, input: OfferInput, organizationId?
     input.imageUrl || null,
     input.menuUrl || null,
     input.wasPrice == null ? null : Number(input.wasPrice),
-    Number(input.propertyId) || null,
   ];
+  if (input.propertyId) {
+    sets.push(`property_id=$${vals.length + 1}`);
+    vals.push(Number(input.propertyId));
+  }
   if (input.validatesValet !== undefined) {
     sets.push(`validates_valet=$${vals.length + 1}`);
     vals.push(Boolean(input.validatesValet));
