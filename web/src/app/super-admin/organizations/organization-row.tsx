@@ -62,6 +62,33 @@ export function OrganizationTableRow({
     });
   }
 
+  function handleLoginAs() {
+    startTransition(async () => {
+      try {
+        await loginAsOrganizationAction(organization.id);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      }
+    });
+  }
+
+  const canLoginAs = organization.activeMemberCount > 0;
+  const loginAsButtonStyle = {
+    display: "inline-flex" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    background: "rgb(254, 239, 232)",
+    border: "1.5px solid rgb(244, 164, 126)",
+    color: "rgb(214, 67, 15)",
+    borderRadius: 99,
+    padding: "6px 12px",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    whiteSpace: "nowrap" as const,
+    transition: "background 0.15s ease",
+  };
+
   return (
     <TableRow>
       <TableCell>
@@ -101,29 +128,36 @@ export function OrganizationTableRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          <form action={loginAsOrganizationAction.bind(null, organization.id)}>
+          {canLoginAs ? (
             <button
-              type="submit"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                background: "rgb(254, 239, 232)",
-                border: "1.5px solid rgb(244, 164, 126)",
-                color: "rgb(214, 67, 15)",
-                borderRadius: 99,
-                padding: "6px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "background 0.15s ease",
-              }}
+              type="button"
+              onClick={handleLoginAs}
+              disabled={pending}
+              style={{ ...loginAsButtonStyle, cursor: pending ? "wait" : "pointer" }}
             >
               Login as
               <ChevronDownIcon className="size-3.5" />
             </button>
-          </form>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span style={{ display: "inline-flex" }}>
+                    <button
+                      type="button"
+                      disabled
+                      aria-label={`${organization.name} has no active member to log in as`}
+                      style={{ ...loginAsButtonStyle, opacity: 0.45, cursor: "not-allowed" }}
+                    >
+                      Login as
+                      <ChevronDownIcon className="size-3.5" />
+                    </button>
+                  </span>
+                }
+              />
+              <TooltipContent>No active member to log in as</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger
               render={
