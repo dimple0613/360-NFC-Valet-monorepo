@@ -6,18 +6,16 @@ import * as yup from "yup";
 import { toast } from "sonner";
 import { BuildingIcon, ChevronRight, TrashIcon, LoadingIcon } from "@/app/tenant-admin/_components/valet-icons";
 import { PlusIcon, MapPinIcon } from "lucide-react";
-import { FormField, FormSelectField, FormToggleField } from "@/components/console-form-field";
+import { FormField, FormToggleField } from "@/components/console-form-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
-
-const POOLS = [100, 200, 400, 800];
 
 const SCHEMA = yup.object({
   name: yup.string().required("Name is required."),
   area: yup.string().required("Area / city is required."),
   zones: yup.number().typeError("Zones must be a number.").integer("Zones must be a whole number.").min(1).max(50).required(),
   slots: yup.number().typeError("Slots must be a number.").integer("Slots must be a whole number.").min(1).max(5000).required(),
-  cards: yup.number().oneOf(POOLS, "Select a card pool.").required(),
+  cards: yup.number().typeError("Card pool must be a number.").integer("Card pool must be a whole number.").min(1).max(5000).required(),
   validatesValet: yup.boolean(),
   staffCode: yup
     .string()
@@ -127,7 +125,7 @@ function StaffCodeField({ configured }: { configured: boolean }) {
   );
 }
 
-function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated: () => void }) {
+function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Formik
       initialValues={{ name: "", area: "", zones: 4, slots: 160, cards: 200, imageUrl: "", validatesValet: false, staffCode: "" }}
@@ -174,14 +172,10 @@ function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated
                 <FormField name="zones" label="Zones" type="number" />
                 <FormField name="slots" label="Slots" type="number" />
               </div>
-              <FormSelectField
-                name="cards"
-                label="Card pool"
-                options={POOLS.map((n) => ({
-                  value: String(n),
-                  label: `Assign ${n} cards · UID ${nextUid}–${Number(nextUid) + n - 1}`,
-                }))}
-              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
+                <FormField name="cards" label="Card pool" type="number" placeholder="e.g. 200" />
+                <div />
+              </div>
               <FormToggleField
                 name="validatesValet"
                 label="Validate with staff code"
@@ -201,7 +195,6 @@ function CreateLocationForm({ nextUid, onCreated }: { nextUid: string; onCreated
 }
 
 function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Property; onUpdated: () => void; onRemove: (loc: Property) => void }) {
-  const nextUid = location.uidStart ?? "0";
   return (
     <Formik
       initialValues={{
@@ -295,14 +288,10 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
               <FormField name="zones" label="Zones" type="number" />
               <FormField name="slots" label="Slots" type="number" />
             </div>
-            <FormSelectField
-              name="cards"
-              label="Card pool"
-              options={POOLS.map((n) => ({
-                value: String(n),
-                label: `Assign ${n} cards · UID ${nextUid}–${Number(nextUid) + n - 1}`,
-              }))}
-            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
+              <FormField name="cards" label="Card pool" type="number" placeholder="e.g. 200" />
+              <div />
+            </div>
             <FormToggleField
               name="validatesValet"
               label="Validate with staff code"
@@ -398,7 +387,6 @@ export default function LocationsManager() {
   }
 
   const properties = data?.properties ?? [];
-  const nextUid = data?.nextUid ?? "0";
 
   return (
     <div style={{ display: "flex", gap: 20 }}>
@@ -542,7 +530,7 @@ export default function LocationsManager() {
       {selected ? (
         <UpdateLocationForm location={selected} onUpdated={handleUpdated} onRemove={onRemove} />
       ) : (
-        <CreateLocationForm nextUid={nextUid} onCreated={handleCreated} />
+        <CreateLocationForm onCreated={handleCreated} />
       )}
 
       <ConfirmDialog
