@@ -10,7 +10,7 @@ const ADD_SCHEMA = yup.object({
   password: yup.string().min(6, "Password must be at least 6 characters.").required("Password is required."),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref("password"), null as any], "Passwords do not match.")
+    .oneOf([yup.ref("password"), null as never], "Passwords do not match.")
     .required("Confirm password is required."),
   email: yup.string().email("Enter a valid email address."),
   phone: yup.string().matches(/^[0-9+ ]{7,15}$/, "Enter a valid phone number."),

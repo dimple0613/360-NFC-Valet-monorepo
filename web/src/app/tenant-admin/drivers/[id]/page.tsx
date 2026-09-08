@@ -40,8 +40,8 @@ export default async function DriverDetailPage({
       pageSize: actPageSize,
       property: actProperty,
     });
-  } catch (e: any) {
-    if (e?.message === "Driver not found") notFound();
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "Driver not found") notFound();
     throw e;
   }
 

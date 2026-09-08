@@ -14,7 +14,7 @@ import {
 } from "@saasclaude/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { rememberSessionForImpersonation, setSessionCookie } from "@/lib/auth/session";
-import { clearWsTokenCookie, setWsTokenCookie } from "@/lib/auth/ws-token";
+import { setWsTokenCookie } from "@/lib/auth/ws-token";
 
 const MANAGE_ORGS_PERMISSION = "core.platform.manage_organizations";
 const IMPERSONATE_PERMISSION = "core.platform.impersonate_organization_admin";

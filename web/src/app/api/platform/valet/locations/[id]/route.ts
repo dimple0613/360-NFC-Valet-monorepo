@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { updateLocation, deleteLocation } from "@/app/tenant-admin/_lib/valet-data";
-import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
+import { assertValetPermission, errorMessage, errorCode } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await assertValetPermission("valet.property.manage"))) {
@@ -20,11 +20,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       identity.session.organizationId ?? null
     );
     return NextResponse.json(updated);
-  } catch (err: any) {
-    if (err?.code === "23505") {
+  } catch (err) {
+    if (errorCode(err) === "23505") {
       return NextResponse.json({ error: "A location with this name already exists" }, { status: 400 });
     }
-    if (err?.message === "Location not found") {
+    if (errorMessage(err, "") === "Location not found") {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
     return NextResponse.json({ error: "Failed to update location" }, { status: 500 });
@@ -42,8 +42,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     await deleteLocation(id, identity.session.organizationId ?? null);
     return NextResponse.json({ id });
-  } catch (err: any) {
-    if (err?.message === "Location not found") {
+  } catch (err) {
+    if (errorMessage(err, "") === "Location not found") {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
     return NextResponse.json({ error: "Failed to remove location" }, { status: 500 });

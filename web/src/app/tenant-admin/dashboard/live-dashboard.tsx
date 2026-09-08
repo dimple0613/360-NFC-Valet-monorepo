@@ -222,10 +222,11 @@ export default function LiveDashboard({
       intervalRef.current = null;
       return;
     }
-    fetchDashboard();
-    intervalRef.current = setInterval(fetchDashboard, POLL_MS);
+    const kick = window.setTimeout(() => void fetchDashboard(), 0);
+    intervalRef.current = setInterval(() => void fetchDashboard(), POLL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      window.clearTimeout(kick);
     };
   }, [polling, fetchDashboard]);
 

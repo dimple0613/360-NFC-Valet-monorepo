@@ -185,7 +185,7 @@ export default function QueuePageClient({
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const [polling, setPolling] = useState(true);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const days = initialDays;
@@ -229,7 +229,8 @@ export default function QueuePageClient({
   }, [days, property, driver, status, page, pageSize, q, sortBy, sortDir]);
 
   useEffect(() => {
-    setData(initialData);
+    const kick = window.setTimeout(() => setData(initialData), 0);
+    return () => window.clearTimeout(kick);
   }, [initialData]);
 
   useEffect(() => {
@@ -238,10 +239,11 @@ export default function QueuePageClient({
       intervalRef.current = null;
       return;
     }
-    fetchQueue();
-    intervalRef.current = setInterval(fetchQueue, POLL_MS);
+    const kick = window.setTimeout(() => void fetchQueue(), 0);
+    intervalRef.current = setInterval(() => void fetchQueue(), POLL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      window.clearTimeout(kick);
     };
   }, [polling, fetchQueue]);
 

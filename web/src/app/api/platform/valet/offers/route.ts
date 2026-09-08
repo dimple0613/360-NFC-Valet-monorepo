@@ -7,7 +7,7 @@ import {
   setOfferState,
   deleteOffer,
 } from "@/app/tenant-admin/_lib/valet-data";
-import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
+import { assertValetPermission, errorMessage } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
   if (!(await assertValetPermission("valet.offer.read"))) {
@@ -48,11 +48,11 @@ export async function POST(req: Request) {
       staffCode: typeof staffCode === "string" ? staffCode : undefined,
     }, identity.session.organizationId ?? null);
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
-    if (err?.message === "Property not found") {
-      return NextResponse.json({ error: err.message }, { status: 404 });
+  } catch (err) {
+    if (errorMessage(err, "") === "Property not found") {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
-    return NextResponse.json({ error: err?.message || "Failed to create offer" }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to create offer") }, { status: 400 });
   }
 }
 
@@ -96,10 +96,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ id, updated: true });
     }
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-  } catch (err: any) {
-    if (err?.message === "Offer not found" || err?.message === "Property not found") {
-      return NextResponse.json({ error: err.message }, { status: 404 });
+  } catch (err) {
+    const message = errorMessage(err, "");
+    if (message === "Offer not found" || message === "Property not found") {
+      return NextResponse.json({ error: message }, { status: 404 });
     }
-    return NextResponse.json({ error: err?.message || "Failed to update offer" }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to update offer") }, { status: 400 });
   }
 }

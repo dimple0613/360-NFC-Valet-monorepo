@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   DatabaseBackupIcon,
-  FolderCheckIcon,
   PlayIcon,
   RotateCcwIcon,
   ShieldAlertIcon,
@@ -66,7 +65,7 @@ function formatBytes(bytes: number): string {
 
 export function BackupsPanel({ initialBackups }: { initialBackups: BackupFile[] }) {
   const [backups, setBackups] = useState<BackupFile[]>(initialBackups);
-  const [check, setCheck] = useState<CheckResult | null>(null);
+  const [check] = useState<CheckResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const [restoreTarget, setRestoreTarget] = useState<BackupFile | null>(null);
@@ -102,28 +101,6 @@ export function BackupsPanel({ initialBackups }: { initialBackups: BackupFile[] 
         setBackups(data.backups);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Backup failed.");
-      }
-    });
-  }
-
-  function handleCheck() {
-    startTransition(async () => {
-      try {
-        const data = await api<{ check: CheckResult }>({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "check" }),
-        });
-        setCheck(data.check);
-        if (data.check.status === "ALL_PASS") {
-          toast.success("All consistency checks passed.");
-        } else if (data.check.status === "ISSUES_FOUND") {
-          toast.success("Consistency check found issues.");
-        } else {
-          toast.error(data.check.error ?? "Consistency check could not run.");
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Consistency check failed.");
       }
     });
   }

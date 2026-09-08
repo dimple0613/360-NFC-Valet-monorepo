@@ -9,7 +9,7 @@ import {
   updateDriver,
   removeDriver,
 } from "@/app/tenant-admin/_lib/valet-data";
-import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
+import { assertValetPermission, errorMessage } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
   if (!(await assertValetPermission("valet.driver.read"))) {
@@ -23,8 +23,8 @@ export async function GET(req: Request) {
     try {
       const detail = await getDriverDetail(Number(id), organizationId);
       return NextResponse.json(detail);
-    } catch (err: any) {
-      if (err?.message === "Driver not found") {
+    } catch (err) {
+      if (errorMessage(err, "") === "Driver not found") {
         return NextResponse.json({ error: "Driver not found" }, { status: 404 });
       }
       return NextResponse.json({ error: "Failed to load driver" }, { status: 500 });
@@ -64,11 +64,11 @@ export async function POST(req: Request) {
       password,
     }, identity.session.organizationId ?? null);
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
-    if (err?.message === "Property not found") {
+  } catch (err) {
+    if (errorMessage(err, "") === "Property not found") {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
-    return NextResponse.json({ error: err?.message || "Failed to create driver" }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to create driver") }, { status: 500 });
   }
 }
 
@@ -103,10 +103,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ id, shift: !!shift });
     }
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-  } catch (err: any) {
-    if (err?.message === "Driver not found" || err?.message === "Property not found") {
-      return NextResponse.json({ error: err.message }, { status: 404 });
+  } catch (err) {
+    const message = errorMessage(err, "");
+    if (message === "Driver not found" || message === "Property not found") {
+      return NextResponse.json({ error: message }, { status: 404 });
     }
-    return NextResponse.json({ error: err?.message || "Failed to update driver" }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to update driver") }, { status: 500 });
   }
 }

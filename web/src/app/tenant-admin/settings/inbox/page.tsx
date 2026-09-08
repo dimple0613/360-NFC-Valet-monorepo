@@ -25,7 +25,7 @@ export default async function InboxPage({
   const from = params.dateFrom ? new Date(params.dateFrom) : null;
   const to = params.dateTo ? new Date(params.dateTo) : null;
 
-  let filtered = all.filter((n) => {
+  const filtered = all.filter((n) => {
     if (q && !`${n.subject} ${n.body}`.toLowerCase().includes(q)) return false;
     if (kind && kind !== n.kind) return false;
     const t = n.createdAt.getTime();

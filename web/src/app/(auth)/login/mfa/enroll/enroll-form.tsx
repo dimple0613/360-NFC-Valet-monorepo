@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useActionState } from "react";
+import Link from "next/link";
 import {
   beginEnrollAction,
   confirmEnrollAction,
@@ -64,9 +65,9 @@ export function EnrollMfaForm() {
       <div>
         <div className="login-title">Two-factor authentication required</div>
         <div className="login-desc">{beginError}</div>
-        <a className="btn-login mt-4 inline-block text-center" href="/login">
+        <Link className="btn-login mt-4 inline-block text-center" href="/login">
           Sign in again
-        </a>
+        </Link>
       </div>
     );
   }

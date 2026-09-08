@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { getLocations, createLocation } from "@/app/tenant-admin/_lib/valet-data";
-import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
+import { assertValetPermission, errorMessage, errorCode } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET() {
   if (!(await assertValetPermission("valet.property.read"))) {
@@ -28,10 +28,10 @@ export async function POST(req: Request) {
       identity.session.organizationId ?? null
     );
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
-    if (err?.code === "23505") {
+  } catch (err) {
+    if (errorCode(err) === "23505") {
       return NextResponse.json({ error: "A location with this name already exists" }, { status: 400 });
     }
-    return NextResponse.json({ error: "Failed to create location" }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to create location") }, { status: 500 });
   }
 }

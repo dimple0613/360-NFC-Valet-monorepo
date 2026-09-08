@@ -1,4 +1,4 @@
-const fs = require("fs");
+/* eslint-disable @typescript-eslint/no-require-imports */
 const path = require("path");
 
 // web/src/lib/backup/backup-dir.js → web/backups/

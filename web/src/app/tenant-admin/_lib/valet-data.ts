@@ -3,6 +3,10 @@ import { startOfDay } from "./valet-api";
 import { nextUidStart } from "./uid";
 import { hashPassword, makePin, makeValetId } from "./valet-auth";
 
+// Row type for the raw SQL query helper. Mirrors pg's own QueryResultRow
+// ({ [column: string]: any }): columns are only known at call sites, which pin
+// them via the q<T> type parameter, so the default is intentionally untyped.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbRow = Record<string, any>;
 
 async function q<T extends DbRow = DbRow>(text: string, params: unknown[] = []): Promise<T[]> {
@@ -189,7 +193,6 @@ export async function getDashboardData(days = 7, property: string | null = null,
     prevP
   );
   const prevCarsParked = Number(prevRow.c);
-  const maxCars = Math.max(...byProp.map((p) => Number(p.cars_today)), 1);
 
   const byProperty = byProp.map((p, i) => ({
     id: p.id,
@@ -538,9 +541,6 @@ export async function getLocations(organizationId?: string | null) {
 // tenant/auth context comes from the platform tables (organizations/sessions).
 // properties.tenant_id is a legacy INTEGER column kept only for column
 // compatibility and must stay NULL (the org id is text and would not fit it).
-async function defaultTenantId(_organizationId?: string | null): Promise<string | null> {
-  return null;
-}
 
 export interface LocationInput {
   name: string;
@@ -562,7 +562,6 @@ export async function createLocation(input: LocationInput, organizationId?: stri
   const slotCount = Math.max(1, Number(input.slots) || 1);
   const pool = Math.max(1, Number(input.cards) || slotCount * 2);
   const uidStart = await nextUidStart();
-  const tenantId = await defaultTenantId(organizationId);
   const validatesValet = input.validatesValet ?? false;
   const staffCode = normalizeStaffCode(input.staffCode);
 
@@ -571,7 +570,7 @@ export async function createLocation(input: LocationInput, organizationId?: stri
       `INSERT INTO properties (tenant_id, organization_id, name, area, zones_count, slots_count, slug, card_pool, uid_start, image_url, validates_valet, staff_code)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
       [
-        tenantId,
+        null,
         organizationId || null,
         input.name,
         input.area || "—",
@@ -649,7 +648,7 @@ export async function updateLocation(id: number, input: LocationInput, organizat
         [id, String.fromCharCode(65 + z), perZone]
       );
     }
-    const existing = Number(((await exec("SELECT COUNT(*)::int AS n FROM nfc_cards WHERE property_id=$1", [id])).rows[0] as any).n);
+    const existing = Number((await exec("SELECT COUNT(*)::int AS n FROM nfc_cards WHERE property_id=$1", [id])).rows[0].n);
     if (existing < pool) {
       const uidStart = await nextUidStart();
       for (let i = 0; i < pool - existing; i++) {

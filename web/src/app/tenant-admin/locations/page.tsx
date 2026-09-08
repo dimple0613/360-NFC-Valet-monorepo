@@ -1,4 +1,3 @@
-import { MapPinIcon } from "lucide-react";
 import { requireValetPage } from "../_lib/valet-permissions";
 import LocationsManager from "./LocationsManager";
 

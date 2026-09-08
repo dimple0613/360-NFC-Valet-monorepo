@@ -9,6 +9,7 @@ import { PlusIcon, MapPinIcon, UploadIcon, EyeIcon } from "lucide-react";
 import { FormField, FormToggleField } from "@/components/console-form-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
+import { errorMessage } from "../_lib/valet-permissions";
 
 const makeSchema = (configured: boolean) =>
   yup.object({
@@ -296,8 +297,8 @@ function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
           toast.success(`${data.name} created`);
           resetForm();
           onCreated();
-        } catch (err: any) {
-          toast.error(err.message);
+        } catch (err) {
+          toast.error(errorMessage(err, "Failed to create location"));
           setSubmitting(false);
         }
       }}
@@ -374,8 +375,8 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
           if (!res.ok) throw new Error(data.error || "Failed to update location");
           toast.success("Location updated.");
           onUpdated();
-        } catch (err: any) {
-          toast.error(err.message);
+        } catch (err) {
+          toast.error(errorMessage(err, "Failed to update location"));
           setSubmitting(false);
         }
       }}
@@ -477,8 +478,8 @@ export default function LocationsManager() {
       const json = (await res.json()) as LocationsData;
       setData(json);
       return json;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err, "Failed to load locations"));
       return null;
     } finally {
       setLoading(false);
@@ -486,7 +487,8 @@ export default function LocationsManager() {
   }, []);
 
   useEffect(() => {
-    load();
+    const kick = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(kick);
   }, [load]);
 
   function scrollToForm() {
@@ -524,8 +526,8 @@ export default function LocationsManager() {
       setSelected(null);
       setDeleteTarget(null);
       load();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(errorMessage(err, "Failed to remove location"));
     } finally {
       setDeleting(false);
     }
@@ -614,6 +616,7 @@ export default function LocationsManager() {
                   }}
                 >
                   {l.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- 52px avatar thumbnail; next/image brings no measurable benefit here
                     <img src={l.imageUrl} alt={l.name} style={{ width: 52, height: 52, borderRadius: 15, objectFit: "cover", flex: "none" }} />
                   ) : (
                     <div

@@ -8,7 +8,7 @@ import {
   setCardStatus,
   removeCard,
 } from "@/app/tenant-admin/_lib/valet-data";
-import { assertValetPermission } from "@/app/tenant-admin/_lib/valet-permissions";
+import { assertValetPermission, errorMessage } from "@/app/tenant-admin/_lib/valet-permissions";
 
 export async function GET(req: Request) {
   if (!(await assertValetPermission("valet.card.read"))) {
@@ -49,8 +49,8 @@ export async function POST(req: Request) {
       organizationId: identity.session.organizationId ?? null,
     });
     return NextResponse.json(created, { status: 201 });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Failed to register cards" }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: errorMessage(err, "Failed to register cards") }, { status: 400 });
   }
 }
 
@@ -78,10 +78,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ id, updated: true });
     }
     return NextResponse.json({ error: "action must be 'block', 'unblock', 'mark-returned', 'lost' or 'updateUid'" }, { status: 400 });
-  } catch (err: any) {
-    if (err?.message === "Card not found") {
-      return NextResponse.json({ error: err.message }, { status: 404 });
+  } catch (err) {
+    if (errorMessage(err, "") === "Card not found") {
+      return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    return NextResponse.json({ error: err?.message || "Failed to update card" }, { status: 400 });
+    return NextResponse.json({ error: errorMessage(err, "Failed to update card") }, { status: 400 });
   }
 }

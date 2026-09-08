@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2Icon, LogOutIcon, UserIcon } from "lucide-react";
-import { BellIcon, BuildingIcon, CarIcon, ClipboardListIcon, CoinsIcon, CreditCardIcon, DatabaseBackupIcon, FileTextIcon, KeyRoundIcon, LayoutDashboardIcon, PackageIcon, PercentIcon, SettingsIcon, ShieldIcon } from "lucide-react";
+import { BellIcon, BuildingIcon, ClipboardListIcon, CoinsIcon, CreditCardIcon, DatabaseBackupIcon, FileTextIcon, KeyRoundIcon, LayoutDashboardIcon, PackageIcon, PercentIcon, SettingsIcon, ShieldIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from "@/components/ui/sidebar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NavLinks, type NavLinkItem } from "@/components/nav-links";

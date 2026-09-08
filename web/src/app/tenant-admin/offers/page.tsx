@@ -1,4 +1,3 @@
-import { TagIcon } from "lucide-react";
 import { requireValetPage } from "../_lib/valet-permissions";
 import { getOffers } from "../_lib/valet-data";
 import { OffersManager } from "./offers-manager";
