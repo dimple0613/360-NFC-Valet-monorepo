@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";
 import { ActionForm } from "@/components/action-form";
+import { groupPermissions } from "@/lib/group-permissions";
 import { OWNER_ROLE_SLUG, type ListQueryResult, type RoleAssigneeRow } from "@saasclaude/db";
 import { assignRoleAction } from "./actions";
 import { AddPermissionDialog } from "./add-permission-dialog";
@@ -33,6 +34,7 @@ export function RoleDetailPanel({
 }: RoleDetailPanelProps) {
   const isOwner = roleName.toLowerCase() === OWNER_ROLE_SLUG;
   const grantedList = permissionCatalog.filter((p) => grantedPermissionIds.has(p.id));
+  const grantedGroups = groupPermissions(grantedList);
   const assign = assignRoleAction.bind(null, roleId);
 
   return (
@@ -60,20 +62,24 @@ export function RoleDetailPanel({
               <span className="text-[12.5px] font-semibold text-[#9aa6bc]">All permissions granted</span>
             ) : null}
           </div>
-          {isOwner ? (
-            <div className="flex flex-wrap gap-2">
-              {permissionCatalog.map((p) => (
-                <span key={p.id} className="rounded-full border border-[#e7eaf0] bg-[#f9fafb] px-3 py-1 text-[12px] font-semibold text-[#48566e]">
-                  {p.key.split(".").slice(2).join(".") || p.key}
-                </span>
-              ))}
-            </div>
-          ) : grantedList.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {grantedList.map((p) => (
-                <span key={p.id} className="rounded-full border border-[#e7eaf0] bg-[#f9fafb] px-3 py-1 text-[12px] font-semibold text-[#48566e]">
-                  {p.key.split(".").slice(2).join(".") || p.key}
-                </span>
+          {grantedGroups.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {grantedGroups.map((group) => (
+                <div key={group.resource} className="flex flex-col gap-1.5">
+                  <div className="text-[11.5px] font-extrabold uppercase tracking-wide text-[#9aa6bc]">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {group.permissions.map((p) => (
+                      <span
+                        key={p.id}
+                        className="rounded-full border border-[#e7eaf0] bg-[#f9fafb] px-3 py-1 text-[12px] font-semibold text-[#48566e]"
+                      >
+                        {p.key.split(".").slice(2).join(".") || p.key}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
