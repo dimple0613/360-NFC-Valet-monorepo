@@ -316,6 +316,34 @@ describe("organization invites", () => {
     await prismaWithoutTenantScoping.organizationInvite.deleteMany({ where: { email } });
   });
 
+  it("email delivery failure is non-fatal: the invite is still created and deliveryError is surfaced (a dead SMTP relay must not drop the invite)", async () => {
+    const email = `delivery-error-${runId}@example.com`;
+    const result = await inviteUserToOrganization(
+      { organizationId: org.id, email },
+      {
+        async send() {
+          throw new Error("connect ECONNREFUSED 127.0.0.1:2525");
+        },
+      },
+    );
+    expect(result.rawToken).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+    expect(result.deliveryError).toContain("ECONNREFUSED");
+
+    const row = await prismaWithoutTenantScoping.organizationInvite.findFirst({
+      where: { email },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(row).not.toBeNull();
+    await prismaWithoutTenantScoping.organizationInvite.deleteMany({ where: { email } });
+  });
+
+  it("successful delivery returns no deliveryError", async () => {
+    const email = `delivery-ok-${runId}@example.com`;
+    const result = await inviteUserToOrganization({ organizationId: org.id, email }, capturingEmailSender().sender);
+    expect(result.deliveryError).toBeUndefined();
+    await prismaWithoutTenantScoping.organizationInvite.deleteMany({ where: { email } });
+  });
+
   it("listPendingInvitesPage paginates in real DB pages with a working cursor, excludes accepted invites", async () => {
     const emails = [1, 2, 3].map((n) => `page-invite-${n}-${runId}@example.com`);
     for (const email of emails) {

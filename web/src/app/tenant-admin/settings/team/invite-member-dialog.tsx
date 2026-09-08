@@ -8,9 +8,15 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PlusIcon, XIcon } from "lucide-react";
 import { inviteMemberAction, type InviteMemberFormState } from "./actions";
 
-const initialState: InviteMemberFormState = { error: null, inviteLink: null };
+const initialState: InviteMemberFormState = { error: null, inviteLink: null, email: null, deliveryError: null };
 
-export function InviteMemberDialog({ roles }: { roles: { id: string; name: string }[] }) {
+export function InviteMemberDialog({
+  roles,
+  emailConfigured = false,
+}: {
+  roles: { id: string; name: string }[];
+  emailConfigured?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(inviteMemberAction, initialState);
   const [dismissedLink, setDismissedLink] = useState<string | null>(null);
@@ -129,7 +135,13 @@ export function InviteMemberDialog({ roles }: { roles: { id: string; name: strin
             if (!next) setDismissedLink(state.inviteLink);
           }}
           title="Invite sent"
-          description="No email provider is configured yet, so here's the invite link directly — send it to your teammate yourself."
+          description={
+            state.deliveryError
+              ? `We couldn't email ${state.email ?? "your teammate"} (${state.deliveryError}). Here's the invite link — send it to them yourself.`
+              : emailConfigured
+                ? `We emailed the invite link to ${state.email ?? "your teammate"}. It's shown here too, in case it doesn't arrive.`
+                : "No email provider is configured yet, so here's the invite link directly — send it to your teammate yourself."
+          }
           value={state.inviteLink}
         />
       ) : null}

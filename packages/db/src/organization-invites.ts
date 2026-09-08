@@ -67,12 +67,19 @@ export interface InviteUserInput {
   email: string;
   roleId?: string;
   invitedByUserId?: string;
+  /**
+   * Builds the clickable accept URL once the raw token exists (the token is
+   * minted inside this function, so callers pass a builder rather than a
+   * ready-made link). Web callers pass `(t) => ${baseUrl}/invite/accept?token=`
+   * — without it, the emailed invite degrades to the plain raw-token fallback.
+   */
+  acceptUrlBuilder?: (rawToken: string) => string;
 }
 
 export async function inviteUserToOrganization(
   input: InviteUserInput,
   emailSender: EmailSender = consoleEmailSender,
-): Promise<{ inviteId: string; rawToken: string }> {
+): Promise<{ inviteId: string; rawToken: string; deliveryError?: string }> {
   const existingUser = await prismaWithoutTenantScoping.user.findUnique({ where: { email: input.email } });
   if (existingUser) {
     const membership = await prismaWithoutTenantScoping.organizationMembership.findUnique({
@@ -120,11 +127,32 @@ export async function inviteUserToOrganization(
     });
   });
 
-  await emailSender.send({
-    to: input.email,
-    subject: "You've been invited to join an organization",
-    body: `Your invite token: ${rawToken}`,
-  });
+  // Email delivery is best-effort, never fatal: the invite itself (row + audit
+  // + notification) has already fully succeeded by now. A configured-but-dead
+  // SMTP relay must not lose the invite — the caller gets `deliveryError` and
+  // still hands the raw link to the inviter, who can send it manually. (The
+  // console placeholder can't throw, so this only ever fires on real delivery
+  // failures from the SMTP channel.)
+  let deliveryError: string | undefined;
+  try {
+    await emailSender.send({
+      to: input.email,
+      subject: "You've been invited to join an organization",
+      body: input.acceptUrlBuilder
+        ? [
+            "You've been invited to join an organization.",
+            "",
+            "Open this link to accept your invite (it expires):",
+            input.acceptUrlBuilder(rawToken),
+            "",
+            `If the link doesn't open, copy this token into the invite box: ${rawToken}`,
+          ].join("\n")
+        : `Your invite token: ${rawToken}`,
+    });
+  } catch (error) {
+    deliveryError = error instanceof Error ? error.message : "Email delivery failed.";
+    console.error(`[organization-invites] invite email to ${input.email} failed:`, deliveryError);
+  }
 
   // §2.14 framework proof: the org.invite_sent kind fires through whatever
   // channels are registered/configured — deliberately `only: ["webhook",
@@ -149,7 +177,7 @@ export async function inviteUserToOrganization(
     // Non-fatal — see comment above.
   }
 
-  return { inviteId: invite.id, rawToken };
+  return { inviteId: invite.id, rawToken, deliveryError };
 }
 
 export interface AcceptInviteInput {

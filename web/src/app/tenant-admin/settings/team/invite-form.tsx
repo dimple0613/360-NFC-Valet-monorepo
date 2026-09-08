@@ -5,9 +5,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CopyableSecretDialog } from "@/components/copyable-secret-dialog";
 import { inviteMemberAction, type InviteMemberFormState } from "./actions";
 
-const initialState: InviteMemberFormState = { error: null, inviteLink: null };
+const initialState: InviteMemberFormState = { error: null, inviteLink: null, email: null, deliveryError: null };
 
-export function InviteForm({ roles }: { roles: { id: string; name: string }[] }) {
+export function InviteForm({
+  roles,
+  emailConfigured = false,
+}: {
+  roles: { id: string; name: string }[];
+  emailConfigured?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(inviteMemberAction, initialState);
   // Dialog auto-opens whenever a fresh inviteLink lands in state; tracking
   // which link was already dismissed (rather than a separate open flag set
@@ -63,7 +69,11 @@ export function InviteForm({ roles }: { roles: { id: string; name: string }[] })
             if (!next) setDismissedLink(state.inviteLink);
           }}
           title="Invite sent"
-          description="No email provider is configured yet, so here's the invite link directly — send it to your teammate yourself."
+          description={
+            emailConfigured
+              ? `We emailed the invite link to ${state.email ?? "your teammate"}. It's shown here too, in case it doesn't arrive.`
+              : "No email provider is configured yet, so here's the invite link directly — send it to your teammate yourself."
+          }
           value={state.inviteLink}
         />
       ) : null}

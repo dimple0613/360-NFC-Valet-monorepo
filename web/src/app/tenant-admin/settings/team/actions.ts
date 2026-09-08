@@ -20,6 +20,9 @@ const MANAGE_MEMBERS_PERMISSION = "core.organization.manage_members";
 export interface InviteMemberFormState {
   error: string | null;
   inviteLink: string | null;
+  email: string | null;
+  /** set when the invite row was created but the SMTP send failed (dead relay) — the link is still valid to send manually. */
+  deliveryError: string | null;
 }
 
 export async function inviteMemberAction(
@@ -28,7 +31,7 @@ export async function inviteMemberAction(
 ): Promise<InviteMemberFormState> {
   const identity = await requireIdentity();
   const organizationId = identity.session.organizationId;
-  if (!organizationId) return { error: "No active organization.", inviteLink: null };
+  if (!organizationId) return { error: "No active organization.", inviteLink: null, email: null, deliveryError: null };
 
   try {
     await requireOrganizationPermission({
@@ -37,31 +40,40 @@ export async function inviteMemberAction(
       permissionKey: MANAGE_MEMBERS_PERMISSION,
     });
   } catch (error) {
-    if (error instanceof ForbiddenError) return { error: "You don't have permission to do that.", inviteLink: null };
+    if (error instanceof ForbiddenError) return { error: "You don't have permission to do that.", inviteLink: null, email: null, deliveryError: null };
     throw error;
   }
 
   const email = String(formData.get("email") ?? "").trim();
   const roleId = String(formData.get("roleId") ?? "") || undefined;
-  if (!email) return { error: "Email is required.", inviteLink: null };
+  if (!email) return { error: "Email is required.", inviteLink: null, email: null, deliveryError: null };
 
   let rawToken: string;
+  let deliveryError: string | null = null;
   try {
-    ({ rawToken } = await inviteUserToOrganization(
-      { organizationId, email, roleId, invitedByUserId: identity.user.id },
+    const inviteResult = await inviteUserToOrganization(
+      {
+        organizationId,
+        email,
+        roleId,
+        invitedByUserId: identity.user.id,
+        acceptUrlBuilder: (token) => `${resolveBaseUrl()}/invite/accept?token=${token}`,
+      },
       await resolveEmailSender(),
-    ));
+    );
+    rawToken = inviteResult.rawToken;
+    deliveryError = inviteResult.deliveryError ?? null;
   } catch (error) {
-    if (error instanceof RoleNotFoundError) return { error: "That role no longer exists.", inviteLink: null };
-    if (error instanceof AlreadyMemberError) return { error: "This person is already a member.", inviteLink: null };
+    if (error instanceof RoleNotFoundError) return { error: "That role no longer exists.", inviteLink: null, email: null, deliveryError: null };
+    if (error instanceof AlreadyMemberError) return { error: "This person is already a member.", inviteLink: null, email: null, deliveryError: null };
     if (error instanceof InviteAlreadyPendingError) {
-      return { error: "This person already has a pending invite — revoke it first to send a new one.", inviteLink: null };
+      return { error: "This person already has a pending invite — revoke it first to send a new one.", inviteLink: null, email: null, deliveryError: null };
     }
     throw error;
   }
 
   revalidatePath("/tenant-admin/settings/team");
-  return { error: null, inviteLink: `${resolveBaseUrl()}/invite/accept?token=${rawToken}` };
+  return { error: null, inviteLink: `${resolveBaseUrl()}/invite/accept?token=${rawToken}`, email, deliveryError };
 }
 
 export async function revokeInviteAction(inviteId: string): Promise<void> {

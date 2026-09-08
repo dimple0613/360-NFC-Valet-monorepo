@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getUserOrganizationPermissions, listOrganizationMembersSearch, listPendingInvitesSearch, listRolesVisibleToOrganization } from "@saasclaude/db";
+import { emailNotificationChannel, getUserOrganizationPermissions, listOrganizationMembersSearch, listPendingInvitesSearch, listRolesVisibleToOrganization } from "@saasclaude/db";
 import { UsersIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";
@@ -44,11 +44,15 @@ export default async function MembersPage({
     { value: "invites", label: "Pending invites" },
   ];
 
-  const [members, visibleRoles, pendingInvites, permissions] = await Promise.all([
+  const [members, visibleRoles, pendingInvites, permissions, emailConfigured] = await Promise.all([
     listOrganizationMembersSearch(organizationId, memberParams),
     listRolesVisibleToOrganization(organizationId),
     listPendingInvitesSearch(organizationId, inviteParams),
     getUserOrganizationPermissions(identity.user.id, organizationId),
+    // Email channel "configured" = enabled/complete in settings OR the
+    // SMTP_* env-var fallback — exactly what resolveEmailSender() uses, so
+    // the success copy tracks whether an email will actually go out.
+    emailNotificationChannel.isConfigured(),
   ]);
   const roles = visibleRoles.map((r) => ({ id: r.id, name: r.scope === "GLOBAL" ? `${r.name} (Global)` : r.name }));
   const canManageMembers = permissions.includes(MANAGE_MEMBERS_PERMISSION);
@@ -59,7 +63,7 @@ export default async function MembersPage({
         icon={<UsersIcon className="size-5" />}
         title="Team"
         description="Members, roles, and pending invites for this organization."
-        actions={canManageMembers ? <InviteMemberDialog roles={roles} /> : null}
+        actions={canManageMembers ? <InviteMemberDialog roles={roles} emailConfigured={emailConfigured} /> : null}
       />
 
       <nav className="-mb-px flex gap-4 overflow-x-auto border-b">

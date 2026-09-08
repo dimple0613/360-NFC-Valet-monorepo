@@ -4,10 +4,12 @@ import {
   inviteUserToOrganization,
   InviteAlreadyPendingError,
   listOrganizationMembersPage,
+  resolveEmailSender,
   RoleNotFoundError,
 } from "@saasclaude/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 import { parsePageParams } from "@/lib/tenant/pagination";
+import { resolveBaseUrl } from "@/lib/base-url";
 
 function serializeMember(membership: {
   id: string;
@@ -51,8 +53,16 @@ export const POST = withApiTenantContext(async (req, _ctx, apiKey) => {
   }
 
   try {
-    const { inviteId } = await inviteUserToOrganization({ organizationId: apiKey.organizationId, email, roleId });
-    return NextResponse.json({ inviteId }, { status: 201 });
+    const { inviteId, deliveryError } = await inviteUserToOrganization(
+      {
+        organizationId: apiKey.organizationId,
+        email,
+        roleId,
+        acceptUrlBuilder: (token) => `${resolveBaseUrl()}/invite/accept?token=${token}`,
+      },
+      await resolveEmailSender(),
+    );
+    return NextResponse.json({ inviteId, emailDelivered: !deliveryError, ...(deliveryError ? { deliveryError } : {}) }, { status: 201 });
   } catch (error) {
     if (error instanceof RoleNotFoundError) {
       return NextResponse.json({ error: "No role with that id in this organization." }, { status: 400 });

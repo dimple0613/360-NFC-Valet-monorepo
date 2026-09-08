@@ -52,23 +52,59 @@ export interface EmailChannelOptions {
   transportFactory?: (config: { host: string; port: number; secure: boolean; auth?: { user: string; pass: string } }) => MailTransport;
 }
 
+// Environment-var fallback so a deployment's normal SMTP_* configuration
+// (the same vars the legacy web/src/lib/valet-mail.ts already reads) works
+// without anyone having to duplicate it into the Settings table first —
+// this was the org-invite bug: the invite path IS wired to resolveEmailSender,
+// but the email channel only ever looked at the Settings-backed config, so in
+// an environment with SMTP_* set but no settings rows (every web/.env dev
+// box) it silently fell back to the console placeholder and no email went out.
+// Precedence: Settings table wins once explicitly enrolled (a real deployment
+// operator managing the channel in-console), env vars fill the gap otherwise.
+// The Super Admin "Notification channels" UI still reflects the Settings view;
+// env-provided SMTP shadows that display without a row. `smtp_password`'s
+// legacy spellings differ between layers too — the channel uses
+// `smtp_password`, the env uses `SMTP_PASS` — both are honored here.
+function parseEnvFrom(raw: string): { fromEmail: string; fromName?: string } {
+  const match = /^\s*"?([^<"]*)"?\s*<([^>]+)>/.exec(raw.trim());
+  if (match?.[1] !== undefined && match?.[2] !== undefined) {
+    return { fromEmail: match[2].trim(), fromName: match[1].trim() || undefined };
+  }
+  return { fromEmail: raw.trim() };
+}
+
+function loadEnvEmailConfig(): EmailConfig | null {
+  const host = process.env.SMTP_HOST;
+  const fromRaw = process.env.SMTP_FROM || process.env.SMTP_USER;
+  if (!host || !fromRaw) return null;
+  const { fromEmail, fromName: parsedFromName } = parseEnvFrom(fromRaw);
+  return {
+    host,
+    port: Number(process.env.SMTP_PORT ?? 0) || 587,
+    user: process.env.SMTP_USER,
+    password: process.env.SMTP_PASS,
+    fromEmail,
+    fromName: process.env.SMTP_FROM_NAME || parsedFromName,
+  };
+}
+
 async function loadConfig(): Promise<EmailConfig | null> {
   const enabled = await isNotificationChannelEnabled(ADAPTER_ID);
-  if (!enabled) return null;
-  const hasRequired = await hasRequiredNotificationChannelConfig({ id: ADAPTER_ID, configFields: CONFIG_FIELDS });
-  if (!hasRequired) return null;
-
-  const [host, port, user, password, fromEmail, fromName] = await Promise.all([
-    getNotificationChannelConfigValue(ADAPTER_ID, "smtp_host"),
-    getNotificationChannelConfigValue(ADAPTER_ID, "smtp_port"),
-    getNotificationChannelConfigValue(ADAPTER_ID, "smtp_user"),
-    getNotificationChannelConfigValue(ADAPTER_ID, "smtp_password"),
-    getNotificationChannelConfigValue(ADAPTER_ID, "from_email"),
-    getNotificationChannelConfigValue(ADAPTER_ID, "from_name"),
-  ]);
-  if (!host || !port || !fromEmail) return null;
-
-  return { host, port: Number(port), user, password, fromEmail, fromName };
+  if (enabled) {
+    const hasRequired = await hasRequiredNotificationChannelConfig({ id: ADAPTER_ID, configFields: CONFIG_FIELDS });
+    if (hasRequired) {
+      const [host, port, user, password, fromEmail, fromName] = await Promise.all([
+        getNotificationChannelConfigValue(ADAPTER_ID, "smtp_host"),
+        getNotificationChannelConfigValue(ADAPTER_ID, "smtp_port"),
+        getNotificationChannelConfigValue(ADAPTER_ID, "smtp_user"),
+        getNotificationChannelConfigValue(ADAPTER_ID, "smtp_password"),
+        getNotificationChannelConfigValue(ADAPTER_ID, "from_email"),
+        getNotificationChannelConfigValue(ADAPTER_ID, "from_name"),
+      ]);
+      if (host && port && fromEmail) return { host, port: Number(port), user, password, fromEmail, fromName };
+    }
+  }
+  return loadEnvEmailConfig();
 }
 
 export function createEmailChannel(options: EmailChannelOptions = {}): NotificationChannel {

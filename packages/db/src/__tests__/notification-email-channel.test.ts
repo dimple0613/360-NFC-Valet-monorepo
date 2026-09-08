@@ -149,4 +149,114 @@ describe("email notification channel", () => {
       await expect(sender.send({ to: "x@example.com", subject: "s", body: "b" })).rejects.toThrow(/connection refused/);
     });
   });
+
+  describe("SMTP env-var fallback (org-invite email bug)", () => {
+    // web/.env SMTP_* vars are ordinary deployment config the email channel
+    // must honor even with zero Settings-table rows — resolveEmailSender()
+    // previously fell back to the console placeholder in exactly that setup,
+    // which is why invites logged instead of emailed. Save/restore the env so
+    // these tests can't leak into the rest of the suite.
+    const ENV_FIELDS = [
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASS",
+      "SMTP_FROM",
+      "SMTP_FROM_NAME",
+    ] as const;
+    const saved: Record<string, string | undefined> = {};
+
+    beforeAll(() => {
+      for (const key of ENV_FIELDS) saved[key] = process.env[key];
+    });
+    afterEach(() => {
+      for (const key of ENV_FIELDS) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      }
+    });
+
+    it("is configured from SMTP_* env vars with no settings rows", async () => {
+      process.env.SMTP_HOST = "smtp.gmail.com";
+      process.env.SMTP_PORT = "587";
+      process.env.SMTP_USER = "robot@gmail.com";
+      process.env.SMTP_PASS = "sekrit";
+      process.env.SMTP_FROM = "360 NFC Valet <robot@gmail.com>";
+      process.env.SMTP_FROM_NAME = "360 NFC Valet";
+
+      const channel = createEmailChannel();
+      await expect(channel.isConfigured()).resolves.toBe(true);
+
+      const sendMail = vi.fn().mockResolvedValue({ messageId: "env-mail" });
+      const transportFactory = vi.fn().mockReturnValue({ sendMail });
+      const envChannel = createEmailChannel({ transportFactory });
+
+      const result = await envChannel.send({ kind: "org.invite_sent", email: "invitee@example.com", subject: "Invite", body: "Accept: /t" });
+      expect(result).toEqual({ ok: true });
+      expect(transportFactory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: "smtp.gmail.com",
+          port: 587,
+          auth: { user: "robot@gmail.com", pass: "sekrit" },
+        }),
+      );
+      expect(sendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: '"360 NFC Valet" <robot@gmail.com>',
+          to: "invitee@example.com",
+          subject: "Invite",
+          text: "Accept: /t",
+        }),
+      );
+    });
+
+    it("resolveEmailSender resolves to a real sender driven by env, not the console placeholder", async () => {
+      process.env.SMTP_HOST = "smtp.example.com";
+      process.env.SMTP_PORT = "587";
+      process.env.SMTP_USER = "env-user@example.com";
+      process.env.SMTP_FROM = "env-user@example.com";
+
+      const sendMail = vi.fn().mockResolvedValue({ messageId: "env-send" });
+      const transportFactory = vi.fn().mockReturnValue({ sendMail });
+      const sender = await resolveEmailSender(createEmailChannel({ transportFactory }));
+
+      await expect(sender.send({ to: "invitee@example.com", subject: "Invite", body: "Accept" })).resolves.toBeUndefined();
+      expect(sendMail).toHaveBeenCalledWith(
+        expect.objectContaining({ from: "env-user@example.com", to: "invitee@example.com" }),
+      );
+    });
+
+    it("explicit Settings-table config wins over env vars when both are present", async () => {
+      process.env.SMTP_HOST = "env-host.example.com";
+      process.env.SMTP_USER = "env-user@example.com";
+      process.env.SMTP_FROM = "env-user@example.com";
+      await setNotificationChannelConfigValue({ channelId: CHANNEL_ID, field: "smtp_host", value: "db-host.example.com", sensitive: false });
+      await setNotificationChannelConfigValue({ channelId: CHANNEL_ID, field: "smtp_port", value: "465", sensitive: false });
+      await setNotificationChannelConfigValue({ channelId: CHANNEL_ID, field: "from_email", value: "db@example.com", sensitive: false });
+      await setNotificationChannelEnabled(CHANNEL_ID, true);
+
+      const sendMail = vi.fn().mockResolvedValue({ messageId: "db-mail" });
+      const transportFactory = vi.fn().mockReturnValue({ sendMail });
+      const sender = await resolveEmailSender(createEmailChannel({ transportFactory }));
+
+      await expect(sender.send({ to: "invitee@example.com", subject: "Invite", body: "Accept" })).resolves.toBeUndefined();
+      expect(transportFactory).toHaveBeenCalledWith(expect.objectContaining({ host: "db-host.example.com", port: 465 }));
+    });
+
+    it("falls back to the console placeholder when neither settings nor SMTP_* env is present", async () => {
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
+      delete process.env.SMTP_USER;
+      delete process.env.SMTP_PASS;
+      delete process.env.SMTP_FROM;
+      delete process.env.SMTP_FROM_NAME;
+
+      const sendMail = vi.fn();
+      const transportFactory = vi.fn().mockReturnValue({ sendMail });
+      const sender = await resolveEmailSender(createEmailChannel({ transportFactory }));
+
+      await expect(sender.send({ to: "x@example.com", subject: "s", body: "b" })).resolves.toBeUndefined();
+      expect(sendMail).not.toHaveBeenCalled();
+    });
+  });
 });
