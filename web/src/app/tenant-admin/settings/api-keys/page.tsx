@@ -22,11 +22,16 @@ export default async function ApiKeysPage({
   const organizationId = identity.session.organizationId!;
   const listParams = parseListQueryParams(await searchParams);
 
-  const [apiKeys, scopeCatalog, permissions] = await Promise.all([
+  const [apiKeys, allTenantScopes, permissions] = await Promise.all([
     listApiKeysSearch(organizationId, listParams),
     prismaWithoutTenantScoping.permission.findMany({ where: { scope: "TENANT" }, orderBy: { key: "asc" } }),
     getUserOrganizationPermissions(identity.user.id, organizationId),
   ]);
+  // Only expose scopes backed by real /api/v1 routes (D-006).
+  // Valet-domain permissions (valet.card.*, valet.driver.*, etc.) exist in the
+  // permission registry but have no /api/v1 endpoints yet (audit #22) —
+  // offering them would let users create keys scoped to unreachable routes.
+  const scopeCatalog = allTenantScopes.filter((p) => p.key.startsWith("core."));
   const canManageApiKeys = permissions.includes(MANAGE_API_KEYS_PERMISSION);
 
   return (
