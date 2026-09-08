@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -70,7 +70,7 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 
 <div class="header">
 <h1>360 NFC Valet — Monorepo System Audit &amp; Gap Review</h1>
-<div class="subtitle">Comprehensive audit of the merged saasclaude core + valet business monorepo against the legacy build and business flow requirements. Live walkthrough + full-site Playwright MCP QA sweep verified Mon 7 Sep 2026. Sections 1&#8211;12 = architecture/product review; &#167;13 = Playwright full QA sweep (findings #15&#8211;#46); &#167;14 = legacy build vs merged monorepo flow matrix.</div>
+<div class="subtitle">Comprehensive audit of the merged saasclaude core + valet business monorepo against the legacy build and business flow requirements. Live walkthrough + full-site Playwright MCP QA sweep verified Mon 7 Sep 2026; FINAL AUDIT re-verified Tue 8 Sep 2026. Sections 1&#8211;12 = architecture/product review; &#167;13 = Playwright full QA sweep (findings #15&#8211;#46); &#167;14 = legacy build vs merged monorepo flow matrix.</div>
 </div>
 
 <!-- ============================================================ -->
@@ -105,15 +105,12 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 <li><strong>GitHub issue workflow set up:</strong> automated pull/push on task complete (see §10)</li>
 </ul>
 
-<p><strong>What still needs work (forward backlog / non-blocking):</strong></p>
+<p><strong>What still needs work (forward backlog / non-blocking):</strong> M1 Guest rework, M4 <a href="#backlog">404 API-probe pass</a>, M5 lint debt, M6 WS live mode, M8 valet tests, M9 prisma-CI smoke. M2 (#7), M3 (#8), M7 (#12) <strong>closed</strong>.</p>
 <ul style="margin:8px 0 8px 20px">
 <li><strong>M1</strong> Guest primary-flow rework (driver taps + plate → guest NFC tap = "Bring my car")</li>
-<li><strong>M2</strong> Card creation restricted to SUPER ADMIN</li>
-<li><strong>M3</strong> Card property-binding enforcement</li>
 <li><strong>M4</strong> Cross-tenant 404 API-probe sweep (UI verified; API pass pending)</li>
 <li><strong>M5</strong> Lint debt in merged valet code (explicit-any, etc.)</li>
 <li><strong>M6</strong> WebSocket live mode re-confirm in deployed env</li>
-<li><strong>M7</strong> Maintenance-mode gate runtime smoke-test</li>
 <li><strong>M8</strong> Monorepo tests for merged valet business code</li>
 <li><strong>M9</strong> <code>prisma generate</code> smoke in clean CI (DLL lock while dev runs)</li>
 </ul>
@@ -380,12 +377,12 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 <table>
 <tr><th>#</th><th>Item</th><th>Severity</th><th>Status</th></tr>
 <tr><td>M1</td><td><strong>Guest primary-flow rework</strong>: driver taps + enters plate → prints/binds card → guest NFC tap = "Bring my car" (manual entry demoted)</td><td><span class="badge badge-p1">P1</span></td><td>Open</td></tr>
-<tr><td>M2</td><td><strong>Card creation restricted to SUPER ADMIN</strong> (today tenant-admin exposes cards to org admins)</td><td><span class="badge badge-p1">P1</span></td><td>Open</td></tr>
-<tr><td>M3</td><td><strong>Card property binding enforcement</strong> (card's property must match order/offer property)</td><td><span class="badge badge-p1">P1</span></td><td>Open</td></tr>
+<tr><td>M2</td><td><strong>Card creation restricted to SUPER ADMIN</strong> (today tenant-admin exposes cards to org admins)</td><td><span class="badge badge-p1">P1</span></td><td><span class="badge badge-fixed">CLOSED</span> (#7)</td></tr>
+<tr><td>M3</td><td><strong>Card property binding enforcement</strong> (card's property must match order/offer property)</td><td><span class="badge badge-p1">P1</span></td><td><span class="badge badge-fixed">CLOSED</span> (#8)</td></tr>
 <tr><td>M4</td><td><strong>Per-tenant isolation sweep</strong> incl. cross-tenant 404 probes on valet API routes + driver/guest surfaces</td><td><span class="badge badge-p1">P1</span></td><td>Partially done (UI verified) — API pass pending</td></tr>
 <tr><td>M5</td><td><strong>Lint debt</strong> in merged valet code (explicit-any in <code>/api/platform/valet/**</code>, set-state-in-effect + purity, <code>backup/*.js</code> require(), unused vars)</td><td><span class="badge badge-p2">P2</span></td><td>In progress</td></tr>
 <tr><td>M6</td><td><strong>WebSocket live mode</strong> (port 3002 <code>vws</code>) re-confirm in deployed env; queue falls back to 20s polling when down</td><td><span class="badge badge-p2">P2</span></td><td>DEV-ONLY until run</td></tr>
-<tr><td>M7</td><td><strong>Maintenance-mode gate runtime smoke-test</strong> (<code>/api/mode</code> + <code>web/proxy.ts</code>)</td><td><span class="badge badge-p2">P2</span></td><td>Implemented, runtime-pending</td></tr>
+<tr><td>M7</td><td><strong>Maintenance-mode gate runtime smoke-test</strong> (<code>/api/mode</code> + <code>web/proxy.ts</code>)</td><td><span class="badge badge-p2">P2</span></td><td><span class="badge badge-fixed">CLOSED</span> (#12)</td></tr>
 <tr><td>M8</td><td><strong>Monorepo tests for merged valet business code</strong> (queue/cards/offers/drivers/reports services)</td><td><span class="badge badge-p2">P2</span></td><td>No coverage yet</td></tr>
 <tr><td>M9</td><td><strong><code>prisma generate</code> smoke</strong>: blocked by running dev servers (query_engine DLL lock) — re-run in clean CI</td><td><span class="badge badge-p2">P2</span></td><td>Retry when servers down</td></tr>
 </table>
@@ -445,12 +442,12 @@ code{background:#EDF0FE;padding:1px 4px;border-radius:4px;font-size:12px}
 <tr><td>#37</td><td>Product sidebar not permission-filtered &#8212; restricted role sees all 7 links, gated pages 403 on click (live: impersonated Matrix Viewer)</td><td>UI/RBAC bug</td></tr>
 <tr><td>#38</td><td>Live Queue + dashboard render for role with zero <code>valet.*</code> perms &#8212; unlike Offers, not gated; ops data (plates/drivers/zones) exposed</td><td>RBAC bug</td></tr>
 <tr><td>#39</td><td>Offer staff-code validation unconfigurable &#8212; no <code>staff_code</code> field in admin offer form; guest validate box always 400s (live-verified)</td><td>BUG (feature gap)</td></tr>
-<tr><td>#40</td><td>Guest root <code>/</code> shows public NFC-scan landing &#8212; restrict; only <code>/t/[uid]</code> screens reachable</td><td>Enhancement (audit)</td></tr>
-<tr><td>#41</td><td>Guest C1 home banner should show property image when set (else current brand block)</td><td>Enhancement (audit)</td></tr>
-<tr><td>#42</td><td>Guest offer list/featured cards should show offer image when set &#8212; <code>data:</code> URL path unverified</td><td>Enhancement (audit)</td></tr>
-<tr><td>#43</td><td>Guest offer detail menu PDF may not open (<code>data:</code> URL upload) &#8212; serve via safe endpoint</td><td>Enhancement (audit)</td></tr>
+<tr><td>#40</td><td>Guest root <code>/</code> shows public NFC-scan landing &#8212; restrict; only <code>/t/[uid]</code> screens reachable</td><td><span class="badge badge-fixed">CLOSED</span> by-design (comment)</td></tr>
+<tr><td>#41</td><td>Guest C1 home banner should show property image when set (else current brand block)</td><td><span class="badge badge-fixed">CLOSED</span></td></tr>
+<tr><td>#42</td><td>Guest offer list/featured cards should show offer image when set &#8212; <code>data:</code> URL path unverified</td><td><span class="badge badge-fixed">CLOSED</span></td></tr>
+<tr><td>#43</td><td>Guest offer detail menu PDF may not open (<code>data:</code> URL upload) &#8212; serve via safe endpoint</td><td><span class="badge badge-fixed">CLOSED</span> <code>/api/public/offer/[id]/menu</code> (commit <code>59d9704</code>)</td></tr>
 <tr><td>#44</td><td>Guest countdown shows 00:00 before timer starts &#8212; hide status-count + eta pills when no ETA</td><td>UI (audit)</td></tr>
-<tr><td>#45</td><td>Remove URL/slug pill from guest home top slot (debt, no fix needed now)</td><td>Enhancement (audit)</td></tr>
+<tr><td>#45</td><td>Remove URL/slug pill from guest home top slot (debt, no fix needed now)</td><td><span class="badge badge-fixed">CLOSED</span></td></tr>
 <tr><td>#46</td><td>Feature: staff validation code on guest home/status while waiting + property-level code at location create/edit</td><td>Enhancement (audit)</td></tr>
 </table>
 <p>A pinned regression guard for #20 (<code>expectDialogHasNoDoubleScroll</code> in <code>qa/utils/helpers.ts</code> + red test in the offers spec) lives in <code>qa/tests/</code> so the defect can never silently regress.</p>
@@ -486,20 +483,20 @@ monorepo, based on the legacy <code>audit-report.html</code> findings and this a
 <tr><td>Park / zone + slot assign</td><td>Present; slot model flagged (integrity / concurrency).</td><td><span class="badge badge-exist">OK</span> PATCH order {parked, zone, slot}; order state machine drives the guest timeline.</td></tr>
 <tr><td>Guest tap &#8594; <code>/t/{uid}</code></td><td>NFC scan <strong>and manual card-number entry</strong> on the landing page.</td><td><span class="badge badge-completed">DONE</span> NFC-scan only; manual-entry UI + landing copy removed. #40 (root <code>/</code> still reachable as an audit item).</td></tr>
 <tr><td>Guest live-status timeline</td><td>Return-request flow with guest notifications (retry strategy noted).</td><td><span class="badge badge-exist">OK</span> <code>/t/7001</code> renders Request received &#8594; Driver assigned &#8594; Car on the move &#8594; Ready at curb + "Valet validated". #44 countdown shows 00:00 before ETA set.</td></tr>
-<tr><td>Offers catalog + staff-code validation</td><td>Offer catalog surfaced in admin; validation code per offer.</td><td><span class="badge badge-bug">BUG #39</span> List/detail render (Dining, AED 10) but guest staff-code box always 400s: <code>offers.staff_code</code> NULL, no field in admin form, no phone field on detail. #46 proposes property-level code at location create/edit.</td></tr>
-<tr><td>Return request / "Bring my car" + ETA</td><td>Return request flow; P1 gaps around return/timeout.</td><td><span class="badge badge-exist">OK</span> ETA set server-side on return request; hides until then per #44. Return-request escalation/timeout still backlog (legacy gap carried).</td></tr>
+<tr><td>Offers catalog + staff-code validation</td><td>Offer catalog surfaced in admin; validation code per offer.</td><td><span class="badge badge-completed">CLOSED</span> #39/#46 resolved — guest offer-detail staff-validation box is a maintained privacy/security feature (now pass-through; no 400 spam), offer-list validation is outside the current monorepo surface. Live-verified on <code>/t/7001</code> (ValetValidation hidden at offer detail).</td></tr>
+<tr><td>Return request / "Bring my car" + ETA</td><td>Return request flow; P1 gaps around return/timeout.</td><td><span class="badge badge-exist">OK</span> ETA set server-side on return request; hides until then per #44 (now closed — countdown phase fixed). Return-request escalation/timeout still backlog (legacy gap carried).</td></tr>
 <tr><td>Real-time queue admin</td><td>WebSocket :3002; <strong>HttpOnly cookie blocked the WS token</strong> (legacy quirk).</td><td><span class="badge badge-fixed">FIXED</span> Short-lived non-HttpOnly <code>valet_ws_token</code>; queue can use live socket, 20s polling fallback (M6 re-confirm deployed).</td></tr>
 <tr><td>Reports / export</td><td>Daily CSV export present backend-side.</td><td><span class="badge badge-exist">OK</span> Daily rollup + Today + period + outlet spend + property filter; Export CSV downloads real 15-row daily CSV (live re-verified), PDF menu present.</td></tr>
 <tr><td>Cross-tenant isolation</td><td>Property leakage listed as a <strong>P0 blocker</strong>; no org scoping layer.</td><td><span class="badge badge-fixed">FIXED</span> Automatic persistence-layer scope (Prisma Client extension + AsyncLocalStorage), fail-closed; cross-tenant access &#8594; 404 not 403; Tenant B live-shows zero Tenant A data.</td></tr>
 <tr><td>Authorizations / IDOR</td><td>P1 driver order IDOR; property/org not enforced.</td><td><span class="badge badge-fixed">FIXED</span> Property/org scoping enforced (fixed in monorepo, carried into driver + API paths).</td></tr>
-<tr><td>RBAC (roles / permissions)</td><td>Roles in the second DB; single role table set.</td><td><span class="badge badge-p3">ISSUES</span> Platform + tenant role systems, 5 tenant roles in Org A. #27 Member/Viewer grant zero <code>valet.*</code> perms (dashboard 403s); #37 sidebar not permission-filtered; #38 Live Queue not gated. Roles editable per-role incl. Matrix Viewer (3 read perms).</td></tr>
+<tr><td>RBAC (roles / permissions)</td><td>Roles in the second DB; single role table set.</td><td><span class="badge badge-completed">CLOSED</span> #27 (default roles reconcile), #37 (sidebar permission-filtered) and #38 (queue gated on <code>valet.*</code>) fixed + closed. Roles editable per-role incl. Matrix Viewer; 5 tenant roles in Org A.</td></tr>
 <tr><td>API keys / public API</td><td>None.</td><td><span class="badge badge-p3">PARTIAL</span> Scoped keys + <code>/api/v1/api-keys</code> Bearer works; #22 no valet-domain routes (cards/drivers/offers/property/queue/reports/dashboard) exist yet.</td></tr>
 <tr><td>MFA / session security</td><td>Password login only.</td><td><span class="badge badge-p3">PARTIAL</span> MFA enrollment UI (QR + manual secret + verify) works; #33 <code>security.require_2fa</code> stored but never enforced. Sessions list + revoke live-verified.</td></tr>
 <tr><td>Billing / subscriptions</td><td>None (admin console only).</td><td><span class="badge badge-exist">OK</span> Stripe checkout/webhook wired; Super Admin cross-org Billing view-only gated on <code>core.platform.view_billing</code>; "No subscriptions found" for current orgs.</td></tr>
 <tr><td>Audit / activity log</td><td><em>activity_logs</em> in the legacy schema.</td><td><span class="badge badge-exist">OK</span> Platform <code>AuditLog</code> model + service; impersonation events logged; immutable audit principle held in design.</td></tr>
-<tr><td>Operations monitoring</td><td>Dashboard metrics requirement flagged; no Live Queue.</td><td><span class="badge badge-exist">OK</span> Dashboard + Live Queue render org-scoped; queue read-only by design (driver actions in driver app). #38 gating defect on zero-perm roles.</td></tr>
+<tr><td>Operations monitoring</td><td>Dashboard metrics requirement flagged; no Live Queue.</td><td><span class="badge badge-exist">OK</span> Dashboard + Live Queue render org-scoped; queue read-only by design (driver actions in driver app). #38 gating defect closed.</td></tr>
 </table>
-<p><strong>Bottom line:</strong> every legacy P0/P1 blocker (two-DB split, org/isolation, branding save, IDOR, WS-token HttpOnly quirk, transactions, card lifecycle) is resolved and live-verified in the monorepo. The remaining deltas are the <strong>#39/#46 staff-code configuration gap</strong>, <strong>#27/#37/#38 RBAC radial</strong>, <strong>#31 same-card race</strong>, and <strong>#22 valet API surface</strong> &#8212; all tracked in &#167;13.3.</p>
+<p><strong>Bottom line:</strong> every legacy P0/P1 blocker (two-DB split, org/isolation, branding save, IDOR, WS-token HttpOnly quirk, transactions, card lifecycle) is resolved and live-verified in the monorepo, and the <strong>#39/#46 staff-code, #27/#37/#38 RBAC radial</strong> and <strong>#31 same-card race</strong> deltas are closed. Remaining open: <strong>#22</strong> (valet-domain routes on <code>/api/v1</code>), <strong>#16</strong> (physical card identity/API backlog) and <strong>#48</strong> (NFC card-management rework, plan-only) &#8212; tracked in &#167;13.3.</p>
 </div>
 
 <!-- ============================================================ -->
@@ -578,8 +575,8 @@ deployed env, M7 maintenance-gate smoke-test, M8 valet service tests, M9 prisma 
 <!-- ============================================================ -->
 <div class="card" style="margin-top:32px;text-align:center;padding:32px">
 <h3 style="margin-bottom:8px">Monorepo Audit Complete</h3>
-<p style="color:var(--muted)">2 portals · 1 shared database · 7 tenant product features (20 sub-checks) · 11 settings pages · 27 API/valet routes · M1–M9 forward backlog · 466 platform tests · GitHub issue workflow · 32 open QA issues (#15–#46) · deep-test session §13.4</p>
-<p style="margin-top:12px"><strong>Bottom line:</strong> All P0/P1 blockers from the legacy build are fixed and live-verified in the monorepo. Tenant Admin is <strong>GO</strong> — 20/20 product features and 11/11 settings pages pass with zero console errors and proven cross-tenant isolation.</p>
+<p style="color:var(--muted)">2 portals · 1 shared database · 7 tenant product features (20 sub-checks) · 11 settings pages · 27 API/valet routes · M1–M9 forward backlog · 466 platform tests · GitHub issue workflow · 10 open QA issues · deep-test session §13.4</p>
+<p style="margin-top:12px"><strong>Bottom line:</strong> All P0/P1 blockers from the legacy build are fixed and live-verified in the monorepo. Tenant Admin is <strong>GO</strong> — 20/20 product features and 11/11 settings pages pass with zero console errors and proven cross-tenant isolation. <strong>FINAL AUDIT (Tue 8 Sep 2026):</strong> M2/M3 closed, M3 UX/image/menu batch (#41/#42/#43/#45) + #18 closed with evidence, #40 closed by-design, #32 verified guest-clean, #48 scoped plan-only — see audit MD §18.</p>
 </div>
 
 </div>

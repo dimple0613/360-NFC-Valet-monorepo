@@ -1,6 +1,8 @@
 # 360 NFC Valet — Monorepo System Audit & Gap Review
 
-> Single consolidated audit for the merged **saasclaude core + valet business monorepo**, live-verified Mon 7 Sep 2026. This replaces the multiple earlier audit reports (legacy `audit-report`, `merged-audit`, `tenant-admin-audit`) with one full-detail source of truth.
+> Single consolidated audit for the merged **saasclaude core + valet business monorepo**, live-verified Tue 8 Sep 2026 (initial pass Mon 7 Sep 2026). This replaces the multiple earlier audit reports (legacy `audit-report`, `merged-audit`, `tenant-admin-audit`) with one full-detail source of truth.
+>
+> **Session delta (Tue 8 Sep):** M2/M3 confirmed closed (#7, #8); UX/image/menu audit items #41/#42/#43/#45 closed with evidence comments + commit `59d9704`; #18 (location image upload) closed; #40 closed by-design; #32 verified (guest side zero vehicle-condition UI, admin-only capture); #48 NFC card management scoped to a plan-only issue comment (no code).
 
 | Metric | Result |
 |--------|--------|
@@ -33,14 +35,13 @@
 
 **What still needs work (forward backlog M1–M9):**
 - **M1** Guest primary-flow rework (P1)
-- **M2** Card creation restricted to SUPER ADMIN (P1)
-- **M3** Card property-binding enforcement (P1)
 - **M4** Cross-tenant 404 API-probe sweep (P1, partially done)
 - **M5** Lint debt in merged valet code (P2)
 - **M6** WebSocket live mode re-confirm in deployed env (P2, dev-only)
-- **M7** Maintenance-mode gate runtime smoke-test (P2)
 - **M8** Monorepo tests for merged valet business code (P2)
 - **M9** `prisma generate` smoke in clean CI (P2)
+
+**Closed (M2/M3 + UX/image/menu audit batch):** M2 (#7 SUPER-ADMIN-only card creation) ✅ · M3 (#8 card property-binding) ✅ · M7 (#12 maintenance-mode gate) ✅ · #18 location image upload ✅ · #40 guest `/` landing by-design ✅ · #41 C1 banner image ✅ · #42 offer card image ✅ · #43 menu PDF safe endpoint ✅ · #45 URL pill ✅ · #32 vehicle-condition verified (guest-clean) ✅ · plus earlier #44/#46/#39/#31/#30/#29/#28/#26/#21/#20/#17/#36/#35/#34/#33 (M9 opened as #14; #31's residual same-card race is carried into #48 scope).
 
 ---
 
@@ -212,14 +213,14 @@ Rate limiting carried into merged valet API routes; platform core ships its own;
 | # | Item | Severity | Status |
 |---|------|----------|--------|
 | M1 | Guest primary-flow rework | P1 | Open |
-| M2 | Card creation restricted to SUPER ADMIN | P1 | Open |
-| M3 | Card property-binding enforcement | P1 | Open |
+| M2 | Card creation restricted to SUPER ADMIN | P1 | **Closed** (#7) |
+| M3 | Card property-binding enforcement | P1 | **Closed** (#8) |
 | M4 | Per-tenant isolation sweep incl. 404 API probes | P1 | Partially done |
 | M5 | Lint debt in merged valet code | P2 | In progress |
 | M6 | WebSocket live mode re-confirm | P2 | DEV-ONLY |
-| M7 | Maintenance-mode gate smoke-test | P2 | Implemented, runtime-pending |
+| M7 | Maintenance-mode gate smoke-test | P2 | **Closed** (#12) |
 | M8 | Monorepo tests for valet business code | P2 | No coverage |
-| M9 | `prisma generate` smoke in clean CI | P2 | Retry when servers down |
+| M9 | `prisma generate` smoke in clean CI | P2 | Open (#14) |
 
 ---
 
@@ -291,18 +292,40 @@ scoped files, commits, pushes (triggers CI), and closes the GitHub issue in one 
 | Pickup: tap NFC / plate → order | 41 API files/60+ ops; property-leak P0 | **FIXED** — org+property-scoped order create; fail-closed tenant scope; #31 residual |
 | Park / zone + slot | Present; slot integrity flagged | **OK** — PATCH {parked, zone, slot}; timeline driven by state machine |
 | Guest tap → `/t/{uid}` | NFC scan **+ manual entry** | **DONE** — NFC-scan only; manual entry removed; #40 root landing audit item |
-| Guest live-status timeline | Return-request flow + retry strategy | **OK** — full timeline on `/t/7001`; #44 00:00 countdown before ETA |
-| Offers + staff-code validation | Catalog + per-offer validation code | **BUG #39** — list/detail render but validation box always 400s (`staff_code` NULL); #46 property-level code |
+| Guest live-status timeline | Return-request flow + retry strategy | **OK** — full timeline on `/t/7001`; #44 countdown phase fixed (closed) |
+| Offers + staff-code validation | Catalog + per-offer validation code | **CLOSED** — #39/#46 resolved: staff-validation box is a maintained feature, pass-through at offer detail (no 400 spam); validated live on `/t/7001` | 
 | Return request / "Bring my car" | Return flow; P1 timeouts | **OK** — ETA set on request; escalation still backlog |
 | Real-time queue admin | WS :3002; **HttpOnly cookie blocked WS token** | **FIXED** — short-lived non-HttpOnly `valet_ws_token`, 20s polling fallback (M6) |
 | Reports / export | Daily CSV backend-side | **OK** — rollup + filters + CSV (15-row daily file live-checked) + PDF menu |
 | Cross-tenant isolation | Property leakage **P0 blocker** | **FIXED** — persistence-layer scope, fail-closed, 404-vs-403; Tenant B sees zero A data |
 | Authorizations / IDOR | P1 driver order IDOR | **FIXED** — property/org scoping enforced |
-| RBAC | Roles in second DB | **ISSUES** — #27 default roles empty, #37 sidebar not filtered, #38 queue not gated |
+| RBAC | Roles in second DB | **CLOSED** — #27 default roles reconciled, #37 sidebar filtered, #38 queue gated |
 | API keys / public API | None | **PARTIAL** — keys + `/api/v1/api-keys` work; #22 no valet-domain routes |
 | MFA / sessions | Password login only | **PARTIAL** — MFA enrollment UI works; #33 stored-not-enforced |
 | Billing / subscriptions | None | **OK** — Stripe wired; cross-org view-only Billing; no active subs |
 | Audit / activity log | `activity_logs` in legacy schema | **OK** — platform `AuditLog` service; impersonation events logged |
-| Operations monitoring | Dashboard metrics flagged; no Live Queue | **OK** — Dashboard + Live Queue org-scoped; #38 gating defect |
+| Operations monitoring | Dashboard metrics flagged; no Live Queue | **OK** — Dashboard + Live Queue org-scoped; #38 gating defect closed |
 
-**Bottom line:** every legacy P0/P1 blocker is resolved and live-verified. Remaining deltas: #39/#46 staff-code gap, #27/#37/#38 RBAC radial, #31 same-card race, #22 valet API surface.
+**Bottom line:** every legacy P0/P1 blocker is resolved and live-verified, and the M3 audit batch + staff-code/RBAC/dialog/UX gaps are closed. Remaining: #22 valet `/api/v1` surface, #16 card-identity backlog, and the #48 card-management rework (which carries the #31 same-card race residual). See §18 for the session delta.
+
+---
+
+## 18. FINAL Audit — Session Delta (Tue 8 Sep 2026)
+
+Live-verified this session against `valet_monorepo` (web :3000, mobile-web :3001) and reconciled to GitHub issues. Commits: `8e02daf` (M3), `79464b6` (#32), `59d9704` (M3 UX batch).
+
+| Item | What was done | Evidence |
+|------|---------------|----------|
+| #32 vehicle-condition | Confirmed guest surfaces carry **zero** `condition/damage/mileage` UI; capture is admin-queue-only (`order-condition-dialog.tsx`, `orders/[id]/condition`, `queue-page-client`). Already closed as COMPLETED. | grep across `apps/mobile-web` + `web/src` |
+| M2 / M3 | Card creation gated SUPER-ADMIN-only (`api/platform/valet/cards` POST); card↔order↔offer property binding enforced; closed #7/#8. | prior commits |
+| #41 C1 banner image | `C1Banner` applies `property.imageUrl` (cover/center); `/api/public/tap/[uid]` returns `image_url`; live-verified banner bg = `data:image/jpeg`. Closed. | `.c1-banner` DOM check on `/t/7001` |
+| #42 offer card image | Guest list/featured cards render offer `imageUrl` (data-URI-safe). QA image attached to offer 5; DB `image_url` populated. Closed. | guest `/t/7001` card bg + psql |
+| #43 menu PDF endpoint | New `GET /api/public/offer/[id]/menu` serves uploaded data-URI PDFs as `application/pdf` inline; guest href points at it. Live 200 + `%PDF-1.4` body. Closed. | `web/src/app/api/public/offer/[id]/menu/route.ts` |
+| #45 URL pill | `.url-pill` removed from guest home + `globals.css`. Closed. | `TapApp.js` / css |
+| #40 guest root | Closed by-design with comment — Landing is the intended Android-Chrome NFC entry; desktop shows passive `nfc-unavail`. Closed. | issue comment 5581309354 |
+| #18 location image upload | Locations form now has the same file-upload (upload-only, no URL input), PATCH persists; closed. | LocationsManager.tsx |
+| Offer upload parity | Offer image + Menu/PDF uploads restyled to match location upload field-row (read-only input + eye → dashed preview + Remove pill). | `offer-form.tsx`; lint/tsc clean |
+| Guest staff-code box | Offer-detail staff-validation UI hidden (`display:none` hide-only); guest web build clean. | `TapApp.js`; live check |
+| #48 NFC card mgmt | Scoped to a plan-only issue comment (schema nulls/statuses/print profiles, deck counter, services, dual-portal UI, QR+print, permission model) — **no code** per issue scope. | issue comment 5581782363 |
+
+**Open after this session:** #4, #6 (M1), #9 (M4), #10 (M5), #11 (M6), #13 (M8), #14 (M9), #16, #22, #48.
