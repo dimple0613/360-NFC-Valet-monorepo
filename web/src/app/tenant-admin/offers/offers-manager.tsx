@@ -127,7 +127,7 @@ export function OffersManager({
   return (
     <div style={{ display: "flex", gap: 20 }}>
       <div style={{ flex: 1.5, minWidth: 0 }}>
-        <div className="flex items-center gap-4 flex-wrap" style={{ justifyContent: "space-between" }}>
+        <div className="flex items-center gap-4 flex-wrap" style={{ justifyContent: "space-between", minWidth: 0, overflow: "hidden" }}>
           <PageHeader
             icon={<TagIcon className="size-5" />}
             title="Offers & promotions"
@@ -388,7 +388,7 @@ export function OffersManager({
           </div>
           <div style={{ padding: "10px 12px" }}>
             <a
-              href={`${GUEST_BASE}/t/${GUEST_SAMPLE_UID}`}
+              href={`${GUEST_BASE}/?uid=${GUEST_SAMPLE_UID}`}
               target="_blank"
               rel="noreferrer"
               style={{
