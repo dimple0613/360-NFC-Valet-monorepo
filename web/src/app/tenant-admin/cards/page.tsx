@@ -34,7 +34,7 @@ export default async function CardsPage() {
         icon={<NfcIcon />}
       />
 
-      <CardsTable organizationId={orgScope} canFreeze={canPrintCards} />
+      <CardsTable organizationId={orgScope} canFreeze={canPrintCards} hideCreate hidePrint />
     </div>
   );
 }

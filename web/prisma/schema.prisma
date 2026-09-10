@@ -1358,6 +1358,10 @@ model Order {
   @@index([propertyId, status])
   @@index([createdAt])
   @@index([returnedAt])
+  // Bounds the cards-list "last order per card" lateral (WHERE card_id = ?
+  // ORDER BY id DESC LIMIT 1) so it stays an index lookup, not a scan, as the
+  // orders table grows into the multi-GB range.
+  @@index([cardId, id], map: "orders_card_id_id_idx")
   @@map("orders")
 }
 

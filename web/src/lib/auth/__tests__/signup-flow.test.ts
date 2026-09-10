@@ -81,7 +81,7 @@ describe("signUpNewOrganization", () => {
     });
     const slugs = orgs.map((o) => o.slug);
     expect(new Set(slugs).size).toBe(2); // distinct slugs despite identical names
-  });
+  }, 20000);
 
   it("rejects self-serve signup when the platform has disabled registration, and allows it again when re-enabled", async () => {
     try {

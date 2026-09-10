@@ -184,10 +184,10 @@ describe("valet cross-tenant isolation (M4)", () => {
     });
 
     it("listCardsForTable under A returns only A's card", async () => {
-      // The org's list also shows the shared platform deck (property_id IS
-      // NULL), so a small page can fill with deck junk and hide cardA — use a
-      // big page so the assertion is about scoping, not list size.
-      const res = await listCardsForTable({ organizationId: orgA.id, page: 1, pageSize: 100, sortBy: "", sortDir: "asc", status: "all", property: "all", q: "" });
+      // Scope to A's own property so pre-existing deck cards (from earlier
+      // minting) can't hide cardA on the first page — the assertion is about
+      // tenant scoping, not list size.
+      const res = await listCardsForTable({ organizationId: orgA.id, page: 1, pageSize: 100, sortBy: "", sortDir: "asc", status: "all", property: String(propA.id), q: "" });
       expect(res.items.map((c) => c.uid)).toContain(cardA.uid);
       expect(res.items.map((c) => c.uid)).not.toContain(cardB.uid);
     });

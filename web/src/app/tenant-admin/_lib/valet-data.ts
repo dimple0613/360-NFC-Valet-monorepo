@@ -1706,6 +1706,12 @@ export async function assignCardToProperty(
   if (card.status === "printed" || card.status === "defect") {
     throw new Error("Printed or defect cards are frozen — they cannot be reassigned.");
   }
+  if (card.status === "blocked") {
+    throw new Error("Card is blocked/lost — unblock it before assigning to a property.");
+  }
+  if (card.status === "with_guest") {
+    throw new Error("Card is with a guest right now — it cannot be assigned elsewhere.");
+  }
   const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [propertyId]))[0];
   if (!prop) throw new Error("Property not found.");
   if (organizationId && String(prop.organization_id) !== organizationId) {
@@ -1719,6 +1725,12 @@ export async function unassignCard(uid: string, organizationId?: string | null):
   if (!card) throw new Error("Card not found");
   if (card.status === "printed" || card.status === "defect") {
     throw new Error("Printed or defect cards are frozen — they cannot be unassigned.");
+  }
+  if (card.status === "blocked") {
+    throw new Error("Card is blocked/lost — it cannot be unassigned. Unblock it first.");
+  }
+  if (card.status === "with_guest") {
+    throw new Error("Card is with a guest right now — it cannot be unassigned until the visit ends.");
   }
   if (card.property_id != null && organizationId) {
     const prop = (await q("SELECT organization_id FROM properties WHERE id = $1", [card.property_id]))[0];

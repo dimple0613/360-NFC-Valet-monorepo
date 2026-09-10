@@ -230,7 +230,7 @@ describe("cards business logic (#48 deck)", () => {
     createdCardIds.push(...rows.map((r) => r.id));
     firstCard = rows[0];
 
-    const list = await listCardsForTable({ organizationId: org.id, page: 1, pageSize: 50, sortBy: "", sortDir: "asc", status: "all", property: "all", q: "" });
+    const list = await listCardsForTable({ organizationId: org.id, page: 1, pageSize: 50, sortBy: "", sortDir: "asc", status: "all", property: String(propId), q: "" });
     const mine = list.items.filter((c) => c.uid >= batch.from && c.uid <= batch.to);
     expect(mine.length).toBe(3);
     expect(mine.every((c) => c.status === "assigned")).toBe(true);
@@ -285,6 +285,19 @@ describe("cards business logic (#48 deck)", () => {
     await expect(assignCardToProperty(c1.uid, propId, org.id)).rejects.toThrow(/frozen/);
     await expect(unassignCard(c1.uid, org.id)).rejects.toThrow(/frozen/);
     await expect(removeCard(c1.id, org.id)).rejects.toThrow(/Only unassigned, assigned or defect/);
+
+    // blocked/lost cards must not silently move — clear message, not a silent status wipe
+    await prismaWithoutTenantScoping.nfcCard.update({ where: { id: c1.id }, data: { status: "blocked" } });
+    await expect(assignCardToProperty(c1.uid, propId, org.id)).rejects.toThrow(/blocked\/lost/);
+    await expect(unassignCard(c1.uid, org.id)).rejects.toThrow(/blocked\/lost/);
+
+    // cards with a guest can't be moved either
+    await prismaWithoutTenantScoping.nfcCard.update({ where: { id: c1.id }, data: { status: "with_guest" } });
+    await expect(assignCardToProperty(c1.uid, propId, org.id)).rejects.toThrow(/with a guest/);
+    await expect(unassignCard(c1.uid, org.id)).rejects.toThrow(/with a guest/);
+
+    // restore printed so the cleanup expectations below still hold
+    await prismaWithoutTenantScoping.nfcCard.update({ where: { id: c1.id }, data: { status: "printed" } });
 
     // defect retires the other card; printed cards keep their history
     await markCardDefect(c2.uid);

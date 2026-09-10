@@ -51,6 +51,7 @@ export type CardPrintOptions = {
   uidPlacement?: Partial<UidPlacement>;
   guestBase?: string;
   title?: string;
+  onProgress?: (message: string, fraction: number) => void;
 };
 
 // Physical card size in mm. Standard CR80 credit-card / business-card format.
@@ -118,13 +119,29 @@ async function qrPng(
 
 export const MAX_PRINT_BATCH = 1000;
 
+const QR_POOL = 8;
+
+// Run `fn` over `items` with at most `limit` in flight, yielding to the event
+// loop every so often so the UI can paint while generating a 1000-card batch.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<void> {
+  let cursor = 0;
+  const step = async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      await fn(items[i], i);
+      if (i % QR_POOL === QR_POOL - 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, step));
+}
+
 export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
   blob: Blob;
   filename: string;
   pageCount: number;
   faceCount: number;
 }> {
-  const { faces, guestBase } = options;
+  const { faces, guestBase, onProgress } = options;
   if (!faces.length) throw new Error("No cards to print.");
   if (faces.length > MAX_PRINT_BATCH * 2) {
     throw new Error(`Print at most ${MAX_PRINT_BATCH} cards per batch.`);
@@ -135,6 +152,42 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
   const uidPlacement: UidPlacement = { ...DEFAULT_UID_PLACEMENT, ...(options.uidPlacement || {}) };
   const uidSize: number = uidPlacement.size ?? DEFAULT_UID_PLACEMENT.size ?? 12;
   const uidColor: string = uidPlacement.color ?? DEFAULT_UID_PLACEMENT.color ?? "#1c2b46";
+
+  // Each distinct highlight gets a stable alias so jsPDF embeds the PNG once
+  // (keyed by alias) and only writes small references per page — the artwork
+  // is shared across every face of a side, and the same QR often appears on a
+  // card's front + back. Without aliases jsPDF re-parses the base64 on every
+  // single face, which is what freezes the tab on a 1000-card batch.
+  const artAliases = new Map<string, string>();
+  const qrAliases = new Map<string, string>();
+  let artSeq = 0;
+  let qrSeq = 0;
+
+  const artAliasFor = (imageUrl: string) => {
+    let alias = artAliases.get(imageUrl);
+    if (!alias) {
+      alias = `art-${artSeq++}`;
+      artAliases.set(imageUrl, alias);
+    }
+    return alias;
+  };
+
+  // The QR only depends on (uid, guestToken, propertySlug, guestBase) — resolve
+  // each unique QR once, concurrently and off the page loop, so the browser can
+  // stay responsive while the codes render.
+  const qrKey = (f: PrintCardFace) => `${f.uid}|${f.guestToken || ""}|${f.propertySlug || ""}`;
+  const qrCache = new Map<string, string>();
+  const qrFaces = faces.filter((f) => f.drawQr);
+  if (qrFaces.length) {
+    onProgress?.("Preparing card artwork…", 0);
+    await mapLimit(qrFaces, QR_POOL, async (f, i) => {
+      const key = qrKey(f);
+      if (!qrCache.has(key)) {
+        qrCache.set(key, await qrPng(f.uid, guestBase, f.propertySlug, f.guestToken));
+      }
+      onProgress?.("Preparing card artwork…", (i + 1) / qrFaces.length);
+    });
+  }
 
   const doc = new jsPDF({
     orientation: "landscape",
@@ -157,7 +210,7 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
     // Artwork (front or back image) fills the whole card face.
     if (face.imageUrl) {
       try {
-        doc.addImage(face.imageUrl, "PNG", 0, 0, CARD_W, CARD_H, undefined, "SLOW");
+        doc.addImage(face.imageUrl, "PNG", 0, 0, CARD_W, CARD_H, artAliasFor(face.imageUrl), "SLOW");
       } catch {
         // Ignore a failed artwork embed; fall back to the plain card.
       }
@@ -181,9 +234,14 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
     }
 
     if (face.drawQr) {
-      const dataUrl = await qrPng(face.uid, guestBase, face.propertySlug, face.guestToken);
+      const dataUrl = qrCache.get(qrKey(face))!;
       const rect = resolveQrRect(0, 0, placement.preset, size, placement.xMm, placement.yMm);
-      doc.addImage(dataUrl, "PNG", rect.x, rect.y, size, size, undefined, "FAST");
+      let alias = qrAliases.get(dataUrl);
+      if (!alias) {
+        alias = `qr-${qrSeq++}`;
+        qrAliases.set(dataUrl, alias);
+      }
+      doc.addImage(dataUrl, "PNG", rect.x, rect.y, size, size, alias, "FAST");
 
       // Tiny URL under the QR: /property-slug/guest-token (falls back to
       // /t/guest-token). Only drawn when it fits inside the card — a QR
@@ -201,8 +259,15 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
         });
       }
     }
+
+    // Let the tab repaint while the 1000-card sheet assembles.
+    if (i > 0 && i % 50 === 0) {
+      onProgress?.("Assembling PDF…", (i + 1) / faces.length);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   }
 
+  onProgress?.("Finalising PDF…", 1);
   const filename = `nfc-cards-${new Date().toISOString().slice(0, 10)}.pdf`;
   const buffer = doc.output("arraybuffer") as ArrayBuffer;
   const blob = new Blob([buffer], { type: "application/pdf" });

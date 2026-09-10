@@ -585,6 +585,7 @@ export function PrintDesignerDialog({
   const [uidFreeY, setUidFreeY] = useState<number | null>(null);
 
   const [busy, setBusy] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ message: string; pct: number } | null>(null);
   const [step, setStep] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [editDraft, setEditDraft] = useState<{ id?: number; name: string; front: string; back: string }>({
@@ -687,6 +688,7 @@ export function PrintDesignerDialog({
         faces,
         placement: qrPlacement,
         uidPlacement,
+        onProgress: (message, pct) => setPdfProgress({ message, pct }),
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -712,6 +714,7 @@ export function PrintDesignerDialog({
       toast.error(e instanceof Error ? e.message : "Failed to build the PDF.");
     } finally {
       setBusy(false);
+      setPdfProgress(null);
     }
   }
 
@@ -1159,7 +1162,7 @@ export function PrintDesignerDialog({
                     className="btn-primary mt-4 w-full"
                   >
                     {busy ? (
-                      "Building PDF…"
+                      pdfProgress?.message || "Building PDF…"
                     ) : (
                       <>
                         <PrinterIcon className="size-4" />
@@ -1167,6 +1170,21 @@ export function PrintDesignerDialog({
                       </>
                     )}
                   </button>
+                  {busy && pdfProgress && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11.5px] font-bold text-[#6c7a93]">
+                        <span>
+                          {pdfProgress.message} · {Math.round(pdfProgress.pct * 100)}%
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#f1f3f6]">
+                        <div
+                          className="h-full rounded-full bg-[#f4531f] transition-all duration-150"
+                          style={{ width: `${Math.round(pdfProgress.pct * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

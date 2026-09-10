@@ -262,7 +262,9 @@ export function CardTableRow({
 
   const isBlocked = card.status === "blocked";
   const isReturned = card.status === "returned";
-  const isDeckCard = card.status === "unassigned" || card.status === "assigned";
+  const withGuest = card.status === "with_guest";
+  const assignable = card.status === "unassigned";
+  const isAssigned = card.status === "assigned";
   const removable = REMOVABLE_STATUSES.includes(card.status);
 
   // #48 org-scope: the Super Admin's per-org tab scopes assign/unassign/ops to
@@ -371,7 +373,33 @@ export function CardTableRow({
         {card.order}
       </TableCell>
       <TableCell className="text-right">
-        <DropdownMenu>
+        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+          {isAssigned && !withGuest ? (
+            <button
+              type="button"
+              aria-label={`Unassign ${card.uid}`}
+              disabled={pending}
+              onClick={() => runUidAction("unassign", "Card unassigned.")}
+              style={{
+                cursor: "pointer",
+                border: "1px solid #e7eaf0",
+                background: "#fff",
+                color: "#d6430f",
+                fontSize: 11,
+                fontWeight: 800,
+                padding: "7px 11px",
+                borderRadius: 999,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <MapPinnedIcon className="size-3.5" />
+              Unassign
+            </button>
+          ) : null}
+          <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <button
@@ -409,12 +437,12 @@ export function CardTableRow({
                 <PrinterIcon className="size-4" /> Print card / QR
               </DropdownMenuItem>
             ) : null}
-            {isDeckCard ? (
+            {assignable && !withGuest ? (
               <DropdownMenuItem onClick={() => setAssignOpen(true)} disabled={pending}>
                 <TagIcon className="size-4" /> Assign to property
               </DropdownMenuItem>
             ) : null}
-            {card.status === "assigned" ? (
+            {isAssigned && !withGuest ? (
               <DropdownMenuItem onClick={() => runUidAction("unassign", "Card unassigned.")} disabled={pending}>
                 <MapPinnedIcon className="size-4" /> Unassign from property
               </DropdownMenuItem>
@@ -449,6 +477,7 @@ export function CardTableRow({
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </TableCell>
 
       <ConfirmDialog
