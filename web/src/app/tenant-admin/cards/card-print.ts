@@ -39,6 +39,8 @@ export type UidPlacement = {
   yMm?: number;
   /** UID font size in points. */
   size?: number;
+  /** UID text color as a hex string (e.g. "#1c2b46"). */
+  color?: string;
 };
 
 export type CardPrintOptions = {
@@ -84,6 +86,7 @@ const DEFAULT_PLACEMENT: QrPlacement = {
 const DEFAULT_UID_PLACEMENT: UidPlacement = {
   preset: "top-center",
   size: 12,
+  color: "#1c2b46",
 };
 
 function resolveQrRect(
@@ -132,6 +135,7 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
   const size: number = placement.sizeMm ?? DEFAULT_PLACEMENT.sizeMm ?? 26;
   const uidPlacement: UidPlacement = { ...DEFAULT_UID_PLACEMENT, ...(options.uidPlacement || {}) };
   const uidSize: number = uidPlacement.size ?? DEFAULT_UID_PLACEMENT.size ?? 12;
+  const uidColor: string = uidPlacement.color ?? DEFAULT_UID_PLACEMENT.color ?? "#1c2b46";
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -169,10 +173,10 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
 
       if (face.drawUid) {
         // UID text line — placed independently of the QR (own preset + free
-        // X/Y + size).
+        // X/Y + size + color).
         doc.setFont("helvetica", "bold");
         doc.setFontSize(uidSize);
-        doc.setTextColor(20, 30, 55);
+        doc.setTextColor(uidColor);
         const point = resolveUidPoint(
           pos.x,
           pos.y,

@@ -60,6 +60,16 @@ interface LocationsData {
   properties: Property[];
 }
 
+const GUEST_BASE = process.env.NEXT_PUBLIC_GUEST_BASE || "http://localhost:3001";
+
+function guestHost(): string {
+  try {
+    return new URL(GUEST_BASE).host;
+  } catch {
+    return GUEST_BASE;
+  }
+}
+
 function guestSlug(name: string, fallback: string): string {
   return name ? name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : fallback;
 }
@@ -93,7 +103,7 @@ function GuestUrlRow({ value, fallback }: { value: string; fallback: string }) {
             whiteSpace: "nowrap",
           }}
         >
-          tap.360valet.ae/{guestSlug(value, fallback)}
+          {guestHost()}/{guestSlug(value, fallback)}
         </div>
       </div>
       <span style={{ fontSize: 11, fontWeight: 800, color: "#0C9D61", flex: "none" }}>✓ free</span>

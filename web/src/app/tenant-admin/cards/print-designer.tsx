@@ -319,6 +319,49 @@ function FieldNumber({
   );
 }
 
+function FieldColor({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="field">
+      <label className="field-label">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          aria-label={`${label} picker`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: 40,
+            height: 36,
+            padding: 0,
+            border: "1px solid #e7eaf0",
+            borderRadius: 8,
+            background: "#fff",
+            cursor: "pointer",
+          }}
+        />
+        <input
+          className="field-value input"
+          type="text"
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value.trim();
+            onChange(v.startsWith("#") ? v : `#${v}`.slice(0, 7));
+          }}
+          placeholder="#1c2b46"
+        />
+      </div>
+    </div>
+  );
+}
+
 function SiteCheckbox({
   checked,
   onChange,
@@ -435,7 +478,7 @@ function PreviewCard({
       position: "absolute",
       fontSize,
       fontWeight: 800,
-      color: "#1c2b46",
+      color: uidPlacement.color ?? "#1c2b46",
       whiteSpace: "nowrap",
     };
     if (uidPlacement.xMm != null && uidPlacement.yMm != null) {
@@ -522,6 +565,7 @@ export function PrintDesignerDialog({
 
   const [uidPreset, setUidPreset] = useState<UidPlacement["preset"]>("top-center");
   const [uidSize, setUidSize] = useState(12);
+  const [uidColor, setUidColor] = useState("#1c2b46");
   const [useUidFree, setUseUidFree] = useState(false);
   const [uidFreeX, setUidFreeX] = useState<number | null>(null);
   const [uidFreeY, setUidFreeY] = useState<number | null>(null);
@@ -574,9 +618,10 @@ export function PrintDesignerDialog({
     () => ({
       preset: uidPreset,
       size: uidSize,
+      color: uidColor,
       ...(useUidFree && uidFreeX != null && uidFreeY != null ? { xMm: uidFreeX, yMm: uidFreeY } : {}),
     }),
-    [uidPreset, uidSize, useUidFree, uidFreeX, uidFreeY],
+    [uidPreset, uidSize, uidColor, useUidFree, uidFreeX, uidFreeY],
   );
 
   async function generatePdf() {
@@ -983,6 +1028,12 @@ export function PrintDesignerDialog({
                       </div>
                     </div>
                     <div className="mt-3">
+                      <FieldColor label="Color" value={uidColor} onChange={setUidColor} />
+                      <div className="mt-1 text-[11.5px] font-medium text-[#9aa6bc]">
+                        Card number print color (hex code).
+                      </div>
+                    </div>
+                    <div className="mt-3">
                       <SiteCheckbox
                         checked={useUidFree}
                         onChange={setUseUidFree}
@@ -1014,7 +1065,7 @@ export function PrintDesignerDialog({
                         ["Design", profile?.name ?? "—"],
                         ["Sides", SIDES.find((s) => s.value === side)?.label ?? "—"],
                         ["QR code", `${QR_PRESETS.find((p) => p.value === qrPreset)?.label ?? "—"} · ${qrSide === "front" ? "Front" : "Back"}`],
-                        ["Card number", `${UID_PRESETS.find((p) => p.value === uidPreset)?.label ?? "—"} · ${uidSide === "front" ? "Front" : "Back"}`],
+                        ["Card number", `${UID_PRESETS.find((p) => p.value === uidPreset)?.label ?? "—"} · ${uidSide === "front" ? "Front" : "Back"} · ${uidColor}`],
                       ] as const
                     ).map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between py-2.5 text-[13px]">

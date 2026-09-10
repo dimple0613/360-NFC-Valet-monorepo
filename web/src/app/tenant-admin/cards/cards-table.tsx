@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Check, PrinterIcon } from "lucide-react";
+import { Check, Plus, PrinterIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter, type DataTableHeader } from "@/components/data-table";
 import { CardTableRow } from "./card-row";
 import { PrintDesignerDialog } from "./print-designer";
-import type { CardTableItem, DeckInfo } from "../_lib/valet-data";
+import { CreateCardDialog } from "./create-card-dialog";
+import type { CardTableItem } from "../_lib/valet-data";
 
 // #48 Step 3: client-side NFC card table with batch multi-select for the print
 // designer. Uses the shared <DataTable> chrome (pill search + pill filters +
@@ -20,11 +21,11 @@ import type { CardTableItem, DeckInfo } from "../_lib/valet-data";
 export function CardsTable({
   organizationId,
   canFreeze,
-  showDeck = false,
+  hideProperty = false,
 }: {
   organizationId?: string | null;
   canFreeze: boolean;
-  showDeck?: boolean;
+  hideProperty?: boolean;
 }) {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const getParam = (name: string) => searchParams.get(name) ?? "";
@@ -39,12 +40,12 @@ export function CardsTable({
 
   const [items, setItems] = useState<CardTableItem[]>([]);
   const [properties, setProperties] = useState<{ id: number; name: string }[]>([]);
-  const [deck, setDeck] = useState<DeckInfo | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [designerOpen, setDesignerOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -69,7 +70,6 @@ export function CardsTable({
           (data.properties ?? []).map((p: { id: number; name: string }) => ({ id: p.id, name: p.name })),
         );
         setTotalCount(data.totalCount ?? 0);
-        setDeck(data.deck ?? null);
         setSelected(new Set());
       })
       .catch((err) => {
@@ -167,47 +167,6 @@ export function CardsTable({
 
   return (
     <>
-      {showDeck && deck ? (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 10,
-            background: "#f7f8fb",
-            border: "1px solid #e6e9f2",
-            borderRadius: 14,
-            padding: "10px 16px",
-            fontSize: 12.5,
-            fontWeight: 700,
-            color: "#1c2b46",
-          }}
-        >
-          <span style={{ color: "#4a5fc9" }}>Platform deck</span>
-          <span className="deck-pill" style={{ background: "#edf0fe", color: "#4a5fc9", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.prefix} series
-          </span>
-          <span className="deck-pill" style={{ background: "#eef8ef", color: "#2e9e47", borderRadius: 99, padding: "3px 10px" }}>
-            next {deck.nextUid}
-          </span>
-          <span className="deck-pill" style={{ background: "#fff4ea", color: "#d6430f", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.unassigned} unassigned
-          </span>
-          <span className="deck-pill" style={{ background: "#edf0fe", color: "#4a5fc9", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.assigned} assigned
-          </span>
-          <span className="deck-pill" style={{ background: "#efeff1", color: "#6c7a93", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.printed} printed
-          </span>
-          <span className="deck-pill" style={{ background: "#fdecec", color: "#e23d3d", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.defect} defect
-          </span>
-          <span className="deck-pill" style={{ background: "#eef4ff", color: "#1c5fb8", borderRadius: 99, padding: "3px 10px" }}>
-            {deck.active} in use
-          </span>
-        </div>
-      ) : null}
-
       <DataTable
         headers={headers}
         page={page}
@@ -220,6 +179,14 @@ export function CardsTable({
         filters={[statusFilter, propertyFilter]}
         rightSlot={
           <>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-2 rounded-[99px] bg-[#f4531f] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0_4px_16px_rgba(16,22,35,0.05)] transition-colors hover:bg-[#d6430f]"
+            >
+              <Plus className="size-4" />
+              Create cards
+            </button>
             {selected.size > 0 ? (
               <button
                 type="button"
@@ -267,6 +234,14 @@ export function CardsTable({
         cards={selectedCards}
         canFreeze={canFreeze}
         onFrozen={() => setReloadKey((k) => k + 1)}
+      />
+      <CreateCardDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        organizationId={organizationId}
+        properties={properties}
+        onCreated={() => setReloadKey((k) => k + 1)}
+        hideProperty={hideProperty}
       />
     </>
   );
