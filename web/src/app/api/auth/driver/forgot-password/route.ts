@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       try {
         const result = await sendMail({
           to: String(email).trim(),
-          subject: "Reset Your 360 NFC Valet Password",
+          subject: "Reset your password \u2014 360 NFC Valet",
           html: buildResetEmail({ driverName: driver.full_name, resetUrl }),
         });
         if (!result.sent) {

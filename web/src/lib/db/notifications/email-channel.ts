@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { resolve } from "node:path";
 import { consoleEmailSender, type EmailSendParams, type EmailSender } from "../auth/email-sender";
 import { getNotificationChannelConfigValue, hasRequiredNotificationChannelConfig, isNotificationChannelEnabled } from "./channel-config";
 import { registerNotificationChannel } from "./channel-registry";
@@ -136,7 +137,10 @@ export function createEmailChannel(options: EmailChannelOptions = {}): Notificat
       const from = config.fromName ? `"${config.fromName}" <${config.fromEmail}>` : config.fromEmail;
 
       try {
-        await transport.sendMail({ from, to: message.email, subject: message.subject, text: message.body, html: message.html });
+        const attachments = message.html?.includes("cid:brand-logo")
+          ? [{ filename: "brand.png", path: resolve("public/brand.png"), cid: "brand-logo" }]
+          : [];
+        await transport.sendMail({ from, to: message.email, subject: message.subject, text: message.body, html: message.html, attachments });
         return { ok: true };
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : "Email delivery failed." };

@@ -9,6 +9,7 @@
 // `<style>` blocks or flexbox, which are unreliable in mail clients.
 
 import { getBrandingSettings, getPageContentSettings } from "../platform-config";
+import { BRAND_NAME } from "../../brand";
 
 const THEME = {
   navy: "#1c2b46",
@@ -25,9 +26,9 @@ const EMAIL_FONT =
   "'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 export const DEFAULT_BRANDING: EmailBranding = {
-  siteName: "360 NFC Valet",
+  siteName: BRAND_NAME,
   logoLightUrl: null,
-  copyright: "360 NFC Valet \u00A0\u00B7\u00A0 Dubai, UAE",
+  copyright: `${BRAND_NAME} \u00A0\u00B7\u00A0 Dubai, UAE`,
 };
 
 export interface EmailBranding {
@@ -36,14 +37,10 @@ export interface EmailBranding {
   copyright: string;
 }
 
-/** Legacy glyph fallback — the fixed "360" badge used only when the Super Admin hasn't uploaded a light logo. */
+/** Default logo mark — the parking-arcs glyph on the sunset gradient (same art as the favicon), embedded so emails stay branded even before a Super Admin uploads a light logo. CID inline attachment for full email-client compatibility (Gmail strips data: URIs). */
 function brandMark(logoLightUrl: string | null): string {
-  if (logoLightUrl) {
-    return `<img src="${logoLightUrl}" alt="" width="48" height="48" style="display:block;border:0;border-radius:14px;" />`;
-  }
-  return `<div style="width:48px;height:48px;border-radius:14px;background:${THEME.accent};text-align:center;line-height:48px;">
-      <span style="color:#ffffff;font-size:22px;font-weight:800;">360</span>
-    </div>`;
+  const src = logoLightUrl || "cid:brand-logo";
+  return `<img src="${src}" alt="" width="42" height="42" style="display:block;border:0;border-radius:13px;" />`;
 }
 
 /**
@@ -72,7 +69,7 @@ interface TemplateInput {
   messageHtml: string;
 }
 
-function shell(input: TemplateInput): string {
+export function buildEmailShell(input: TemplateInput): string {
   const name = input.name ? `Hi ${input.name},` : "Hi there,";
   return `<!DOCTYPE html>
 <html lang="en">
@@ -89,11 +86,11 @@ function shell(input: TemplateInput): string {
     <td style="padding:32px 32px 24px;background:${THEME.hero};">
       <table cellpadding="0" cellspacing="0" width="100%">
         <tr>
-          <td>
+          <td style="width:42px;">
             ${brandMark(input.branding.logoLightUrl)}
           </td>
-          <td style="padding-left:14px;vertical-align:middle;">
-            <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.3px;">${input.branding.siteName}</span>
+          <td style="padding-left:12px;vertical-align:middle;">
+            <span style="color:#ffffff;font-size:17px;font-weight:800;letter-spacing:-0.3px;">${input.branding.siteName}</span>
           </td>
         </tr>
       </table>
@@ -148,7 +145,7 @@ export function buildVerificationEmail(
     body: `Your verification token: ${opts.token}
 
 Or open: ${opts.verifyUrl}`,
-    html: shell({
+    html: buildEmailShell({
       branding,
       name: opts.name,
       token: opts.token,
@@ -172,7 +169,7 @@ export function buildPasswordResetEmail(
     body: `Your reset token: ${opts.token}
 
 Or open: ${opts.resetUrl}`,
-    html: shell({
+    html: buildEmailShell({
       branding,
       name: opts.name,
       token: opts.token,

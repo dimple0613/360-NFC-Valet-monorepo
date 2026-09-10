@@ -4,6 +4,7 @@ import { runWithTenant } from "./tenant-context";
 import { writeAuditLog } from "./audit-log";
 import { hashPassword } from "./auth/password";
 import { consoleEmailSender, type EmailSender } from "./auth/email-sender";
+import { buildEmailShell, resolveEmailBranding } from "./auth/email-templates";
 import { recordResourceUsageEnforced } from "./billing/subscriptions";
 import { recordResourceUsage } from "./billing/resource-consumption";
 import { RoleNotFoundError, findVisibleRole } from "./roles";
@@ -135,19 +136,38 @@ export async function inviteUserToOrganization(
   // failures from the SMTP channel.)
   let deliveryError: string | undefined;
   try {
+    const branding = await resolveEmailBranding();
+    const acceptUrl = input.acceptUrlBuilder?.(rawToken);
+    const organization = await prismaWithoutTenantScoping.organization.findUnique({
+      where: { id: input.organizationId },
+      select: { name: true },
+    });
+    const organizationName = organization?.name || "the organization";
     await emailSender.send({
       to: input.email,
-      subject: "You've been invited to join an organization",
+      subject: `You've been invited to join ${organizationName}`,
       body: input.acceptUrlBuilder
         ? [
-            "You've been invited to join an organization.",
+            `You've been invited to join ${organizationName}.`,
             "",
             "Open this link to accept your invite (it expires):",
-            input.acceptUrlBuilder(rawToken),
+            acceptUrl,
             "",
             `If the link doesn't open, copy this token into the invite box: ${rawToken}`,
           ].join("\n")
         : `Your invite token: ${rawToken}`,
+      ...(acceptUrl
+        ? {
+            html: buildEmailShell({
+              branding,
+              token: rawToken,
+              actionUrl: acceptUrl,
+              actionLabel: "Accept invitation",
+              headline: "You've been invited",
+              messageHtml: `You've been invited to join <strong style="color:#1c2b46;">${organizationName}</strong> on <strong style="color:#1c2b46;">${branding.siteName}</strong>. This invite expires in <strong style="color:#1c2b46;">7 days</strong>.`,
+            }),
+          }
+        : {}),
     });
   } catch (error) {
     deliveryError = error instanceof Error ? error.message : "Email delivery failed.";

@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import { resolve } from "node:path";
+import { BRAND_NAME } from "./brand";
 
 let _transporter: nodemailer.Transporter | null = null;
 
@@ -31,7 +33,10 @@ export async function sendMail(input: {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const fromName = process.env.SMTP_FROM_NAME;
   const fromField = fromName ? `"${fromName}" <${from}>` : from;
-  await transporter.sendMail({ from: fromField, to: input.to, subject: input.subject, html: input.html });
+  const attachments = input.html?.includes("cid:brand-logo")
+    ? [{ filename: "brand.png", path: resolve("public/brand.png"), cid: "brand-logo" }]
+    : [];
+  await transporter.sendMail({ from: fromField, to: input.to, subject: input.subject, html: input.html, attachments });
   return { sent: true };
 }
 
@@ -50,7 +55,7 @@ export function buildResetEmail({ driverName, resetUrl }: { driverName?: string;
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Reset Your Password</title>
+<title>Password Reset Request</title>
 </head>
 <body style="margin:0;padding:0;background:#F6F7F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F6F7F9;padding:40px 20px;">
@@ -60,13 +65,11 @@ export function buildResetEmail({ driverName, resetUrl }: { driverName?: string;
     <td style="padding:32px 32px 24px;background:${THEME.hero};">
       <table cellpadding="0" cellspacing="0" width="100%">
         <tr>
-          <td>
-            <div style="width:48px;height:48px;border-radius:14px;background:${THEME.accent};text-align:center;line-height:48px;">
-              <span style="color:#FFFFFF;font-size:22px;font-weight:800;">360</span>
-            </div>
+          <td style="width:42px;">
+            <img src="cid:brand-logo" alt="" width="42" height="42" style="display:block;border:0;border-radius:13px;" />
           </td>
-          <td style="padding-left:14px;vertical-align:middle;">
-            <span style="color:#FFFFFF;font-size:18px;font-weight:800;letter-spacing:-0.3px;">360 NFC Valet</span>
+          <td style="padding-left:12px;vertical-align:middle;">
+            <span style="color:#FFFFFF;font-size:17px;font-weight:800;letter-spacing:-0.3px;">${BRAND_NAME}</span>
           </td>
         </tr>
       </table>
@@ -79,7 +82,7 @@ export function buildResetEmail({ driverName, resetUrl }: { driverName?: string;
         Hi ${driverName || "Driver"},
       </p>
       <p style="margin:12px 0 0;color:${THEME.body};font-size:14px;line-height:22px;">
-        We received a request to reset the password for your <strong style="color:${THEME.navy};">360 NFC Valet</strong> driver account. Click the button below to set a new password. This link expires in <strong style="color:${THEME.navy};">1 hour</strong>.
+        We received a request to reset the password for your <strong style="color:${THEME.navy};">${BRAND_NAME}</strong> driver account. Click the button below to set a new password. This link expires in <strong style="color:${THEME.navy};">1 hour</strong>.
       </p>
     </td>
   </tr>
@@ -101,7 +104,7 @@ export function buildResetEmail({ driverName, resetUrl }: { driverName?: string;
         If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
       </p>
       <p style="margin:12px 0 0;color:${THEME.muted};font-size:11px;line-height:16px;text-align:center;">
-        &copy; ${new Date().getFullYear()} 360 NFC Valet System
+        &copy; ${new Date().getFullYear()} ${BRAND_NAME} \u00A0\u00B7\u00A0 Dubai, UAE
       </p>
     </td>
   </tr>
