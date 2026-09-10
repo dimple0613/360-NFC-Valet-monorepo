@@ -23,8 +23,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ uid: str
               p.id AS property_id, p.name AS property_name, p.area, p.slug, p.city, p.phone, p.validates_valet, p.staff_code, p.image_url
        FROM nfc_cards c
        JOIN properties p ON p.id = c.property_id
-       WHERE c.uid = $1 OR UPPER(c.physical_uid) = UPPER($2)`,
-      [uid, uid]
+       WHERE c.uid = $1 OR UPPER(c.physical_uid) = UPPER($2) OR c.guest_token = $3`,
+      [uid, uid, uid]
     );
     const card = cards[0] as
       | {
@@ -156,7 +156,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ uid: st
   }
 
   try {
-    const { rows: cards } = await query("SELECT id FROM nfc_cards WHERE uid = $1 OR UPPER(physical_uid) = UPPER($2)", [uid, uid]);
+    const { rows: cards } = await query("SELECT id FROM nfc_cards WHERE uid = $1 OR UPPER(physical_uid) = UPPER($2) OR guest_token = $3", [uid, uid, uid]);
     const card = cards[0] as { id: number } | undefined;
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 

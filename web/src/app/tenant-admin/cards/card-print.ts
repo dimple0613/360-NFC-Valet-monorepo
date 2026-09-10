@@ -8,7 +8,9 @@ import { guestCardUrl } from "./card-qr";
 // faces it wants (front and/or back) then hands them all to the PDF builder.
 export type PrintCardFace = {
   uid: string;
+  guestToken?: string | null;
   property?: string | null;
+  propertySlug?: string | null;
   imageUrl?: string | null;
   drawQr?: boolean;
   drawUid?: boolean;
@@ -51,32 +53,19 @@ export type CardPrintOptions = {
   title?: string;
 };
 
-// A4 portrait in mm.
-const PAGE_H = 297;
-const MARGIN = 12;
-const GAP = 8;
-
-const CARDS_PER_COL = 2;
-const CARDS_PER_ROW = 3;
-const CARDS_PER_PAGE = CARDS_PER_COL * CARDS_PER_ROW;
-
-// Physical card size in mm. Standard CR80 credit-card format.
+// Physical card size in mm. Standard CR80 credit-card / business-card format.
 export const PRINT_CARD_W_MM = 85.6;
 export const PRINT_CARD_H_MM = 54;
 
 const CARD_W = PRINT_CARD_W_MM;
 const CARD_H = PRINT_CARD_H_MM;
 
-function cardCell(index: number): { col: number; row: number } {
-  return { col: index % CARDS_PER_ROW, row: Math.floor(index / CARDS_PER_ROW) % CARDS_PER_COL };
-}
-
-function cellPosition(col: number, row: number): { x: number; y: number } {
-  return {
-    x: MARGIN + col * (CARD_W + GAP),
-    y: MARGIN + row * (CARD_H + GAP),
-  };
-}
+// Each PDF page is one business-card-sized sheet (CR80) carrying a single card
+// face full-bleed, so a print at 100% yields an exact-size card with nothing to
+// cut or re-arrange. Front and back of the same card come out on consecutive
+// pages. jsPDF's built-in "credit-card" format is the same 85.6 × 54 mm.
+const PAGE_W = CARD_W;
+const PAGE_H = CARD_H;
 
 const DEFAULT_PLACEMENT: QrPlacement = {
   preset: "bottom-right",
@@ -113,8 +102,13 @@ function resolveQrRect(
   }
 }
 
-async function qrPng(uid: string, guestBase?: string): Promise<string> {
-  const url = guestCardUrl(uid, guestBase);
+async function qrPng(
+  uid: string,
+  guestBase?: string,
+  propertySlug?: string | null,
+  guestToken?: string | null,
+): Promise<string> {
+  const url = guestCardUrl(uid, guestBase, propertySlug, guestToken);
   return QRCode.toDataURL(url, {
     width: 512,
     margin: 1,
@@ -122,14 +116,19 @@ async function qrPng(uid: string, guestBase?: string): Promise<string> {
   });
 }
 
+export const MAX_PRINT_BATCH = 1000;
+
 export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
   blob: Blob;
   filename: string;
   pageCount: number;
   faceCount: number;
 }> {
-  const { faces, guestBase, title } = options;
+  const { faces, guestBase } = options;
   if (!faces.length) throw new Error("No cards to print.");
+  if (faces.length > MAX_PRINT_BATCH * 2) {
+    throw new Error(`Print at most ${MAX_PRINT_BATCH} cards per batch.`);
+  }
 
   const placement: QrPlacement = { ...DEFAULT_PLACEMENT, ...(options.placement || {}) };
   const size: number = placement.sizeMm ?? DEFAULT_PLACEMENT.sizeMm ?? 26;
@@ -138,84 +137,76 @@ export async function buildCardPrintPdf(options: CardPrintOptions): Promise<{
   const uidColor: string = uidPlacement.color ?? DEFAULT_UID_PLACEMENT.color ?? "#1c2b46";
 
   const doc = new jsPDF({
-    orientation: "portrait",
+    orientation: "landscape",
     unit: "mm",
-    format: "a4",
+    format: [PAGE_W, PAGE_H],
     compress: true,
   });
-
-  const totalPages = Math.max(1, Math.ceil(faces.length / CARDS_PER_PAGE));
 
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(230, 234, 240);
 
-  for (let p = 0; p < totalPages; p++) {
-    if (p > 0) doc.addPage("a4", "portrait");
-    const pageFaces = faces.slice(p * CARDS_PER_PAGE, p * CARDS_PER_PAGE + CARDS_PER_PAGE);
+  for (let i = 0; i < faces.length; i++) {
+    const face = faces[i];
+    if (i > 0) doc.addPage([PAGE_W, PAGE_H]);
 
-    for (let i = 0; i < pageFaces.length; i++) {
-      const face = pageFaces[i];
-      const { col, row } = cardCell(i);
-      const pos = cellPosition(col, row);
+    // The page IS the card: draw full-bleed at 0,0 so no grid math can clip
+    // or scatter faces.
+    doc.roundedRect(0, 0, CARD_W, CARD_H, 3, 3, "FD");
 
-      // Card backing + border.
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(pos.x, pos.y, CARD_W, CARD_H, 3, 3, "FD");
-
-      // Artwork (front or back image) fills the whole card face.
-      if (face.imageUrl) {
-        try {
-          doc.addImage(face.imageUrl, "PNG", pos.x, pos.y, CARD_W, CARD_H, undefined, "SLOW");
-        } catch {
-          // Ignore a failed artwork embed; fall back to the plain card.
-        }
-      }
-
-      if (face.drawUid) {
-        // UID text line — placed independently of the QR (own preset + free
-        // X/Y + size + color).
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(uidSize);
-        doc.setTextColor(uidColor);
-        const point = resolveUidPoint(
-          pos.x,
-          pos.y,
-          uidPlacement.preset,
-          uidSize,
-          uidPlacement.xMm,
-          uidPlacement.yMm,
-        );
-        doc.text(face.uid, point.x, point.y, { align: point.align });
-      }
-
-      if (face.drawQr) {
-        const dataUrl = await qrPng(face.uid, guestBase);
-        const rect = resolveQrRect(pos.x, pos.y, placement.preset, size, placement.xMm, placement.yMm);
-        doc.addImage(dataUrl, "PNG", rect.x, rect.y, size, size, undefined, "FAST");
-
-        // Tiny URL under the QR.
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(5);
-        doc.setTextColor(150, 160, 180);
-        doc.text(`t/${encodeURIComponent(face.uid)}`, rect.x + size / 2, rect.y + size + 3.5, {
-          align: "center",
-        });
+    // Artwork (front or back image) fills the whole card face.
+    if (face.imageUrl) {
+      try {
+        doc.addImage(face.imageUrl, "PNG", 0, 0, CARD_W, CARD_H, undefined, "SLOW");
+      } catch {
+        // Ignore a failed artwork embed; fall back to the plain card.
       }
     }
 
-    if (title && p === 0) {
+    if (face.drawUid) {
+      // UID text line — placed independently of the QR (own preset + free
+      // X/Y + size + color).
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(150, 160, 180);
-      doc.text(title.toUpperCase(), MARGIN, PAGE_H - 8);
-      doc.setTextColor(20, 30, 55);
+      doc.setFontSize(uidSize);
+      doc.setTextColor(uidColor);
+      const point = resolveUidPoint(
+        0,
+        0,
+        uidPlacement.preset,
+        uidSize,
+        uidPlacement.xMm,
+        uidPlacement.yMm,
+      );
+      doc.text(face.uid, point.x, point.y, { align: point.align });
+    }
+
+    if (face.drawQr) {
+      const dataUrl = await qrPng(face.uid, guestBase, face.propertySlug, face.guestToken);
+      const rect = resolveQrRect(0, 0, placement.preset, size, placement.xMm, placement.yMm);
+      doc.addImage(dataUrl, "PNG", rect.x, rect.y, size, size, undefined, "FAST");
+
+      // Tiny URL under the QR: /property-slug/guest-token (falls back to
+      // /t/guest-token). Only drawn when it fits inside the card — a QR
+      // anchored to the bottom edge has no room below it on a card-sized page.
+      if (rect.y + size + 4 <= PAGE_H) {
+        const segmentId = face.guestToken || face.uid;
+        const underUrl = face.propertySlug
+          ? `${encodeURIComponent(face.propertySlug)}/${encodeURIComponent(segmentId)}`
+          : `t/${encodeURIComponent(segmentId)}`;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(5);
+        doc.setTextColor(150, 160, 180);
+        doc.text(underUrl, rect.x + size / 2, rect.y + size + 3.5, {
+          align: "center",
+        });
+      }
     }
   }
 
   const filename = `nfc-cards-${new Date().toISOString().slice(0, 10)}.pdf`;
   const buffer = doc.output("arraybuffer") as ArrayBuffer;
   const blob = new Blob([buffer], { type: "application/pdf" });
-  return { blob, filename, pageCount: totalPages, faceCount: faces.length };
+  return { blob, filename, pageCount: faces.length, faceCount: faces.length };
 }
 
 // Resolve where the UID text baseline goes for a given preset. Free X/Y (mm,

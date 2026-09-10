@@ -59,6 +59,8 @@ export interface DataTableProps {
   hideSearch?: boolean;
   /** Hide the footer pagination + page-size select (e.g. short, non-paginated lists). */
   hidePagination?: boolean;
+  /** Page-size options for the footer select; defaults to 15/25/50. */
+  pageSizeOptions?: { value: string; label: string }[];
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -107,6 +109,7 @@ export function DataTable({
   compact = false,
   hideSearch = false,
   hidePagination = false,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: DataTableProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -259,12 +262,12 @@ export function DataTable({
         {!hidePagination && totalCount > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-[#edeff3]">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-[#6c7a93]">
-              <Select name="pageSize" value={String(pageSize)} items={PAGE_SIZE_OPTIONS} onValueChange={changePageSize}>
+              <Select name="pageSize" value={String(pageSize)} items={pageSizeOptions} onValueChange={changePageSize}>
                 <SelectTrigger className="h-8 w-16 border-[1.5px] border-[#e7eaf0] bg-white text-[12.5px] font-bold text-[#1c2b46]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((o) => (
+                  {pageSizeOptions.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
                       {o.label}
                     </SelectItem>

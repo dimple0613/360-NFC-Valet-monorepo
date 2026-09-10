@@ -245,8 +245,9 @@ describe("cards business logic (#48 deck)", () => {
     expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.status).toBe("blocked");
     await setCardStatus(card.id, "unblock", org.id);
     expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.status).toBe("ready");
-    await setCardStatus(card.id, "lost", org.id);
+    await setCardStatus(card.id, "block", org.id);
     expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.status).toBe("blocked");
+    expect((await prismaWithoutTenantScoping.nfcCard.findUnique({ where: { id: card.id } }))!.lostAt).not.toBeNull();
   });
 
   it("assign/unassign/print lifecycle: freeze + defect guard every mutation", async () => {

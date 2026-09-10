@@ -30,7 +30,9 @@ async function requireOrgOwned(
   if (!organizationId) return;
   const scopeByTable: Record<string, string> = {
     drivers: "id = $1 AND organization_id = $2",
-    nfc_cards: "id = $1 AND property_id IN (SELECT id FROM properties WHERE organization_id = $2)",
+    // Deck cards (property_id IS NULL) are platform inventory that an org can
+    // see and act on in its list — mirror that scope here.
+    nfc_cards: "id = $1 AND (property_id IS NULL OR property_id IN (SELECT id FROM properties WHERE organization_id = $2))",
     offers: "id = $1 AND property_id IN (SELECT id FROM properties WHERE organization_id = $2)",
   };
   const cond = scopeByTable[table];
@@ -1393,11 +1395,13 @@ export async function removeDriver(id: number, organizationId?: string | null): 
 export interface CardTableItem {
   id: number;
   uid: string;
+  guestToken: string | null;
   status: string;
   statusLabel: string;
   statusTone: string;
   uses: number;
   property: string | null;
+  propertySlug: string | null;
   propertyId: number | null;
   printedAt: string | null;
   printsCount: number;
@@ -1442,7 +1446,7 @@ export async function listCardsForTable(params: {
   organizationId?: string | null;
 }) {
   const page = Math.max(1, params.page || 1);
-  const pageSize = Math.min(100, Math.max(5, params.pageSize || 15));
+  const pageSize = Math.min(1000, Math.max(5, params.pageSize || 50));
   const offset = (page - 1) * pageSize;
   const qValue = String(params.q || "").trim();
   const status = !params.status || params.status === "all" ? null : params.status;
@@ -1495,7 +1499,7 @@ export async function listCardsForTable(params: {
   )[0].total;
 
   const rows = await q(
-    `SELECT c.id, c.uid, c.status, c.uses_count, c.property_id, p.name AS property,
+    `SELECT c.id, c.uid, c.guest_token, c.status, c.uses_count, c.property_id, p.name AS property, p.slug AS property_slug,
             c.printed_at, c.prints_count,
             last.plate, last.car_make, last.car_model, last.zone, last.slot,
             last.order_status, last.by_name, last.last_at
@@ -1524,11 +1528,13 @@ export async function listCardsForTable(params: {
       return {
         id: c.id,
         uid: c.uid,
+        guestToken: c.guest_token ?? null,
         status: c.status,
         statusLabel: meta.label,
         statusTone: meta.tone,
         uses: c.uses_count,
         property: c.property ?? null,
+        propertySlug: c.property_slug ?? null,
         propertyId: c.property_id == null ? null : Number(c.property_id),
         printedAt: c.printed_at ? new Date(c.printed_at).toISOString() : null,
         printsCount: c.prints_count ?? 0,
@@ -1593,7 +1599,6 @@ export async function createDeckCards(input: {
 }): Promise<{ created: number; from: string; to: string; propertyId: number | null }> {
   const count = Number(input.count);
   if (!Number.isInteger(count) || count < 1) throw new Error("Count must be a whole number of at least 1.");
-  if (count > 500) throw new Error("Create at most 500 cards per batch.");
 
   const propertyId: number | null = input.propertyId ? Number(input.propertyId) : null;
   if (propertyId) {
@@ -1645,7 +1650,6 @@ export async function registerCards(input: {
   const endNum = Number(input.to);
   if (!Number.isInteger(startNum) || !Number.isInteger(endNum)) throw new Error("From and To must be whole numbers");
   if (startNum < 1 || endNum < startNum) throw new Error("Range is invalid");
-  if (endNum - startNum + 1 > 500) throw new Error("Create at most 500 cards per batch");
 
   const propertyId = input.propertyId ? Number(input.propertyId) : null;
   if (propertyId) {
@@ -1748,18 +1752,16 @@ export async function markCardPrinted(uid: string, printedBy: string): Promise<v
   );
 }
 
-export async function setCardStatus(id: number, action: "block" | "unblock" | "mark-returned" | "lost", organizationId?: string | null): Promise<void> {
+export async function setCardStatus(id: number, action: "block" | "unblock" | "mark-returned", organizationId?: string | null): Promise<void> {
   await requireOrgOwned(organizationId, "nfc_cards", id);
   if (action === "block") {
-    await q("UPDATE nfc_cards SET status = 'blocked' WHERE id = $1", [id]);
+    await q("UPDATE nfc_cards SET status = 'blocked', lost_at = COALESCE(lost_at, CURRENT_DATE) WHERE id = $1", [id]);
   } else if (action === "unblock") {
     await q("UPDATE nfc_cards SET status = 'ready' WHERE id = $1", [id]);
   } else if (action === "mark-returned") {
     const card = (await q("SELECT status FROM nfc_cards WHERE id = $1", [id]))[0];
     if (card?.status !== "returned") throw new Error("Card is not in 'returned' status");
     await q("UPDATE nfc_cards SET status = 'ready' WHERE id = $1", [id]);
-  } else if (action === "lost") {
-    await q("UPDATE nfc_cards SET status = 'blocked', lost_at = CURRENT_DATE WHERE id = $1", [id]);
   }
 }
 

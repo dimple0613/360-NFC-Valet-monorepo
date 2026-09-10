@@ -151,12 +151,12 @@ export async function PATCH(req: Request) {
       await removeCard(cardId, orgScope);
       return NextResponse.json({ id, removed: true });
     }
-    if (action === "block" || action === "unblock" || action === "mark-returned" || action === "lost") {
+    if (action === "block" || action === "unblock" || action === "mark-returned") {
       await setCardStatus(cardId, action, orgScope);
       return NextResponse.json({ id, updated: true });
     }
     return NextResponse.json(
-      { error: "action must be 'assign', 'unassign', 'printed', 'defect', 'block', 'unblock', 'mark-returned' or 'lost'" },
+      { error: "action must be 'assign', 'unassign', 'printed', 'defect', 'block', 'unblock' or 'mark-returned'" },
       { status: 400 }
     );
   } catch (err) {

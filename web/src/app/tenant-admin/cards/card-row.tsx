@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PrinterIcon } from "lucide-react";
 import { generateCardQr } from "./card-qr";
-import { buildCardPrintPdf } from "./card-print";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,26 +37,23 @@ function QrPrintDialog({
   open,
   onOpenChange,
   cardNumber,
-  propertyName,
-  canPrint,
-  onPrinted,
+  propertySlug,
+  guestToken,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cardNumber: string;
-  propertyName?: string | null;
-  canPrint: boolean;
-  onPrinted: () => void;
+  propertySlug?: string | null;
+  guestToken?: string | null;
 }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [pdfBusy, setPdfBusy] = useState(false);
   const generatedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     if (generatedFor.current === cardNumber) return;
     let cancelled = false;
-    generateCardQr(cardNumber)
+    generateCardQr(cardNumber, undefined, propertySlug, guestToken)
       .then((uri) => {
         if (cancelled) return;
         setDataUrl(uri);
@@ -69,47 +65,12 @@ function QrPrintDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, cardNumber]);
-
-  // #48 Step 3: exporting the card as a print sheet is a real print run — it
-  // freezes the card's UID + property (mark printed) after generating the PDF.
-  async function handleExportPdf() {
-    setPdfBusy(true);
-    try {
-      const { blob, filename } = await buildCardPrintPdf({
-        faces: [{ uid: cardNumber, property: propertyName ?? null, drawQr: true, drawUid: true }],
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      if (canPrint) onPrinted();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create the print sheet.");
-    } finally {
-      setPdfBusy(false);
-    }
-  }
+  }, [open, cardNumber, propertySlug, guestToken]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <style>{`
-@media print {
-  body * { visibility: hidden !important; }
-  .print-card-dialog, .print-card-dialog * { visibility: visible !important; }
-  .print-card-dialog {
-    position: absolute !important;
-    inset: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-  button { display: none !important; }
-}
-`}</style>
       <DialogContent
-        className="sm:max-w-[360px] print-card-dialog"
+        className="sm:max-w-[360px]"
         showCloseButton={false}
         style={{ borderRadius: 20, padding: 24 }}
       >
@@ -153,32 +114,7 @@ function QrPrintDialog({
         <div className="mt-2 text-center text-[12px] font-medium leading-relaxed text-[#6c7a93]">
           Guest scans this QR (or taps the card&apos;s NFC tag) to pull up the car. Prints a guest
           card bound to <span className="font-bold text-[#1c2b46]">#{cardNumber}</span>.
-          {canPrint ? (
-            <>
-              {" "}
-              Exporting a print sheet freezes the card&apos;s UID and property.
-            </>
-          ) : null}
         </div>
-
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="mt-4 w-full rounded-full bg-[#1c2b46] py-3 text-[13px] font-extrabold text-white"
-        >
-          Print card
-        </button>
-
-        {canPrint ? (
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            disabled={pdfBusy}
-            className="mt-2 w-full rounded-full border border-[#1c2b46] bg-white py-3 text-[13px] font-extrabold text-[#1c2b46]"
-          >
-            {pdfBusy ? "Preparing PDF…" : "Download print sheet (PDF) · Freeze"}
-          </button>
-        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -192,12 +128,14 @@ function AssignToPropertyDialog({
   uid,
   properties,
   organizationId,
+  onMutated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   uid: string;
   properties: { id: number; name: string }[];
   organizationId?: string | null;
+  onMutated?: () => void;
 }) {
   const router = useRouter();
   return (
@@ -262,6 +200,7 @@ function AssignToPropertyDialog({
               if (!res.ok) throw new Error(data.error || "Failed to assign card");
               toast.success(`Card ${uid} assigned.`);
               onOpenChange(false);
+              onMutated?.();
               router.refresh();
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Something went wrong.");
@@ -302,6 +241,8 @@ export function CardTableRow({
   selectable,
   selected,
   onToggleSelect,
+  hidePrint = false,
+  onMutated,
 }: {
   card: CardTableItem;
   canPrint: boolean;
@@ -310,6 +251,8 @@ export function CardTableRow({
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (uid: string) => void;
+  hidePrint?: boolean;
+  onMutated?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -318,7 +261,6 @@ export function CardTableRow({
   const [assignOpen, setAssignOpen] = useState(false);
 
   const isBlocked = card.status === "blocked";
-  const isWithGuest = card.status === "with_guest";
   const isReturned = card.status === "returned";
   const isDeckCard = card.status === "unassigned" || card.status === "assigned";
   const removable = REMOVABLE_STATUSES.includes(card.status);
@@ -328,7 +270,7 @@ export function CardTableRow({
   // remove them org-scoped when they are property-bound.
   const orgScope = organizationId && card.propertyId ? organizationId : undefined;
 
-  function runAction(action: "block" | "unblock" | "mark-returned" | "lost", successMsg: string) {
+  function runAction(action: "block" | "unblock" | "mark-returned", successMsg: string) {
     startTransition(async () => {
       try {
         const res = await fetch("/api/platform/valet/cards", {
@@ -343,6 +285,7 @@ export function CardTableRow({
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to update card");
         toast.success(successMsg);
+        onMutated?.();
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong.");
@@ -350,7 +293,7 @@ export function CardTableRow({
     });
   }
 
-  function runUidAction(action: "unassign" | "printed" | "defect", successMsg: string) {
+  function runUidAction(action: "unassign" | "defect", successMsg: string) {
     startTransition(async () => {
       try {
         const res = await fetch("/api/platform/valet/cards", {
@@ -366,6 +309,7 @@ export function CardTableRow({
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to update card");
         toast.success(successMsg);
+        onMutated?.();
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong.");
@@ -388,6 +332,7 @@ export function CardTableRow({
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to remove card");
         toast.success("Card removed.");
+        onMutated?.();
         router.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong.");
@@ -459,9 +404,11 @@ export function CardTableRow({
                 {card.uid}
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setQrOpen(true)} disabled={pending}>
-              <PrinterIcon className="size-4" /> Print card / QR
-            </DropdownMenuItem>
+            {!hidePrint ? (
+              <DropdownMenuItem onClick={() => setQrOpen(true)} disabled={pending}>
+                <PrinterIcon className="size-4" /> Print card / QR
+              </DropdownMenuItem>
+            ) : null}
             {isDeckCard ? (
               <DropdownMenuItem onClick={() => setAssignOpen(true)} disabled={pending}>
                 <TagIcon className="size-4" /> Assign to property
@@ -473,34 +420,23 @@ export function CardTableRow({
               </DropdownMenuItem>
             ) : null}
             {canPrint && card.status !== "defect" ? (
-              <>
-                <DropdownMenuItem onClick={() => runUidAction("printed", "Card marked printed (frozen).")} disabled={pending}>
-                  <CheckCircle2Icon className="size-4" /> Mark printed / freeze
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => runUidAction("defect", "Card marked defect.")} disabled={pending}>
-                  <ShieldAlertIcon className="size-4" /> Mark defect
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem onClick={() => runUidAction("defect", "Card marked defect.")} disabled={pending}>
+                <ShieldAlertIcon className="size-4" /> Mark defect
+              </DropdownMenuItem>
             ) : null}
             <DropdownMenuSeparator />
-            {isWithGuest ? null : (
-              <DropdownMenuItem onClick={() => runAction("block", "Card blocked.")} disabled={pending}>
-                <BanIcon className="size-4" /> Block card
-              </DropdownMenuItem>
-            )}
             {isBlocked ? (
               <DropdownMenuItem onClick={() => runAction("unblock", "Card unblocked.")} disabled={pending}>
                 <CheckCircle2Icon className="size-4" /> Unblock card
               </DropdownMenuItem>
-            ) : null}
+            ) : (
+              <DropdownMenuItem onClick={() => runAction("block", "Card blocked.")} disabled={pending}>
+                <BanIcon className="size-4" /> Block card
+              </DropdownMenuItem>
+            )}
             {isReturned ? (
               <DropdownMenuItem onClick={() => runAction("mark-returned", "Card marked returned.")} disabled={pending}>
                 <CheckCircle2Icon className="size-4" /> Mark returned
-              </DropdownMenuItem>
-            ) : null}
-            {!isBlocked ? (
-              <DropdownMenuItem onClick={() => runAction("lost", "Card marked lost.")} disabled={pending}>
-                <MapPinnedIcon className="size-4" /> Mark lost
               </DropdownMenuItem>
             ) : null}
             {removable ? (
@@ -531,15 +467,15 @@ export function CardTableRow({
         uid={card.uid}
         properties={properties}
         organizationId={orgScope}
+        onMutated={onMutated}
       />
 
       <QrPrintDialog
         open={qrOpen}
         onOpenChange={setQrOpen}
         cardNumber={card.uid}
-        propertyName={card.property}
-        canPrint={canPrint}
-        onPrinted={() => runUidAction("printed", "Card marked printed (frozen).")}
+        propertySlug={card.propertySlug}
+        guestToken={card.guestToken}
       />
     </TableRow>
   );

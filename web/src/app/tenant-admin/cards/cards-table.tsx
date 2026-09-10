@@ -22,10 +22,14 @@ export function CardsTable({
   organizationId,
   canFreeze,
   hideProperty = false,
+  hideCreate = false,
+  hidePrint = false,
 }: {
   organizationId?: string | null;
   canFreeze: boolean;
   hideProperty?: boolean;
+  hideCreate?: boolean;
+  hidePrint?: boolean;
 }) {
   const searchParams = useSearchParams() ?? new URLSearchParams();
   const getParam = (name: string) => searchParams.get(name) ?? "";
@@ -34,7 +38,7 @@ export function CardsTable({
   const status = getParam("status");
   const property = getParam("property");
   const page = Math.max(1, Number(getParam("page")) || 1);
-  const pageSize = Math.min(100, Math.max(5, Number(getParam("pageSize")) || 15));
+  const pageSize = Math.min(1000, Math.max(5, Number(getParam("pageSize")) || 50));
   const sortBy = getParam("sortBy") || "uid";
   const sortDir = searchParams.get("sortDir") === "desc" ? "desc" : "asc";
 
@@ -108,7 +112,9 @@ export function CardsTable({
     });
   };
 
-  const selectedCards = items.filter((c) => selected.has(c.uid)).map((c) => ({ uid: c.uid, property: c.property }));
+  const selectedCards = items
+    .filter((c) => selected.has(c.uid))
+    .map((c) => ({ uid: c.uid, guestToken: c.guestToken, property: c.property, propertySlug: c.propertySlug }));
 
   const statusFilter: DataTableFilter = {
     name: "status",
@@ -177,17 +183,25 @@ export function CardsTable({
         sortDir={sortDir}
         searchPlaceholder="Search card UID or property…"
         filters={[statusFilter, propertyFilter]}
+        pageSizeOptions={[
+          { value: "50", label: "50" },
+          { value: "100", label: "100" },
+          { value: "500", label: "500" },
+          { value: "1000", label: "1000" },
+        ]}
         rightSlot={
           <>
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex items-center gap-2 rounded-[99px] bg-[#f4531f] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0_4px_16px_rgba(16,22,35,0.05)] transition-colors hover:bg-[#d6430f]"
-            >
-              <Plus className="size-4" />
-              Create cards
-            </button>
-            {selected.size > 0 ? (
+            {!hideCreate ? (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-2 rounded-[99px] bg-[#f4531f] px-5 py-2.5 text-[12.5px] font-extrabold text-white shadow-[0_4px_16px_rgba(16,22,35,0.05)] transition-colors hover:bg-[#d6430f]"
+              >
+                <Plus className="size-4" />
+                Create cards
+              </button>
+            ) : null}
+            {!hidePrint && selected.size > 0 ? (
               <button
                 type="button"
                 onClick={() => setDesignerOpen(true)}
@@ -217,26 +231,28 @@ export function CardsTable({
             <CardTableRow
               key={card.id}
               card={card}
-              canPrint={canFreeze}
+              canPrint={!hidePrint && canFreeze}
               properties={properties}
               organizationId={organizationId}
               selectable
               selected={selected.has(card.uid)}
               onToggleSelect={toggleOne}
+              hidePrint={hidePrint}
+              onMutated={() => setReloadKey((k) => k + 1)}
             />
           ))
         )}
       </DataTable>
 
       <PrintDesignerDialog
-        open={designerOpen}
+        open={designerOpen && !hidePrint}
         onOpenChange={setDesignerOpen}
         cards={selectedCards}
         canFreeze={canFreeze}
         onFrozen={() => setReloadKey((k) => k + 1)}
       />
       <CreateCardDialog
-        open={createOpen}
+        open={createOpen && !hideCreate}
         onOpenChange={setCreateOpen}
         organizationId={organizationId}
         properties={properties}

@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   buildCardPrintPdf,
+  MAX_PRINT_BATCH,
   PRINT_CARD_W_MM,
   PRINT_CARD_H_MM,
   type QrPlacement,
@@ -21,7 +22,12 @@ type PrintProfile = {
   backImageUrl: string | null;
 };
 
-type SelectedCard = { uid: string; property?: string | null };
+type SelectedCard = {
+  uid: string;
+  guestToken?: string | null;
+  property?: string | null;
+  propertySlug?: string | null;
+};
 
 const QR_PRESETS: { value: QrPlacement["preset"]; label: string }[] = [
   { value: "top-left", label: "Top left" },
@@ -329,22 +335,30 @@ function FieldColor({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="field">
+    <div className="field" style={{ position: "relative" }}>
       <label className="field-label">{label}</label>
       <div className="flex items-center gap-2">
         <input
-          type="color"
           aria-label={`${label} picker`}
+          type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           style={{
-            width: 40,
-            height: 36,
             padding: 0,
             border: "1px solid #e7eaf0",
             borderRadius: 8,
             background: "#fff",
             cursor: "pointer",
+            outline: "none",
+            boxShadow: "none",
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+            opacity: 0,
           }}
         />
         <input
@@ -436,7 +450,7 @@ function PreviewCard({
   useEffect(() => {
     if (qrSide !== side) return;
     let cancelled = false;
-    generateCardQr(card.uid)
+    generateCardQr(card.uid, undefined, card.propertySlug, card.guestToken)
       .then((u) => {
         if (!cancelled) setQr(u);
       })
@@ -444,7 +458,7 @@ function PreviewCard({
     return () => {
       cancelled = true;
     };
-  }, [card.uid, side, qrSide]);
+  }, [card.uid, card.propertySlug, card.guestToken, side, qrSide]);
 
   const w = Math.round(PRINT_CARD_W_MM * SCALE);
   const h = Math.round(PRINT_CARD_H_MM * SCALE);
@@ -630,11 +644,17 @@ export function PrintDesignerDialog({
       return;
     }
     if (!cards.length) return;
+    if (cards.length > MAX_PRINT_BATCH) {
+      toast.error(`Print at most ${MAX_PRINT_BATCH} cards at a time.`);
+      return;
+    }
     setBusy(true);
     try {
       const faces: {
         uid: string;
+        guestToken?: string | null;
         property?: string | null;
+        propertySlug?: string | null;
         imageUrl?: string | null;
         drawQr?: boolean;
         drawUid?: boolean;
@@ -643,7 +663,9 @@ export function PrintDesignerDialog({
         if (side === "front" || side === "both") {
           faces.push({
             uid: c.uid,
+            guestToken: c.guestToken,
             property: c.property,
+            propertySlug: c.propertySlug,
             imageUrl: profile.frontImageUrl,
             drawQr: qrSide === "front",
             drawUid: uidSide === "front",
@@ -652,7 +674,9 @@ export function PrintDesignerDialog({
         if (side === "back" || side === "both") {
           faces.push({
             uid: c.uid,
+            guestToken: c.guestToken,
             property: c.property,
+            propertySlug: c.propertySlug,
             imageUrl: profile.backImageUrl,
             drawQr: qrSide === "back",
             drawUid: uidSide === "back",

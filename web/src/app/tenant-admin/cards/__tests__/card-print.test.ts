@@ -6,7 +6,7 @@ describe("buildCardPrintPdf", () => {
     await expect(buildCardPrintPdf({ faces: [] })).rejects.toThrow("No cards to print.");
   });
 
-  it("produces a single-page A4 PDF blob for one front face", async () => {
+  it("produces a single-page PDF blob for one front face", async () => {
     const out = await buildCardPrintPdf({
       faces: [{ uid: "NFC-10001", drawQr: true, drawUid: true }],
     });
@@ -19,11 +19,11 @@ describe("buildCardPrintPdf", () => {
     expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
   });
 
-  it("adds a page for batches larger than one page (6 faces per page)", async () => {
+  it("renders one card face per business-card-sized page", async () => {
     const faces = Array.from({ length: 7 }, (_, i) => ({ uid: `NFC-${10000 + i}`, drawQr: true }));
     const out = await buildCardPrintPdf({ faces });
     expect(out.faceCount).toBe(7);
-    expect(out.pageCount).toBe(2);
+    expect(out.pageCount).toBe(7);
   });
 
   it("renders front + back faces from a chosen profile placement", async () => {
@@ -50,7 +50,18 @@ describe("buildCardPrintPdf", () => {
       guestBase: "http://localhost:3001",
     });
     expect(out.faceCount).toBe(2);
-    expect(out.pageCount).toBe(1);
+    expect(out.pageCount).toBe(2);
     expect(out.blob.type).toBe("application/pdf");
+  });
+
+  it("front and back of each card land on consecutive pages", () => {
+    const pair = [
+      { uid: "DSF-00121", drawQr: true },
+      { uid: "DSF-00121", drawQr: false },
+    ];
+    expect(buildCardPrintPdf({ faces: pair })).resolves.toMatchObject({
+      pageCount: 2,
+      faceCount: 2,
+    });
   });
 });
