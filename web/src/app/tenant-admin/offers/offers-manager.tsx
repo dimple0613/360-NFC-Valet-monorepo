@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, TagIcon, XIcon } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -124,19 +125,22 @@ export function OffersManager({
   }
 
   return (
-    <div style={{ display: "flex", gap: 20 }}>
-      <div style={{ flex: 1.5, minWidth: 0 }}>
-        <div className="flex items-center gap-4 flex-wrap" style={{ justifyContent: "flex-end", minWidth: 0, overflow: "hidden" }}>
-          {connected && (
-            <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide"
-              style={{ color: "#0C9D61" }}
-            >
-              <span className="size-1.5 rounded-full" style={{ background: "#0C9D61" }} />
-              Live
-            </span>
-          )}
-          <div className="flex items-center gap-2.5">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        icon={<TagIcon className="size-5" />}
+        title="Offers & promotions"
+        description="Create and manage guest-facing offers, deals, and outlet promotions."
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {connected && (
+              <span
+                className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide"
+                style={{ color: "#0C9D61" }}
+              >
+                <span className="size-1.5 rounded-full" style={{ background: "#0C9D61" }} />
+                Live
+              </span>
+            )}
             <Select
               value={property}
               onValueChange={(v) => setProperty(v ?? "all")}
@@ -176,9 +180,12 @@ export function OffersManager({
               New offer
             </button>
           </div>
-        </div>
+        }
+      />
 
-        <div className="flex flex-wrap items-center" style={{ gap: 8, marginTop: 0 }}>
+      <div style={{ display: "flex", gap: 20 }}>
+        <div style={{ flex: 1.5, minWidth: 0 }}>
+          <div className="flex flex-wrap items-center" style={{ gap: 8 }}>
           <Pill active={filter === "All"} onClick={() => setFilter("All")}>
             All · {scopedOffers.length}
           </Pill>
@@ -563,6 +570,7 @@ export function OffersManager({
         onConfirm={handleDelete}
         pending={pending}
       />
+      </div>
     </div>
   );
 }
