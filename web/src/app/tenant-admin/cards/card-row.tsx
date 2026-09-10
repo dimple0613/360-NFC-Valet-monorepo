@@ -374,6 +374,31 @@ export function CardTableRow({
       </TableCell>
       <TableCell className="text-right">
         <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+          {assignable && !withGuest ? (
+            <button
+              type="button"
+              aria-label={`Assign ${card.uid}`}
+              disabled={pending}
+              onClick={() => setAssignOpen(true)}
+              style={{
+                cursor: "pointer",
+                border: "1px solid #e7eaf0",
+                background: "#fff",
+                color: "#1c2b46",
+                fontSize: 11,
+                fontWeight: 800,
+                padding: "7px 11px",
+                borderRadius: 999,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <TagIcon className="size-3.5" />
+              Assign a card
+            </button>
+          ) : null}
           {isAssigned && !withGuest ? (
             <button
               type="button"

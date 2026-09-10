@@ -1289,6 +1289,24 @@ function TapApp() {
           onViewStatus={viewStatus}
           now={now}
         />
+      ) : !data.property ? (
+        <div className="no-car-panel" style={{ marginTop: 16 }}>
+          <span className="no-car-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 11l1.2-4A2 2 0 0 1 6.1 5h11.8a2 2 0 0 1 1.9 2l1.2 4" />
+              <rect x="3" y="11" width="18" height="6" rx="2" />
+              <circle cx="7.5" cy="17.5" r="1.6" />
+              <circle cx="16.5" cy="17.5" r="1.6" />
+            </svg>
+          </span>
+          <b>This card is not assigned to a property yet</b>
+          <span>
+            Take this card to the valet desk so it can be assigned and activated for valet service.
+          </span>
+          <div className="no-car-actions">
+            <button type="button" className="btn-eta" onClick={() => { setLoadState("loading"); setFetchKey((k) => k + 1); }}>Reload page</button>
+          </div>
+        </div>
       ) : (
         <Home
           data={data}

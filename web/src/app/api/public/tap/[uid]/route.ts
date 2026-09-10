@@ -22,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ uid: str
       `SELECT c.id AS card_id, c.uid, c.status AS card_status, c.uses_count,
               p.id AS property_id, p.name AS property_name, p.area, p.slug, p.city, p.phone, p.validates_valet, p.staff_code, p.image_url
        FROM nfc_cards c
-       JOIN properties p ON p.id = c.property_id
+       LEFT JOIN properties p ON p.id = c.property_id
        WHERE c.uid = $1 OR UPPER(c.physical_uid) = UPPER($2) OR c.guest_token = $3`,
       [uid, uid, uid]
     );
@@ -45,14 +45,16 @@ property_id: number;
       | undefined;
     if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
-    const { rows: offers } = await query(
-      `SELECT id, title, category, price, was_price, description, featured, validates_valet,
-              rating, reviews, level, opens_at, closes_at, deal_tag, image_url, menu_url, staff_code
-       FROM offers
-       WHERE property_id = $1 AND live = true AND draft = false
-       ORDER BY (featured IS NULL), featured, id`,
-      [card.property_id]
-    );
+    const { rows: offers } = card.property_id
+      ? await query(
+          `SELECT id, title, category, price, was_price, description, featured, validates_valet,
+                  rating, reviews, level, opens_at, closes_at, deal_tag, image_url, menu_url, staff_code
+           FROM offers
+           WHERE property_id = $1 AND live = true AND draft = false
+           ORDER BY (featured IS NULL), featured, id`,
+          [card.property_id]
+        )
+      : { rows: [] };
 
     const { rows: orderRows } = await query(
       `SELECT o.id, o.plate, o.car_make, o.car_model, o.car_color, o.zone, o.slot, o.status, o.guest_eta,
@@ -82,17 +84,19 @@ property_id: number;
 
     return NextResponse.json({
       card: { uid: card.uid, status: card.card_status, usesCount: card.uses_count },
-      property: {
-        id: card.property_id,
-        name: card.property_name,
-        area: card.area,
-        slug: card.slug,
-        city: card.city,
-        phone: card.phone,
-        validatesValet: card.validates_valet,
-        hasCode: Boolean(card.staff_code),
-        imageUrl: card.image_url,
-      },
+      property: card.property_id
+        ? {
+            id: card.property_id,
+            name: card.property_name,
+            area: card.area,
+            slug: card.slug,
+            city: card.city,
+            phone: card.phone,
+            validatesValet: card.validates_valet,
+            hasCode: Boolean(card.staff_code),
+            imageUrl: card.image_url,
+          }
+        : null,
       order: order
         ? {
             id: order.id,
