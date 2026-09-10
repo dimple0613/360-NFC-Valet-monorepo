@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revokeSessionForOrganization, SessionNotFoundError } from "@saasclaude/db";
+import { revokeSessionForOrganization, SessionNotFoundError } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createStripeProvider, InvalidWebhookSignatureError, MissingStripeConfigError } from "@saasclaude/db";
+import { createStripeProvider, InvalidWebhookSignatureError, MissingStripeConfigError } from "../../../../lib/db";
 
 // FR-213: Stripe webhooks are authenticated by signature (verified against
 // STRIPE_WEBHOOK_SECRET), not an API key or session — the organization is

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireIdentity } from "@/lib/auth/current-user";
-import { getUserPlatformPermissions } from "@saasclaude/db";
+import { getUserPlatformPermissions } from "../../../../../lib/db";
 import {
   listCardsForTable,
   registerCards,

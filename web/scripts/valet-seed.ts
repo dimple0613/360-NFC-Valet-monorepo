@@ -3,7 +3,6 @@ import { config as loadEnv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 
-loadEnv({ path: fileURLToPath(new URL("../../packages/db/.env", import.meta.url)) });
 loadEnv({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MissingPayPalConfigError, PayPalInvalidWebhookSignatureError, encodePayPalWebhookHeaders, paypalAdapter } from "@saasclaude/db";
+import { MissingPayPalConfigError, PayPalInvalidWebhookSignatureError, encodePayPalWebhookHeaders, paypalAdapter } from "../../../../lib/db";
 
 // FR-213: PayPal webhooks are authenticated by PayPal's own
 // verify-webhook-signature check (see paypal-provider.ts), not an API key or

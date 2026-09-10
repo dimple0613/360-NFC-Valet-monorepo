@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PencilIcon } from "lucide-react";
-import { getCurrentPlan, listActiveCurrencies, listFeatures, listResourceTypes } from "@saasclaude/db";
+import { getCurrentPlan, listActiveCurrencies, listFeatures, listResourceTypes } from "../../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge, PLAN_VISIBILITY_STYLES } from "@/components/status-badge";

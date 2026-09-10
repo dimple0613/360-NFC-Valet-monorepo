@@ -18,15 +18,19 @@ export interface AuthLeftData {
 
 export interface AuthBranding {
   siteName: string;
+  siteDescription: string | null;
   logoLightUrl: string | null;
   copyright: string;
+  supportEmail: string | null;
 }
 
 export const AUTH_HEADLINE = "Every car back at the curb before the guest is.";
 export const DEFAULT_BRANDING: AuthBranding = {
   siteName: "360 NFC Valet",
+  siteDescription: null,
   logoLightUrl: null,
   copyright: "© 2026 We Want 360 · Dubai, UAE",
+  supportEmail: null,
 };
 
 const DEFAULT_LEFT: AuthLeftData = {
@@ -117,7 +121,10 @@ export function AuthLeftPanel() {
         <div className="login-logo">
           <BrandLogo size={22} src={branding.logoLightUrl} />
         </div>
-        <span className="login-brand-name">{branding.siteName}</span>
+        <div>
+          <span className="login-brand-name">{branding.siteName}</span>
+          {branding.siteDescription ? <div className="login-brand-desc">{branding.siteDescription}</div> : null}
+        </div>
       </div>
       <div>
         <div className="login-headline">{headline}</div>
@@ -133,7 +140,14 @@ export function AuthLeftPanel() {
           </div>
         ) : null}
       </div>
-      <div className="login-footer">{branding.copyright}</div>
+      <div className="login-footer">
+        {branding.supportEmail ? (
+          <span className="login-footer-support">
+            Need help? <a href={`mailto:${branding.supportEmail}`}>{branding.supportEmail}</a>
+          </span>
+        ) : null}
+        <span>{branding.copyright}</span>
+      </div>
     </div>
   );
 }

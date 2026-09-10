@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import type { PageParams } from "@saasclaude/db";
+import type { PageParams } from "../db";
 
 /** Parses `?limit=&cursor=` off a REST list request. Invalid/absent limit falls back to the service's own default clamp. */
 export function parsePageParams(req: NextRequest): PageParams {

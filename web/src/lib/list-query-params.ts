@@ -1,4 +1,4 @@
-import type { ListQueryParams } from "@saasclaude/db";
+import type { ListQueryParams } from "./db";
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 

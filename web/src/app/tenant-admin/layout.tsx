@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { forbidden, redirect } from "next/navigation";
-import { endImpersonation, getUserOrganizationPermissions, getUserPlatformPermissions, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { endImpersonation, getUserOrganizationPermissions, getUserPlatformPermissions, prismaWithoutTenantScoping } from "../../lib/db";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { requireIdentity } from "@/lib/auth/current-user";

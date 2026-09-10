@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executeDueCancellations, executeDueOrganizationDeletions } from "@saasclaude/db";
+import { executeDueCancellations, executeDueOrganizationDeletions } from "../../../../lib/db";
 
 // FR-132/FR-160-163: two date-driven lifecycle sweeps that TASKS.md flagged as
 // "fully implemented and tested but not wired to any scheduler" —

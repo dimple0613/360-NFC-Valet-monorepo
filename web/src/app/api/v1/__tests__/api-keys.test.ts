@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { prismaWithoutTenantScoping } from "@saasclaude/db";
+import { prismaWithoutTenantScoping } from "../../../../lib/db";
 import { GET as LIST_GET, POST } from "../api-keys/route";
 import { DELETE } from "../api-keys/[id]/route";
 import { apiRequest, routeCtx, seedApiKey, seedOrganization, jsonOf } from "./test-helpers";

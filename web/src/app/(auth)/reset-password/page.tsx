@@ -1,4 +1,4 @@
-import { getSecurityDefaultSettings } from "@saasclaude/db";
+import { getSecurityDefaultSettings } from "../../../lib/db";
 import { AuthLeftContent } from "../auth-left";
 import { ResetPasswordForm } from "./reset-password-form";
 

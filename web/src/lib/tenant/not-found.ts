@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auditIfCrossTenantAttempt, type CrossTenantAuditContext } from "@saasclaude/db";
+import { auditIfCrossTenantAttempt, type CrossTenantAuditContext } from "../db";
 
 // FR-104: a resource lookup that came back empty from the tenant-scoped client
 // becomes a 404 either way (never a 403 — don't confirm the resource exists

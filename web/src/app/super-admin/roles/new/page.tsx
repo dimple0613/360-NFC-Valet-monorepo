@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import { prismaWithoutTenantScoping } from "@saasclaude/db";
+import { prismaWithoutTenantScoping } from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

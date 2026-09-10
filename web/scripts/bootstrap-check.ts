@@ -2,15 +2,16 @@ import { config } from "dotenv";
 import * as path from "path";
 import { Pool } from "pg";
 
-config({ path: path.resolve(__dirname, "../../packages/db/.env") });
+config({ path: path.resolve(__dirname, "../.env") });
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const q = async (label: string, sql: string) => {
   try {
     const r = await pool.query(sql);
     console.log(label + ":", JSON.stringify(r.rows));
-  } catch (e: any) {
-    console.log(label + ": ERROR", e.message.split("\n")[0]);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log(label + ": ERROR", msg.split("\n")[0]);
   }
 };
 (async () => {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { emailNotificationChannel, getUserOrganizationPermissions, listOrganizationMembersSearch, listPendingInvitesSearch, listRolesVisibleToOrganization } from "@saasclaude/db";
+import { emailNotificationChannel, getUserOrganizationPermissions, listOrganizationMembersSearch, listPendingInvitesSearch, listRolesVisibleToOrganization } from "../../../../lib/db";
 import { UsersIcon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";

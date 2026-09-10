@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getPaymentProviderAdapter, setPaymentProviderConfigValue, setPaymentProviderEnabled } from "@saasclaude/db";
+import { getPaymentProviderAdapter, setPaymentProviderConfigValue, setPaymentProviderEnabled } from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_PAYMENT_PROVIDERS_PERMISSION = "core.platform.manage_payment_providers";

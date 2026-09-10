@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { db, prismaWithoutTenantScoping } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 function serializeOrganization(organization: { id: string; name: string; slug: string; status: string; createdAt: Date }) {

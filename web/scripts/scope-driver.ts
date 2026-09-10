@@ -2,7 +2,7 @@ import { config } from "dotenv";
 import * as path from "path";
 import { Pool } from "pg";
 
-config({ path: path.resolve(__dirname, "../../packages/db/.env") });
+config({ path: path.resolve(__dirname, "../.env") });
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 (async () => {
@@ -13,8 +13,9 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query("UPDATE drivers SET organization_id = $1 WHERE id = 1", [orgA]);
     const d = await pool.query("SELECT id, valet_id, property_id, organization_id FROM drivers WHERE id = 1");
     console.log("driver rows:", JSON.stringify(d.rows));
-  } catch (e: any) {
-    console.log("ERROR:", e.message.split("\n")[0]);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.log("ERROR:", msg.split("\n")[0]);
   }
   await pool.end();
   process.exit(0);

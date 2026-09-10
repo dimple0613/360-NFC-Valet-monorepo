@@ -5,7 +5,7 @@ import { Formik, Form } from "formik";
 import { toast } from "sonner";
 import { FormField, FormCheckboxField } from "@/components/console-form-field";
 import { saveNotificationChannelConfigAction } from "./actions";
-import type { NotificationChannelFieldStatus } from "@saasclaude/db";
+import type { NotificationChannelFieldStatus } from "../../../../lib/db";
 
 export function ChannelConfigForm({
   channelId,

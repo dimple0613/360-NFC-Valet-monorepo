@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import type { Session } from "@saasclaude/db";
-import { listSessionsForOrganizationPage } from "@saasclaude/db";
+import type { Session } from "../../../../lib/db";
+import { listSessionsForOrganizationPage } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 import { parsePageParams } from "@/lib/tenant/pagination";
 

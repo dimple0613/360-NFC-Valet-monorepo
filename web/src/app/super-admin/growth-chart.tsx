@@ -2,7 +2,7 @@
 
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import type { GrowthPoint } from "@saasclaude/db";
+import type { GrowthPoint } from "../../lib/db";
 
 const chartConfig = {
   totalOrganizations: { label: "Organizations", color: "var(--chart-1)" },

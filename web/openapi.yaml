@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: >
     Versioned REST API for saasclaude. Authenticated with a per-organization
-    API key (FR-322, `@saasclaude/db`'s api-keys.ts) — the organization is
+    API key (FR-322, lib/db's api-keys.ts) — the organization is
     derived from the key itself, not a client-supplied header. Keys are
     issued from the Tenant Admin portal (Security > API Keys) and carry
     explicit scopes (Permission-catalog keys) plus an optional expiry.

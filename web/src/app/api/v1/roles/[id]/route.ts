@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, deleteRole, getRoleWithPermissions, RoleNotFoundError, setRolePermissions } from "@saasclaude/db";
+import { db, deleteRole, getRoleWithPermissions, RoleNotFoundError, setRolePermissions } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

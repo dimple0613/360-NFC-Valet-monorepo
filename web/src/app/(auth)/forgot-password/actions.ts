@@ -1,6 +1,6 @@
 "use server";
 
-import { checkRateLimit, requestPasswordReset, resolveEmailSender, verifyCaptcha } from "@saasclaude/db";
+import { checkRateLimit, requestPasswordReset, resolveEmailSender, verifyCaptcha } from "../../../lib/db";
 
 export interface ForgotPasswordFormState {
   submitted: boolean;

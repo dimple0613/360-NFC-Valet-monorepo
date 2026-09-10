@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ScrollTextIcon } from "lucide-react";
-import { listAllAuditLogsSearch, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { listAllAuditLogsSearch, prismaWithoutTenantScoping } from "../../../lib/db";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { parseListQueryParams } from "@/lib/list-query-params";

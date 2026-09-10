@@ -25,6 +25,7 @@ export default function ErrorPage({
       brandName={content.brandName}
       copyright={content.copyright}
       logoLightUrl={content.logoLightUrl}
+      supportEmail={content.supportEmail}
       actions={[
         { label: "Try again", variant: "navy", onClick: retry },
         { href: "/super-admin", label: "Go to dashboard", variant: "outline" },

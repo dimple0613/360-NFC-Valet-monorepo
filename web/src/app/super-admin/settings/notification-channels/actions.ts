@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getNotificationChannel, setNotificationChannelConfigValue, setNotificationChannelEnabled } from "@saasclaude/db";
+import { getNotificationChannel, setNotificationChannelConfigValue, setNotificationChannelEnabled } from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_NOTIFICATION_CHANNELS_PERMISSION = "core.platform.manage_notification_channels";

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revokeSession } from "@saasclaude/db";
+import { revokeSession } from "../db";
 import { clearSessionCookie, getCurrentSession } from "./session";
 import { clearWsTokenCookie } from "./ws-token";
 

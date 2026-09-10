@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBrandingSettings, getPageContentSettings } from "@saasclaude/db";
+import { getBrandingSettings, getPageContentSettings } from "../../../../../lib/db";
 
 // Public, unauthenticated: serves the non-sensitive brand identity + error-page
 // copy that visitor-facing surfaces need. Auth pages read settings server-side;

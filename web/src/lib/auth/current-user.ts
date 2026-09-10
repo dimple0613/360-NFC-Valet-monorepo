@@ -4,7 +4,7 @@ import {
   getUserPlatformPermissions,
   prismaWithoutTenantScoping,
   type ResolvedSession,
-} from "@saasclaude/db";
+} from "../db";
 import { getCurrentSession } from "./session";
 
 export interface CurrentUser {

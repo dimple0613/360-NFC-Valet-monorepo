@@ -1,5 +1,5 @@
 import { InboxIcon } from "lucide-react";
-import { listInAppNotifications } from "@saasclaude/db";
+import { listInAppNotifications } from "../../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { requireIdentity } from "@/lib/auth/current-user";

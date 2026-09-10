@@ -9,14 +9,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // Loads packages/db/.env into process.env so the valet `pg` pool in
+    // Loads web/.env into process.env so the valet `pg` pool in
     // app/tenant-admin/_lib/db.ts (which reads DATABASE_URL directly, unlike
     // Prisma's self-loading client) can connect during tests.
     setupFiles: ["./vitest.setup.ts"],
-    // Integration tests against a live Postgres shared with @saasclaude/db's
-    // suite — sequential to avoid tests racing each other's fixture rows in
-    // global (non-tenant-scoped) tables like Permission. Mirrors
-    // packages/db/vitest.config.mts.
+    // Integration tests against a live Postgres shared with the DB service
+    // layer's suite — sequential to avoid tests racing each other's fixture rows in
+    // global (non-tenant-scoped) tables like Permission.
     fileParallelism: false,
   },
 });

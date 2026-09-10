@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import type { OrganizationInvite } from "@saasclaude/db";
-import { listPendingInvitesPage } from "@saasclaude/db";
+import type { OrganizationInvite } from "../../../../../lib/db";
+import { listPendingInvitesPage } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 import { parsePageParams } from "@/lib/tenant/pagination";
 

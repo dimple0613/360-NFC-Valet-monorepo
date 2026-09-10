@@ -9,7 +9,7 @@ import {
   scheduleOrganizationDeletion,
   startImpersonation,
   suspendOrganization,
-} from "@saasclaude/db";
+} from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { rememberSessionForImpersonation, setSessionCookie } from "@/lib/auth/session";
 import { setWsTokenCookie } from "@/lib/auth/ws-token";

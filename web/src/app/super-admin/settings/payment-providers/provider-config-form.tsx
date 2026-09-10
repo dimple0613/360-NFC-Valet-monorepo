@@ -5,7 +5,7 @@ import { Formik, Form } from "formik";
 import { toast } from "sonner";
 import { FormField, FormCheckboxField } from "@/components/console-form-field";
 import { savePaymentProviderConfigAction } from "./actions";
-import type { PaymentProviderFieldStatus } from "@saasclaude/db";
+import type { PaymentProviderFieldStatus } from "../../../../lib/db";
 
 export function ProviderConfigForm({
   adapterId,

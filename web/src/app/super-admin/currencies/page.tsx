@@ -1,5 +1,5 @@
 import { CoinsIcon } from "lucide-react";
-import { listCurrenciesSearch } from "@saasclaude/db";
+import { listCurrenciesSearch } from "../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

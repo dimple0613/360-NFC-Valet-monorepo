@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOAuthAdapter, MissingOAuthConfigError } from "@saasclaude/db";
+import { getOAuthAdapter, MissingOAuthConfigError } from "../../../../lib/db";
 import { resolveBaseUrl } from "@/lib/base-url";
 import { setOAuthStateCookies } from "@/lib/auth/oauth-cookies";
 

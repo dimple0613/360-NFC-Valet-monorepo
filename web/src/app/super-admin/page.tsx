@@ -9,7 +9,7 @@ import {
   listRecentActivity,
   listRecentCustomers,
   listRecentSubscriptions,
-} from "@saasclaude/db";
+} from "../../lib/db";
 import {
   Building2Icon,
   CreditCardIcon,

@@ -7,7 +7,7 @@ import {
   deleteGlobalRole,
   setGlobalRolePermissions,
   updateGlobalRoleDetails,
-} from "@saasclaude/db";
+} from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_GLOBAL_ROLES_PERMISSION = "core.platform.manage_global_roles";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldIcon } from "lucide-react";
-import { db, listRoleAssigneesSearch, prismaWithoutTenantScoping, runWithTenant } from "@saasclaude/db";
+import { db, listRoleAssigneesSearch, prismaWithoutTenantScoping, runWithTenant } from "../../../../lib/db";
 import { parseListQueryParams } from "@/lib/list-query-params";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { cn } from "@/lib/utils";

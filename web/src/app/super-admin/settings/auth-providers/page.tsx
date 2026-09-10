@@ -1,4 +1,4 @@
-import { listOAuthProviderStatuses } from "@saasclaude/db";
+import { listOAuthProviderStatuses } from "../../../../lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePlatformAccess } from "@/lib/auth/current-user";

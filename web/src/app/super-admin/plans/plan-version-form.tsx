@@ -30,11 +30,15 @@ function PlanCheckbox({
       className={className ? `checkbox ${className}` : "checkbox"}
       style={{ cursor: "pointer" }}
     >
-      <input type="checkbox" name={name} value={value} checked={checked} className="hidden" readOnly />
-      <span
-        className={`checkbox-box${checked ? " checked" : ""}`}
-        onClick={() => setChecked((c) => !c)}
-      >
+      <input
+        type="checkbox"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={() => setChecked((c) => !c)}
+        className="checkbox-input"
+      />
+      <span className={`checkbox-box${checked ? " checked" : ""}`}>
         <Check size={12} strokeWidth={3.5} color="#ffffff" />
       </span>
       {children ? <span className="checkbox-label">{children}</span> : null}

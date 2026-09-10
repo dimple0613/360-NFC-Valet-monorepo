@@ -1,5 +1,5 @@
 import { forbidden } from "next/navigation";
-import { getUserOrganizationPermissions } from "@saasclaude/db";
+import { getUserOrganizationPermissions } from "../../../lib/db";
 import { requireIdentity, type CurrentIdentity } from "@/lib/auth/current-user";
 
 /**

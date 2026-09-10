@@ -2,7 +2,7 @@ import { config } from "dotenv";
 import * as path from "path";
 import { Pool } from "pg";
 
-config({ path: path.resolve(__dirname, "../../packages/db/.env") });
+config({ path: path.resolve(__dirname, "../.env") });
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const tables = [
@@ -26,8 +26,9 @@ const tables = [
     try {
       const r = await pool.query(`SELECT count(*)::int AS n FROM ${t}`);
       console.log(`${t}: ${r.rows[0].n}`);
-    } catch (e: any) {
-      console.log(`${t}: ERROR ${e.message.split("\n")[0]}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.log(`${t}: ERROR ${msg.split("\n")[0]}`);
     }
   }
   const re = await pool.query("SELECT email, id FROM users LIMIT 5");

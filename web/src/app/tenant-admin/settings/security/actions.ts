@@ -15,7 +15,7 @@ import {
   sendNotification,
   WeakPasswordError,
   verifyMfaCode,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 export interface BeginEnrollmentResult {

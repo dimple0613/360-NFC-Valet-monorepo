@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createRole, listRolesPage } from "@saasclaude/db";
+import { createRole, listRolesPage } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 import { parsePageParams } from "@/lib/tenant/pagination";
 

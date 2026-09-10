@@ -89,7 +89,7 @@ This repo consolidates four previously-separate projects into a single Turborepo
         └──────────┬────────────┘
                    │ Prisma / PostgreSQL
                    ▼
-              packages/db  (multi-tenant DB)
+              web/ Prisma + lib/db  (multi-tenant DB)
 ```
 
 - The **API** and **real-time** server live in `web/` (super admin + `/api/platform/valet/*` routes).
@@ -103,23 +103,22 @@ This repo consolidates four previously-separate projects into a single Turborepo
 Prerequisites: **Node 20+**, **pnpm 10.29.3**, and a **PostgreSQL** database. The platform also uses **Redis** (caching/queues/rate-limit) and optionally a **WebSocket** server for live updates.
 
 ```bash
-# 1. Install workspace dependencies (web + packages)
-pnpm install
+# 1. Install web dependencies
+cd web && pnpm install
 
 # 2. Configure environment (single database, always)
-#    - packages/db/.env  : DATABASE_URL (the one PostgreSQL DB), plus other platform vars
-#    - web/.env          : valet vars (JWT_SECRET, admin creds, SMTP, WS_*, ANPR_API_KEY)
+#    - web/.env  : DATABASE_URL (the one PostgreSQL DB), plus all platform + valet vars
 #    - copy .env.example files as needed
 
 # 3. Apply Prisma migrations + seed the permission catalog
-pnpm --filter @saasclaude/db exec prisma migrate deploy
-pnpm --filter @saasclaude/db run seed
+cd web && pnpm exec prisma migrate deploy
+cd web && pnpm run db:seed
 
 # 4. Start the super admin dev server
-pnpm dev                # web/ on http://localhost:3000
+cd web && pnpm dev            # web/ on http://localhost:3000
 
 # 5. (Optional) Start real-time WebSocket server
-pnpm --filter web run vws
+cd web && pnpm run vws
 
 # 6. Run each app independently (own install + port)
 cd apps/mobile-web && npm install && npm run dev   # :3001
@@ -132,14 +131,14 @@ Default super admin login: the `ADMIN_EMAIL` / `ADMIN_PASSWORD` set in `web/.env
 Common commands (from repo root):
 
 ```bash
-pnpm dev            # start web dev server
-pnpm build          # prisma generate + next build
-pnpm lint           # lint all workspace packages
-pnpm typecheck      # typecheck all workspace packages
-pnpm test           # run tests
-pnpm --filter @saasclaude/db exec prisma migrate deploy   # apply DB migrations
-pnpm --filter @saasclaude/db run seed                     # seed core permission catalog
-pnpm --filter web run vws         # websocket server (port 3002)
+cd web && pnpm dev            # start web dev server
+cd web && pnpm build          # prisma generate + next build
+cd web && pnpm lint           # lint web
+cd web && pnpm typecheck      # typecheck web
+cd web && pnpm test           # run tests
+cd web && pnpm exec prisma migrate deploy   # apply DB migrations
+cd web && pnpm run db:seed                   # seed core permission catalog
+cd web && pnpm run vws        # websocket server (port 3002)
 ```
 
 > **Note:** each of `apps/*` is a self-contained app — run `npm install` inside it before its own `npm run dev`/`build`.

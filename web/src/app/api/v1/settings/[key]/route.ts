@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listOrganizationSettings, setOrganizationSetting } from "@saasclaude/db";
+import { listOrganizationSettings, setOrganizationSetting } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ key: string }> };

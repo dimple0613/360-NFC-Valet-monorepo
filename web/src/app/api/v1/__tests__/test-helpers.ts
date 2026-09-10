@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createApiKey, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { createApiKey, prismaWithoutTenantScoping } from "../../../../lib/db";
 
 /** Real DB org, no membership/user needed — REST routes authenticate via API key alone. */
 export async function seedOrganization(name: string) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { EmailAlreadyRegisteredError, WeakPasswordError, resolveEmailSender, signUp } from "@saasclaude/db";
+import { EmailAlreadyRegisteredError, WeakPasswordError, resolveEmailSender, signUp } from "../../../../lib/db";
 import { createOrganizationForExistingUser } from "@/lib/auth/signup-flow";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 

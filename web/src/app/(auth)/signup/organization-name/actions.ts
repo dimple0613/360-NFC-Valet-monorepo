@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSession } from "@saasclaude/db";
+import { createSession } from "../../../../lib/db";
 import { createOrganizationForExistingUser } from "@/lib/auth/signup-flow";
 import { setSessionCookie } from "@/lib/auth/session";
 import { clearPendingOrgNameCookie, getPendingOrgNameUserId } from "@/lib/auth/pending-org-name";
@@ -25,5 +25,5 @@ export async function nameOrganizationAction(
   await clearPendingOrgNameCookie();
   const { rawToken } = await createSession({ userId, organizationId });
   await setSessionCookie(rawToken);
-  redirect("/");
+  redirect("/select-plan");
 }

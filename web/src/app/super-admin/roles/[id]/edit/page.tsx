@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PencilIcon } from "lucide-react";
-import { getGlobalRoleWithPermissions, prismaWithoutTenantScoping, RoleNotFoundError } from "@saasclaude/db";
+import { getGlobalRoleWithPermissions, prismaWithoutTenantScoping, RoleNotFoundError } from "../../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

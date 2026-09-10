@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { setPlatformSetting } from "@saasclaude/db";
+import { setPlatformSetting } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_SETTINGS_PERMISSION = "core.platform.manage_settings";

@@ -1,4 +1,4 @@
-import { runWithTenant, type ResolvedSession } from "@saasclaude/db";
+import { runWithTenant, type ResolvedSession } from "../db";
 import { requireSession } from "../auth/session";
 
 export class NoActiveOrganizationError extends Error {

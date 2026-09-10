@@ -1,4 +1,4 @@
-import { listPlatformAdminsSearch, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { listPlatformAdminsSearch, prismaWithoutTenantScoping } from "../../../lib/db";
 import { ShieldCheckIcon } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";

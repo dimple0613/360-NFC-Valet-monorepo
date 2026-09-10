@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, RegistrationDisabledError, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
+import { EmailAlreadyRegisteredError, enforceRateLimit, RateLimitExceededError, RegistrationDisabledError, verifyCaptcha, WeakPasswordError } from "../../../lib/db";
 import { signUpNewOrganization } from "@/lib/auth/signup-flow";
 import { setSessionCookie } from "@/lib/auth/session";
 
@@ -45,5 +45,5 @@ export async function signupAction(_prevState: SignupFormState, formData: FormDa
   }
 
   await setSessionCookie(sessionToken);
-  redirect("/");
+  redirect("/select-plan");
 }

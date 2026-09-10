@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { MembershipNotFoundError, removeOrganizationMember } from "@saasclaude/db";
+import { MembershipNotFoundError, removeOrganizationMember } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

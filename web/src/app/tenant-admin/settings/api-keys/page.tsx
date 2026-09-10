@@ -1,4 +1,4 @@
-import { getUserOrganizationPermissions, listApiKeysSearch, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { getUserOrganizationPermissions, listApiKeysSearch, prismaWithoutTenantScoping } from "../../../../lib/db";
 import { KeyRoundIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";

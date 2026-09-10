@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prismaWithoutTenantScoping } from "@saasclaude/db";
+import { prismaWithoutTenantScoping } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_PLATFORM_ADMINS_PERMISSION = "core.platform.manage_platform_admins";

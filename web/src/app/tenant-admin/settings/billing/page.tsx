@@ -3,7 +3,7 @@ import {
   getPlanById,
   getUserOrganizationPermissions,
   listPlans,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { CreditCardIcon, CheckIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,11 @@ function formatPriceWithCycle(priceCents: number | null, currency: string, billi
 }
 
 const CHECKOUT_MESSAGES: Record<string, { variant: "default" | "destructive"; text: string }> = {
-  success: { variant: "default", text: "Subscription started — it may take a moment to appear below once Stripe's webhook lands." },
+  success: { variant: "default", text: "Subscription started — it may take a moment to appear below once the payment provider's webhook lands." },
   cancelled: { variant: "default", text: "Checkout was cancelled." },
   not_configured: {
     variant: "destructive",
-    text: "Stripe isn't configured on this server yet (STRIPE_SECRET_KEY is unset) — checkout can't start until it is.",
+    text: "No payment provider is configured on this server yet (no enabled adapter with complete credentials, and STRIPE_SECRET_KEY is unset) — checkout can't start until one is.",
   },
   forbidden: { variant: "destructive", text: "You don't have permission to manage billing for this organization." },
 };

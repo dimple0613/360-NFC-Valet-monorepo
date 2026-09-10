@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { beginAppleAuth, MissingOAuthConfigError } from "@saasclaude/db";
+import { beginAppleAuth, MissingOAuthConfigError } from "../../../../lib/db";
 import { resolveBaseUrl } from "@/lib/base-url";
 import { setOAuthStateCookies } from "@/lib/auth/oauth-cookies";
 

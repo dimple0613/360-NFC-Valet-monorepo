@@ -1,5 +1,5 @@
 import { CreditCardIcon } from "lucide-react";
-import { listAllSubscriptionsSearch } from "@saasclaude/db";
+import { listAllSubscriptionsSearch } from "../../../lib/db";
 import { PageHeader } from "@/components/page-header";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";

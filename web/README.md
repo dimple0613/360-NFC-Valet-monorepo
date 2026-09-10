@@ -4,7 +4,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 Local dev uses Laragon's bundled PostgreSQL and Redis rather than Docker Compose — both already run as part of the Laragon stack, so there's no extra service to manage.
 
-- PostgreSQL 14.5, listening on `127.0.0.1:5432`. A dedicated `saasclaude` database and a scoped `saasclaude` login role (non-superuser, `NOCREATEDB`/`NOCREATEROLE`) were created — the app connects as that role rather than the `postgres` superuser, mirroring the least-privilege connection a Neon project would give in production. Credentials live in `packages/db/.env` (`DATABASE_URL`), gitignored.
+- PostgreSQL 14.5, listening on `127.0.0.1:5432`. A dedicated `saasclaude` database and a scoped `saasclaude` login role (non-superuser, `NOCREATEDB`/`NOCREATEROLE`) were created — the app connects as that role rather than the `postgres` superuser, mirroring the least-privilege connection a Neon project would give in production. Credentials live in `web/.env` (`DATABASE_URL`), gitignored.
 - Redis 5.0.14, listening on `127.0.0.1:6379`, no auth (dev only).
 
 To recreate the database/role after a fresh Postgres install:
@@ -19,11 +19,11 @@ ALTER ROLE saasclaude CREATEDB;
 
 The role needs `CREATEDB` because `prisma migrate dev` provisions a throwaway shadow database on each run to detect drift — it's not a schema privilege, just permission to spin up/tear down that scratch DB locally. Production migrations against Neon use a different flow and don't need this.
 
-After pulling schema changes, run `pnpm --filter @saasclaude/db exec prisma migrate dev` to apply them locally. The tenant-scoping regression tests (`packages/db/src/__tests__/tenant-scoping.test.ts`) are integration tests that hit this local database directly — they create and clean up their own fixture rows, but they do need the schema migrated first.
+After pulling schema changes, run `pnpm exec prisma migrate dev` (from `web/`) to apply them locally. The tenant-scoping regression tests (`src/lib/db/__tests__/tenant-scoping.test.ts`) are integration tests that hit this local database directly — they create and clean up their own fixture rows, but they do need the schema migrated first.
 
-Then copy `.env.example` (repo root) to `packages/db/.env` and set `DATABASE_URL="postgresql://saasclaude:saasclaude_dev@localhost:5432/saasclaude?schema=public"`.
+Then copy `.env.example` to `web/.env` and set `DATABASE_URL`.
 
-After migrating, run `pnpm --filter @saasclaude/db run seed` to register core's permission catalog (idempotent — safe to re-run anytime).
+After migrating, run `pnpm run db:seed` to register core's permission catalog (idempotent — safe to re-run anytime).
 
 ## Getting Started
 

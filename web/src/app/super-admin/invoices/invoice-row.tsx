@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { TableCell, TableRow } from "@/components/ui/table";
-import type { PlatformInvoiceRow } from "@saasclaude/db";
+import type { PlatformInvoiceRow } from "../../../lib/db";
 import { formatPrice, formatDateTime } from "@/lib/format";
 import { StatusBadge, INVOICE_STATUS_STYLES } from "@/components/status-badge";
 

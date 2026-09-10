@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listAuditLogsForOrganizationPage } from "@saasclaude/db";
+import { listAuditLogsForOrganizationPage } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 import { parsePageParams } from "@/lib/tenant/pagination";
 

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { consoleEmailSender, inviteUserToOrganization, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { consoleEmailSender, inviteUserToOrganization, prismaWithoutTenantScoping } from "../../../../lib/db";
 import { GET } from "../members/invites/route";
 import { DELETE } from "../members/invites/[id]/route";
 import { apiRequest, routeCtx, seedApiKey, seedOrganization, jsonOf } from "./test-helpers";

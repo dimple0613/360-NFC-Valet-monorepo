@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { prismaWithoutTenantScoping, registerFeatures, setOrganizationFeatureOverride } from "@saasclaude/db";
+import { prismaWithoutTenantScoping, registerFeatures, setOrganizationFeatureOverride } from "../../../../lib/db";
 import { GET } from "../features/route";
 import { apiRequest, seedApiKey, seedOrganization, jsonOf } from "./test-helpers";
 
