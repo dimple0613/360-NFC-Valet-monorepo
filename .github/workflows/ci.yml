@@ -1,73 +1,53 @@
-﻿name: CI
+﻿name: App APK CI
 
 on:
   workflow_dispatch:
 
 jobs:
-  ci:
-    name: lint ┬╖ typecheck ┬╖ test ┬╖ build
+  build-apk:
+    name: Build Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: saasclaude
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saasclaude
-      CI: "true"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.29.3
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: app
+        run: npm ci
 
-      - name: Apply migrations (test database)
-        working-directory: web
-        run: pnpm exec prisma migrate deploy
+      - name: Generate native Android project
+        working-directory: app
+        run: npm run prebuild
 
-      # M9: prisma generate smoke in a CLEAN checkout. Locally on Windows this
-      # regularly trips the Prisma query-engine .dll file lock whenever a dev
-      # server is running (TASKS.md's documented hazard), so it can't be trusted
-      # to prove the schema generates. With no dev processes on this Ubuntu
-      # runner, a fresh generate here is the reliable gate that the client
-      # regenerates clean from the committed schema/migrations.
-      - name: Prisma generate smoke (clean checkout)
-        working-directory: web
-        run: pnpm exec prisma generate
+      - name: Build release APK
+        working-directory: app/android
+        run: ./gradlew assembleRelease --no-daemon
 
-      - name: Lint
-        run: pnpm lint
+      - name: Rename APK with timestamp
+        id: rename-apk
+        shell: bash
+        run: |
+          apk_path="app/android/app/build/outputs/apk/release/app-release.apk"
+          timestamp=$(date +%Y%m%d%H%M)
+          mv "$apk_path" "app/android/app/build/outputs/apk/release/app-release-${timestamp}.apk"
+          echo "timestamp=${timestamp}" >> "$GITHUB_OUTPUT"
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk-${{ steps.rename-apk.outputs.timestamp }}
+          path: app/android/app/build/outputs/apk/release/app-release-${{ steps.rename-apk.outputs.timestamp }}.apk
