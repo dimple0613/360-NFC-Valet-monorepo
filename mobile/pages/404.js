@@ -14,18 +14,11 @@ function NotFound() {
           <div className="state-sub">
             This link doesn&apos;t match a card page. Open this page from a tagged NFC card to load your hotel page, or go back to the start.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-            <Link href="/" className="btn-dark" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>
-              Go to start
-            </Link>
-            <Link href="/?uid=7001" className="btn-ghost" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>
-              Open sample card
-            </Link>
-          </div>
+
         </div>
       </main>
       <footer className="footer">
-        <b>360 NFC Valet</b> · Tap your card, skip the curb
+        © 2026 360 NFC Valet. All rights reserved.
       </footer>
     </div>
   );
