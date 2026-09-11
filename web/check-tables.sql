@@ -1,0 +1,1 @@
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('platform_settings', 'organization_settings', 'user_settings', 'platform_pages', 'platform_page_contents', 'platform_page_section_contents', 'permission', 'role', 'plan', 'super_admin_invite') ORDER BY table_name;
