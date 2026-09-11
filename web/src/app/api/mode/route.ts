@@ -11,6 +11,11 @@ import { getAccessSettings } from "../../../lib/db";
 // Super Admin "Settings > General" tab writes via setAccessSettings, so the
 // gate and the toggle always agree.
 export async function GET() {
-  const access = await getAccessSettings();
-  return NextResponse.json({ maintenanceMode: access.maintenanceMode });
+  try {
+    const access = await getAccessSettings();
+    return NextResponse.json({ maintenanceMode: access.maintenanceMode });
+  } catch (e) {
+    console.error("[/api/mode] ERROR:", e);
+    return NextResponse.json({ error: String(e), message: (e as Error)?.message }, { status: 500 });
+  }
 }

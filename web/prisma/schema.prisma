@@ -8,7 +8,7 @@
 generator client {
   provider        = "prisma-client-js"
   output          = "../src/lib/db/generated/client"
-  previewFeatures = ["driverAdapters"]
+  previewFeatures = ["driverAdapters", "queryCompiler"]
   // "native" alone only generates an engine binary matching whatever OS ran
   // `prisma generate` (Vercel's own build machine) — that doesn't reliably
   // match the actual Vercel Functions (Lambda) runtime the deployed code
@@ -1157,6 +1157,8 @@ model Property {
   uidStart   BigInt   @default(7001)              @map("uid_start")
   phone      String?
   imageUrl   String?                              @map("image_url")
+  validatesValet Boolean @default(false)          @map("validates_valet")
+  staffCode      String?                          @map("staff_code")
   createdAt  DateTime @default(now())             @map("created_at")
 
   zones   Zone[]

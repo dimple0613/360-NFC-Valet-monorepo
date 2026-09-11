@@ -18,19 +18,15 @@ const IS_WORKERS_RUNTIME =
   navigator?.userAgent === "Cloudflare-Workers";
 
 /**
- * PrismaClient constructor for the current runtime. On Workers the query
- * engine must run as WASM: the native engine binaries can't execute in
- * workerd, and their discovery (`getCurrentBinaryTarget`) calls fs.readdir,
- * which unenv does not implement on Workers. The generated client ships a
- * `wasm` entry (engineWasm wired) — but the app-level `./generated/client`
- * resolve goes through the bundler's Node conditions and lands on the
- * library build, so we pick the WASM entry explicitly here.
+ * PrismaClient constructor for the current runtime. On Workers the edge/WASM
+ * entry point is required — it uses the query compiler (pure JS) when
+ * `queryCompiler` is enabled, so no WASM binary is loaded at runtime.
  */
 function getClientConstructor(): typeof PrismaClientNode {
   if (IS_WORKERS_RUNTIME) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const wasmClient = require("./generated/client/wasm") as typeof import("./generated/client");
-    return wasmClient.PrismaClient;
+    const edgeClient = require("./generated/client/edge") as typeof import("./generated/client");
+    return edgeClient.PrismaClient;
   }
   return PrismaClientNode;
 }
@@ -79,12 +75,18 @@ function resolveConnectionString(): string {
     try {
       const ctx = getCloudflareContext({ async: false });
       const hyperdrive = ctx.env.HYPERDRIVE as { connectionString?: string } | undefined;
-      if (hyperdrive?.connectionString) return hyperdrive.connectionString;
-    } catch {
-      // not inside a Workers request (build time / local preview) — fall through
+      if (hyperdrive?.connectionString) {
+        console.log("[DB] Using Hyperdrive connection string");
+        return hyperdrive.connectionString;
+      }
+      console.error("[DB] Hyperdrive binding found but no connectionString");
+    } catch (e) {
+      console.error("[DB] getCloudflareContext failed:", e);
     }
   }
-  return process.env.DATABASE_URL ?? "";
+  const url = process.env.DATABASE_URL ?? "";
+  console.log("[DB] Using DATABASE_URL, length:", url.length, "starts:", url.substring(0, 30));
+  return url;
 }
 
 /**
