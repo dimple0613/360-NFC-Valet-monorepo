@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     // style, not governed by the core's strict TS lint rules).
     "src/pages/**",
     "valet/**",
+    // Prisma-generated client — emitted by `prisma generate`, not handwritten;
+    // linting it produces thousands of false positives.
+    "src/lib/db/generated/**",
   ]),
 ]);
 

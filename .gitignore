@@ -19,7 +19,7 @@ build/
 .env.*.local
 
 # Prisma
-packages/db/generated/
+web/src/lib/db/generated/
 
 # Logs
 *.log
@@ -60,7 +60,10 @@ coverage/
 # Monorepo sub-projects
 
 # Expo / React Native app
-apps/app/google-services.json
+app/google-services.json
+
+# Local test/report artifacts (HTML/MD) — never pushed
+/.test-report/
 
 # Redis local runtime dump (super admin repo root) — not source
 dump.rdb

@@ -47,7 +47,7 @@ export default async function DriversPage({
         icon={<UsersIcon className="size-5" />}
         title="Valet drivers"
         description={`${data.totalCount} drivers · valet staff, their assignment, shift status, and performance.`}
-        actions={<CreateDriverDialog fields={fields} />}
+        actions={<CreateDriverDialog fields={fields} hideProperty />}
       />
 
       <DataTable

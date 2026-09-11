@@ -26,6 +26,25 @@ export default async function TenantAdminLayout({ children }: { children: React.
     name: currentMembership.organization.name,
     status: currentMembership.organization.status,
   };
+
+  // FR-130/FR-170: Enforce subscription requirement — new organizations must
+  // select a plan (free or paid) before accessing tenant admin. Without an
+  // ACTIVE subscription, redirect to /select-plan. This prevents users from
+  // bypassing plan selection by navigating directly to /tenant-admin.
+  // Note: Super admins impersonating users are NOT exempt — they must see the
+  // same experience as the real user would (the org either has a plan or not).
+  const subscription = await prismaWithoutTenantScoping.subscription.findFirst({
+    where: { organizationId, status: "ACTIVE" },
+  });
+  if (!subscription) {
+    redirect("/select-plan");
+  }
+
+  // FR-124: Block access to suspended organizations. SUSPENDED orgs cannot
+  // access tenant admin (only super admins can view them via /super-admin).
+  if (currentOrg.status === "SUSPENDED") {
+    forbidden();
+  }
   const otherOrgs = memberships
     .filter((m) => m.organizationId !== organizationId)
     .map((m) => ({ id: m.organization.id, name: m.organization.name, status: m.organization.status }));

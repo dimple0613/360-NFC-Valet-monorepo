@@ -2,16 +2,38 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { PrismaClient } from "./generated/client";
+import type { PrismaClient } from "./generated/client";
+import { PrismaClient as PrismaClientNode } from "./generated/client";
 import { tenantScopingExtension } from "./tenant-scoping";
 
-// Cloudflare Workers (workerd) reports no `process.versions.node` (Node does).
-// Used to swap native-only fallbacks (engine-binary lookup, argon2, redis) for
-// Workers-safe paths without affecting local dev / Vercel.
+// Cloudflare Workers (workerd) detection. `process.versions.node` is NOT a
+// reliable marker: workerd synthesizes it under nodejs_compat, and it does
+// not reliably expose `process.versions.workerd`. The marker Prisma's own
+// runtimes trust (same string they check in every bundled runtime) is the
+// `navigator.userAgent` workerd always reports. Node 21+ also defines a global
+// `navigator`, but its userAgent is "Node.js/<version>", so the exact match
+// stays unambiguous.
 const IS_WORKERS_RUNTIME =
-  typeof process !== "undefined" &&
-  typeof process.versions !== "undefined" &&
-  typeof process.versions.node === "undefined";
+  typeof navigator !== "undefined" &&
+  navigator?.userAgent === "Cloudflare-Workers";
+
+/**
+ * PrismaClient constructor for the current runtime. On Workers the query
+ * engine must run as WASM: the native engine binaries can't execute in
+ * workerd, and their discovery (`getCurrentBinaryTarget`) calls fs.readdir,
+ * which unenv does not implement on Workers. The generated client ships a
+ * `wasm` entry (engineWasm wired) — but the app-level `./generated/client`
+ * resolve goes through the bundler's Node conditions and lands on the
+ * library build, so we pick the WASM entry explicitly here.
+ */
+function getClientConstructor(): typeof PrismaClientNode {
+  if (IS_WORKERS_RUNTIME) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const wasmClient = require("./generated/client/wasm") as typeof import("./generated/client");
+    return wasmClient.PrismaClient;
+  }
+  return PrismaClientNode;
+}
 
 // Vercel/Lambda-only fallback: Prisma's own runtime search for the query
 // engine binary tries a fixed set of guessed root/subpath combinations
@@ -66,13 +88,20 @@ function resolveConnectionString(): string {
 }
 
 /**
- * Prisma's driver adapter for Cloudflare. `maxUses: 1` is the documented
- * Workers-safe setting: a connection is used for at most one query cycle so
- * the pool never hands out a stale/socket-migrated connection between the
- * isolate's sequential requests.
+ * Prisma's driver adapter. `maxUses: 1` is the documented Workers-safe
+ * setting — a connection is used for at most one query cycle so the pool
+ * never hands out a stale/socket-migrated connection between the isolate's
+ * sequential requests. That same setting is a footgun everywhere else:
+ * every query opens a fresh TLS connection, which against a pooled host like
+ * Neon's pgbouncer (and Hyperdrive's proxy) turns each query into a full
+ * connect+SSL handshake and makes bulk work (seeds, imports) take minutes.
+ * Plain Node/Vercel reuse the pool.
  */
 function buildAdapter(): PrismaPg {
-  return new PrismaPg({ connectionString: resolveConnectionString(), maxUses: 1 });
+  return new PrismaPg({
+    connectionString: resolveConnectionString(),
+    maxUses: IS_WORKERS_RUNTIME ? 1 : undefined,
+  });
 }
 
 /**
@@ -88,7 +117,8 @@ function buildAdapter(): PrismaPg {
  */
 function getRawClient(): PrismaClient {
   if (!globalThis.__prisma) {
-    globalThis.__prisma = new PrismaClient({ adapter: buildAdapter() });
+    const Constructor = getClientConstructor();
+    globalThis.__prisma = new Constructor({ adapter: buildAdapter() }) as PrismaClient;
   }
   return globalThis.__prisma;
 }

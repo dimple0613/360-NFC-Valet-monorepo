@@ -44,12 +44,14 @@ export function DriverForm({
   fields,
   onSuccess,
   submitLabel,
+  hideProperty = false,
 }: {
   driverId?: number;
   defaults?: DriverFormDefaults;
   fields: { id: number; name: string }[];
   onSuccess?: () => void;
   submitLabel: string;
+  hideProperty?: boolean;
 }) {
   return (
     <Formik
@@ -112,11 +114,13 @@ export function DriverForm({
       {({ isSubmitting }) => (
         <Form style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <FormField name="name" label="Full name" placeholder="e.g. Ramesh Kumar" />
-          <FormSelectField
-            name="propertyId"
-            label="Property"
-            options={[{ value: "", label: "No property" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
-          />
+          {hideProperty ? null : (
+            <FormSelectField
+              name="propertyId"
+              label="Property"
+              options={[{ value: "", label: "No property" }, ...fields.map((p) => ({ value: String(p.id), label: p.name }))]}
+            />
+          )}
           {driverId ? null : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <FormField name="password" label="Password" type="password" placeholder="Min 6 characters" />

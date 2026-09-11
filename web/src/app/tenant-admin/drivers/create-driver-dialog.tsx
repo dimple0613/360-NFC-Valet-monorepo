@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { DriverForm } from "./driver-form";
 
-export function CreateDriverDialog({ fields }: { fields: { id: number; name: string }[] }) {
+export function CreateDriverDialog({ fields, hideProperty = false }: { fields: { id: number; name: string }[]; hideProperty?: boolean }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -73,6 +73,7 @@ export function CreateDriverDialog({ fields }: { fields: { id: number; name: str
           <DriverForm
             fields={fields}
             submitLabel="Add driver"
+            hideProperty={hideProperty}
             onSuccess={() => {
               setOpen(false);
               router.refresh();

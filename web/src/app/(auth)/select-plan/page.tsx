@@ -1,11 +1,13 @@
 import type { Plan, PlanResource } from "../../../lib/db";
-import { listPlans } from "../../../lib/db";
+import { listPlans, prismaWithoutTenantScoping } from "../../../lib/db";
 import { CheckIcon, CreditCardIcon, ArrowRightIcon } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { onboardingSelectPlanAction } from "./actions";
 import { CheckoutRefresh } from "@/app/tenant-admin/settings/billing/checkout-refresh";
 import { AUTH_HEADLINE, AuthLeftContent } from "../auth-left";
 import { CheckoutToast } from "./checkout-toast";
+import { requireIdentity } from "@/lib/auth/current-user";
+import { redirect } from "next/navigation";
 
 function formatPriceWithCycle(priceCents: number | null, currency: string, billingCycle: string | null): string {
   if (priceCents === null || priceCents === 0) return "Free";
@@ -29,6 +31,22 @@ export default async function SelectPlanPage({
 }: {
   searchParams: Promise<{ checkout?: string; error?: string }>;
 }) {
+  // If user already has an active subscription, redirect them to tenant-admin.
+  // This prevents users from being stuck on /select-plan after they've already
+  // chosen a plan (e.g., navigating back from tenant-admin, or refreshing).
+  const identity = await requireIdentity();
+  if (identity.session.organizationId) {
+    const existingSubscription = await prismaWithoutTenantScoping.subscription.findFirst({
+      where: { 
+        organizationId: identity.session.organizationId,
+        status: "ACTIVE",
+      },
+    });
+    if (existingSubscription) {
+      redirect("/tenant-admin");
+    }
+  }
+
   const { checkout, error } = await searchParams;
   const plans = await listPlans({ visibility: ["PUBLIC"] });
   const message = error ? CHECKOUT_MESSAGES[error] : checkout ? CHECKOUT_MESSAGES[checkout] : null;
