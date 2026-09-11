@@ -329,6 +329,10 @@ function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
                 <FormField name="zones" label="Zones" type="number" />
                 <FormField name="slots" label="Slots" type="number" />
               </div>
+              <FormField name="cards" label="Card pool" type="number" placeholder="200" />
+              <div style={{ fontSize: 11, color: "#6C7A93", fontWeight: 500, marginTop: -6 }}>
+                How many NFC cards to mint from the deck for this location.
+              </div>
               <FormToggleField
                 name="validatesValet"
                 label="Validate with staff code"
@@ -441,7 +445,11 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
               <FormField name="zones" label="Zones" type="number" />
               <FormField name="slots" label="Slots" type="number" />
             </div>
-<FormToggleField
+            <FormField name="cards" label="Card pool" type="number" />
+            <div style={{ fontSize: 11, color: "#6C7A93", fontWeight: 500, marginTop: -6 }}>
+              Total NFC cards assigned to this location. Increasing mints more from deck; decreasing unassigns excess.
+            </div>
+            <FormToggleField
               name="validatesValet"
               label="Validate with staff code"
               description="Guests get a staff validation box on this property's page while waiting."
