@@ -571,6 +571,27 @@ function slugifyName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
+async function mintCards(
+  exec: (text: string, params?: unknown[]) => Promise<any>,
+  count: number,
+  propertyId: number,
+): Promise<void> {
+  const deck = (await exec("SELECT prefix, next_uid FROM card_deck WHERE id = 1 FOR UPDATE")).rows[0];
+  if (!deck) throw new Error("Card deck is not initialized.");
+  const prefix = String(deck.prefix || "NFC").toUpperCase();
+  const start = BigInt(deck.next_uid);
+  const end = start + BigInt(count) - 1n;
+  const pad = Math.max(5, String(end).length);
+  const uids: string[] = [];
+  for (let n = start; n <= end; n++) {
+    uids.push(`${prefix}-${String(n).padStart(pad, "0")}`);
+  }
+  for (const uid of uids) {
+    await exec("INSERT INTO nfc_cards (uid, property_id, status) VALUES ($1, $2, $3)", [uid, propertyId, "assigned"]);
+  }
+  await exec("UPDATE card_deck SET next_uid = $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1", [String(end + 1n)]);
+}
+
 export async function createLocation(input: LocationInput, organizationId?: string | null): Promise<{ id: number; name: string }> {
   const zoneCount = Math.max(1, Number(input.zones) || 1);
   const slotCount = Math.max(1, Number(input.slots) || 1);
@@ -598,14 +619,8 @@ export async function createLocation(input: LocationInput, organizationId?: stri
       ]
     );
     const propId = Number(rows[0].id);
-    // Auto-mint cards from the deck and assign them to the new property.
     if (pool > 0) {
-      try {
-        await createDeckCards({ count: pool, propertyId: propId, organizationId: organizationId ?? null });
-      } catch {
-        // Card minting is best-effort: if the deck is exhausted the property
-        // still gets created; the admin can mint cards separately.
-      }
+      await mintCards(exec, pool, propId);
     }
     const perZone = Math.ceil(slotCount / zoneCount);
     for (let z = 0; z < zoneCount; z++) {
@@ -673,11 +688,7 @@ export async function updateLocation(id: number, input: LocationInput, organizat
     );
     if (pool > currentCount) {
       const toMint = pool - currentCount;
-      try {
-        await createDeckCards({ count: toMint, propertyId: id, organizationId: organizationId ?? null });
-      } catch {
-        // Best-effort: property still updated even if deck is exhausted.
-      }
+      await mintCards(exec, toMint, id);
     } else if (pool < currentCount) {
       const toRemove = currentCount - pool;
       await exec(
