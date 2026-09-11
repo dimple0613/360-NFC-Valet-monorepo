@@ -2,8 +2,14 @@
 /**
  * Post-build patch: Turbopack hardcodes absolute Windows filesystem paths in
  * loadWasmChunk() for import() of .wasm files. On Cloudflare Workers those
- * paths don't resolve. This script replaces loadWasmChunk with a fetch()-based
- * loader that fetches the WASM from Workers Assets.
+ * paths don't resolve.
+ *
+ * Strategy: embed the WASM binary as base64 directly in the bundle and
+ * decode + compile it at runtime. This avoids:
+ *   - import() with absolute Windows paths (doesn't work on Workers)
+ *   - fetch() (OpenNext intercepts globalThis.fetch and wraps it in
+ *     CustomRequest, which throws)
+ *   - fs.readFileSync (no filesystem on Workers)
  */
 
 const fs = require("node:fs");
@@ -15,57 +21,60 @@ const SERVER_FN = path.join(OPENNEXT, "server-functions/default");
 const CHUNKS_DIR = path.join(SERVER_FN, ".next/server/chunks");
 const ASSETS_DIR = path.join(OPENNEXT, "assets");
 
-// ---------- 1. Copy WASM binary into Workers Assets ----------
+// ---------- 1. Read WASM binary and encode as base64 ----------
 fs.mkdirSync(ASSETS_DIR, { recursive: true });
-const WASM_DST = path.join(ASSETS_DIR, "query_engine_bg.wasm");
-let copied = false;
+const WASM_PATH = path.join(ASSETS_DIR, "query_engine_bg.wasm");
+let wasmFound = false;
 
 const ssrDir = path.join(CHUNKS_DIR, "ssr");
 const knownSrc = path.join(ssrDir, "src_lib_db_generated_client_query_engine_bg_05ek5-k.wasm");
 if (fs.existsSync(knownSrc)) {
-  fs.copyFileSync(knownSrc, WASM_DST);
-  console.log("[patch-wasm] Copied WASM -> " + WASM_DST);
-  copied = true;
+  fs.copyFileSync(knownSrc, WASM_PATH);
+  wasmFound = true;
 }
-if (!copied) {
+if (!wasmFound) {
   try {
     for (const f of fs.readdirSync(ssrDir)) {
       if (f.includes("query_engine_bg") && f.endsWith(".wasm")) {
-        fs.copyFileSync(path.join(ssrDir, f), WASM_DST);
-        console.log("[patch-wasm] Copied WASM (" + f + ")");
-        copied = true;
+        fs.copyFileSync(path.join(ssrDir, f), WASM_PATH);
+        wasmFound = true;
         break;
       }
     }
   } catch {}
 }
-if (!copied) {
+if (!wasmFound) {
   for (const dir of ["", "ssr"]) {
     try {
       for (const f of fs.readdirSync(path.join(CHUNKS_DIR, dir))) {
         if (f.includes("query_engine_bg") && f.endsWith(".wasm")) {
-          fs.copyFileSync(path.join(CHUNKS_DIR, dir, f), WASM_DST);
-          console.log("[patch-wasm] Copied WASM (from " + f + ")");
-          copied = true;
+          fs.copyFileSync(path.join(CHUNKS_DIR, dir, f), WASM_PATH);
+          wasmFound = true;
           break;
         }
       }
     } catch {}
-    if (copied) break;
+    if (wasmFound) break;
   }
 }
-if (!copied) {
+if (!wasmFound) {
   console.error("[patch-wasm] FATAL: Cannot find query_engine_bg.wasm");
   process.exit(1);
 }
 
-// ---------- 2. Patch loadWasmChunk ----------
-// Replacement: uses fetch() + WebAssembly.compile()
-const REPLACEMENT = 'async function loadWasmChunk(chunkPath){const resp=await fetch("/query_engine_bg.wasm");if(resp.ok){const bytes=await resp.arrayBuffer();return await WebAssembly.compile(bytes)}throw new Error("loadWasmChunk: fetch failed for "+chunkPath)}';
+const wasmBuffer = fs.readFileSync(WASM_PATH);
+const wasmBase64 = wasmBuffer.toString("base64");
+console.log("[patch-wasm] WASM: " + wasmBuffer.length + " bytes, base64: " + wasmBase64.length + " chars");
 
-// Fast regex: matches the ENTIRE loadWasmChunk function from signature to closing }}
-// The function always has: switch(chunkPath){cases...default:throw new Error(...)}}
-// No nested braces exist inside the cases, so }} always means switch-close + function-close.
+// ---------- 2. Build the replacement function ----------
+// Decode base64 -> Uint8Array -> WebAssembly.compile (no fetch, no fs, no import)
+const replacement =
+  'async function loadWasmChunk(chunkPath){var b64="' + wasmBase64 + '";var bin=atob(b64);var bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return await WebAssembly.compile(bytes)}';
+
+// ---------- 3. Patch loadWasmChunk in handler.mjs ----------
+// The function appears as a single minified line with a switch statement.
+// Regex matches from "async function loadWasmChunk(chunkPath){" through
+// the closing "}}" of the switch+function.
 const FN_REGEX = /async function loadWasmChunk\(chunkPath\)\{switch\(chunkPath\)\{(?:case"[^"]*":return\(await import\("[^"]*"\)\)\.default;)*default:throw new Error\(`[^`]*`\)\}\}/g;
 
 let totalPatched = 0;
@@ -76,8 +85,7 @@ function patchFile(filePath) {
   if (!content.includes("loadWasmChunk")) return;
 
   const basename = path.basename(filePath);
-  const before = content.length;
-  const updated = content.replace(FN_REGEX, REPLACEMENT);
+  const updated = content.replace(FN_REGEX, replacement);
 
   if (updated !== content) {
     const count = (content.match(FN_REGEX) || []).length;
@@ -87,7 +95,7 @@ function patchFile(filePath) {
   }
 }
 
-// Patch handler.mjs (the esbuild bundle - this is what actually deploys)
+// Patch handler.mjs (the esbuild bundle — this is what deploys)
 patchFile(path.join(SERVER_FN, "handler.mjs"));
 
 // Patch any separate chunk files too
