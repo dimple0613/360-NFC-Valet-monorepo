@@ -4,6 +4,10 @@ out/
 build/
 dev.log
 
+# OpenNext / Wrangler
+.open-next/
+.wrangler/
+
 # Environment
 .env*.local
 
