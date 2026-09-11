@@ -18,16 +18,11 @@ const IS_WORKERS_RUNTIME =
   navigator?.userAgent === "Cloudflare-Workers";
 
 /**
- * PrismaClient constructor for the current runtime. On Workers the edge/WASM
- * entry point is required — it uses the query compiler (pure JS) when
- * `queryCompiler` is enabled, so no WASM binary is loaded at runtime.
+ * PrismaClient constructor for the current runtime. With `queryCompiler`
+ * now default in Prisma 6.19.3, the regular client uses a pure JS query
+ * compiler — no native binary is needed on any platform.
  */
 function getClientConstructor(): typeof PrismaClientNode {
-  if (IS_WORKERS_RUNTIME) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const edgeClient = require("./generated/client/edge") as typeof import("./generated/client");
-    return edgeClient.PrismaClient;
-  }
   return PrismaClientNode;
 }
 

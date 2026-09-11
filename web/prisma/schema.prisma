@@ -6,14 +6,12 @@
 // and the tenant-scoping enforcement layer are separate Phase 1A tasks — see TASKS.md.
 
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../src/lib/db/generated/client"
-  previewFeatures = ["driverAdapters", "queryCompiler"]
-  // "native" alone only generates an engine binary matching whatever OS ran
-  // `prisma generate` (Vercel's own build machine) — that doesn't reliably
-  // match the actual Vercel Functions (Lambda) runtime the deployed code
-  // executes on, a well-documented Prisma+Vercel gotcha. rhel-openssl-3.0.x
-  // is the current Vercel Functions target.
+  provider      = "prisma-client-js"
+  output        = "../src/lib/db/generated/client"
+  // driverAdapters and queryCompiler are now default in Prisma 6.19.3 — no
+  // need to list them as preview features. The query compiler (pure JS)
+  // means no native binary is required at runtime, and the driver adapter
+  // handles the actual PostgreSQL connection via PrismaPg.
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
