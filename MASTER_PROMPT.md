@@ -1186,3 +1186,17 @@ The agent MUST NOT remove the requirement because:
 **EXPLICIT USER FILE REQUEST → MANDATORY FILE → TODO → CREATE/UPDATE → FILESYSTEM VERIFY → GIT VERIFY → COMMIT.**
 
 **A requested file that does not exist means the task is NOT complete.**
+
+---
+
+# 31. MANDATORY DOCUMENTATION UPDATE RULE
+
+* If any feature, functionality, UI behavior, workflow, configuration, or existing functionality is **added, removed, changed, fixed, or updated**, check whether the related `.md` documentation file needs to be updated.
+* If documentation is required, **update the relevant `.md` file in the same task** so it stays synchronized with the actual code.
+* Do not leave documentation describing old behavior after making a functionality change.
+* If multiple documentation files are affected, update all relevant files.
+* Do not create unnecessary documentation files. Update an existing relevant `.md` file when one already exists.
+* After updating the code, verify that the related documentation accurately reflects the final implementation.
+* **Code and documentation must remain consistent before the task is considered complete.**
+* This rule applies whenever functionality is changed, even if the user did not explicitly mention the documentation file.
+* If the change does **not** affect any existing documentation, do not create or modify documentation unnecessarily; briefly confirm that no documentation update was required.
