@@ -598,10 +598,15 @@ export async function createLocation(input: LocationInput, organizationId?: stri
       ]
     );
     const propId = Number(rows[0].id);
-    // #48: creating a location no longer auto-mints a card pool. Cards are
-    // platform inventory minted from the card_deck series; the property only
-    // carries display-only card_pool/uid_start legacy values. Card counts come
-    // from nfc_cards (assigned/pending views).
+    // Auto-mint cards from the deck and assign them to the new property.
+    if (pool > 0) {
+      try {
+        await createDeckCards({ count: pool, propertyId: propId, organizationId: organizationId ?? null });
+      } catch {
+        // Card minting is best-effort: if the deck is exhausted the property
+        // still gets created; the admin can mint cards separately.
+      }
+    }
     const perZone = Math.ceil(slotCount / zoneCount);
     for (let z = 0; z < zoneCount; z++) {
       await exec(
@@ -659,8 +664,29 @@ export async function updateLocation(id: number, input: LocationInput, organizat
         [id, String.fromCharCode(65 + z), perZone]
       );
     }
-    // #48: no auto-mint/topup of cards on edit — the deck is the only source of
-    // new cards; properties only carry display-only pool counts.
+    // Adjust card pool: mint more if needed, unassign excess if pool shrunk.
+    const currentCount = Number(
+      (await exec(
+        "SELECT COUNT(*)::int AS n FROM nfc_cards WHERE property_id = $1 AND status IN ('assigned','ready')",
+        [id]
+      )).rows[0]?.n ?? 0
+    );
+    if (pool > currentCount) {
+      const toMint = pool - currentCount;
+      try {
+        await createDeckCards({ count: toMint, propertyId: id, organizationId: organizationId ?? null });
+      } catch {
+        // Best-effort: property still updated even if deck is exhausted.
+      }
+    } else if (pool < currentCount) {
+      const toRemove = currentCount - pool;
+      await exec(
+        `UPDATE nfc_cards SET property_id = NULL, status = 'unassigned'
+         WHERE property_id = $1 AND status = 'assigned'
+         ORDER BY id DESC LIMIT $2`,
+        [id, toRemove]
+      );
+    }
     return { id, name: input.name };
   });
 }

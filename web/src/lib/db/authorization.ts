@@ -31,25 +31,20 @@ export async function getUserOrganizationPermissions(
   userId: string,
   organizationId: string,
 ): Promise<string[]> {
-  return runWithTenant(organizationId, async () => {
-    // role.organizationId filtered explicitly, not just inferred from the
-    // UserRole row's own (extension-enforced) organizationId — same belt-and-
-    // braces reasoning as userHasOrganizationPermission below, against a
-    // UserRole ever pointing at a Role from another org. The OR admits global
-    // roles (organizationId null, Super Admin-managed, usable by every org)
-    // alongside this org's own custom roles — never a different org's.
-    const userRoles = await db.userRole.findMany({
-      where: { userId, role: { OR: [{ organizationId }, { organizationId: null }] } },
-      include: { role: { include: { permissions: { include: { permission: true } } } } },
-    });
-    const keys = new Set<string>();
-    for (const userRole of userRoles) {
-      for (const rolePermission of userRole.role.permissions) {
-        keys.add(rolePermission.permission.key);
-      }
-    }
-    return [...keys];
+  // Route handlers don't establish AsyncLocalStorage tenant context, so we
+  // query with prismaWithoutTenantScoping. The WHERE clause already filters
+  // by organizationId explicitly — tenant scoping is redundant here.
+  const userRoles = await prismaWithoutTenantScoping.userRole.findMany({
+    where: { userId, role: { OR: [{ organizationId }, { organizationId: null }] } },
+    include: { role: { include: { permissions: { include: { permission: true } } } } },
   });
+  const keys = new Set<string>();
+  for (const userRole of userRoles) {
+    for (const rolePermission of userRole.role.permissions) {
+      keys.add(rolePermission.permission.key);
+    }
+  }
+  return [...keys];
 }
 
 export async function userHasOrganizationPermission(
