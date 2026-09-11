@@ -41,13 +41,13 @@ jobs:
         id: rename-apk
         shell: bash
         run: |
-          apk_path="app/android/app/build/outputs/apk/release/app-release.apk"
+          apk_path="app/android/app/build/outputs/apk/release/360-NFC-Valet.apk"
           timestamp=$(date +%Y%m%d%H%M)
-          mv "$apk_path" "app/android/app/build/outputs/apk/release/app-release-${timestamp}.apk"
+          mv "$apk_path" "app/android/app/build/outputs/apk/release/360-NFC-Valet-${timestamp}.apk"
           echo "timestamp=${timestamp}" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk-${{ steps.rename-apk.outputs.timestamp }}
-          path: app/android/app/build/outputs/apk/release/app-release-${{ steps.rename-apk.outputs.timestamp }}.apk
+          name: 360-NFC-Valet-apk-${{ steps.rename-apk.outputs.timestamp }}
+          path: app/android/app/build/outputs/apk/release/360-NFC-Valet-${{ steps.rename-apk.outputs.timestamp }}.apk
