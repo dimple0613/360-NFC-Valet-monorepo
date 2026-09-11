@@ -34,7 +34,7 @@ cp .env.example .env
 The checked-in environment example contains:
 
 ```env
-EXPO_PUBLIC_API_URL=http://localhost:3000/api
+EXPO_PUBLIC_API_URL=https://360-nfc-valet.dimple-49d.workers.dev/api
 ```
 
 The source also reads `EXPO_PUBLIC_WS_URL` for the WebSocket endpoint, but it is not included in `.env.example`. If the WebSocket endpoint is needed, set it locally without committing real credentials or secrets.

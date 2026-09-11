@@ -58,7 +58,7 @@ cp .env.example .env
 The checked-in `.env.example` defines:
 
 ```env
-EXPO_PUBLIC_API_URL=http://localhost:3000/api
+EXPO_PUBLIC_API_URL=https://360-nfc-valet.dimple-49d.workers.dev/api
 ```
 
 The source also reads `EXPO_PUBLIC_WS_URL` for the Socket.IO endpoint, but it is not present in `.env.example`. Its value is optional in code and defaults to an empty string.
