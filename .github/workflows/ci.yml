@@ -52,9 +52,11 @@ jobs:
         id: rename-apk
         shell: bash
         run: |
-          apk_path="app/android/app/build/outputs/apk/release/360-NFC-Valet.apk"
+          release_dir="app/android/app/build/outputs/apk/release"
+          apk_path="$(find "$release_dir" -maxdepth 1 -name '*.apk' | head -n1)"
+          test -n "$apk_path" || { echo "No APK found in $release_dir"; exit 1; }
           timestamp=$(date +%Y%m%d%H%M)
-          mv "$apk_path" "app/android/app/build/outputs/apk/release/360-NFC-Valet-${timestamp}.apk"
+          mv "$apk_path" "$release_dir/360-NFC-Valet-${timestamp}.apk"
           echo "timestamp=${timestamp}" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
