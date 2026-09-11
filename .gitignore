@@ -60,7 +60,6 @@ coverage/
 # Monorepo sub-projects
 
 # Expo / React Native app
-app/google-services.json
 
 # Local test/report artifacts (HTML/MD) — never pushed
 /.test-report/

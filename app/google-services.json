@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "292606446702",
+    "project_id": "nfc-valet",
+    "storage_bucket": "nfc-valet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:292606446702:android:1dd9cd408aff324bc46a7f",
+        "android_client_info": {
+          "package_name": "com.valet.threesixtynfc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLYS1P98ENowe1Io_1U2ZQr7PdjUzSTB4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
