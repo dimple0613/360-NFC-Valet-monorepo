@@ -567,5 +567,5 @@ export {
   ADAPTER_ID as IN_APP_CHANNEL_ADAPTER_ID,
 } from "./notifications/in-app-channel";
 
-export { PrismaClient } from "./generated/client";
+export { PrismaClient } from "@prisma/client";
 export type * from "./generated/client";

@@ -1,4 +1,4 @@
-import { Prisma } from "./generated/client";
+import { Prisma } from "@prisma/client";
 import { isBypassingTenantScoping, requireTenantOrganizationId } from "./tenant-context";
 
 // FR-101/FR-102: tenant scoping is enforced here, once, at the persistence layer —

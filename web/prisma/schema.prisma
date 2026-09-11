@@ -6,13 +6,28 @@
 // and the tenant-scoping enforcement layer are separate Phase 1A tasks — see TASKS.md.
 
 generator client {
-  provider      = "prisma-client-js"
-  output        = "../src/lib/db/generated/client"
-  // driverAdapters and queryCompiler are now default in Prisma 6.19.3 — no
-  // need to list them as preview features. The query compiler (pure JS)
-  // means no native binary is required at runtime, and the driver adapter
-  // handles the actual PostgreSQL connection via PrismaPg.
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider        = "prisma-client-js"
+  output          = "../src/lib/db/generated/client"
+  previewFeatures = ["driverAdapters"]
+  engineType      = "client"
+  runtime         = "workerd"
+  moduleFormat    = "esm"
+}
+
+// Default-location client so that `@prisma/client` resolves correctly.
+// engineType = "client" + runtime = "workerd" generates the query-compiler
+// client built for Cloudflare Workers: the query compiler WASM is loaded via
+// workerd's native wasm import (import('./query_compiler_bg.wasm')), not via
+// node:fs — no native engine binary, no eval/new Function. Works with
+// @prisma/adapter-pg + Hyperdrive. Without it, Turbopack inlines the Node
+// variant (fs.readFileSync of the .wasm) which fails on Workers.
+generator client_default {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client"
+  previewFeatures = ["driverAdapters"]
+  engineType      = "client"
+  runtime         = "workerd"
+  moduleFormat    = "esm"
 }
 
 datasource db {

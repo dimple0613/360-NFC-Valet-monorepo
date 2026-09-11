@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { PrismaClient } from "./generated/client";
-import { PrismaClient as PrismaClientNode } from "./generated/client";
+import type { PrismaClient } from "@prisma/client";
+import { PrismaClient as PrismaClientNode } from "@prisma/client";
 import { tenantScopingExtension } from "./tenant-scoping";
 
 // Cloudflare Workers (workerd) detection. `process.versions.node` is NOT a
@@ -18,9 +18,10 @@ const IS_WORKERS_RUNTIME =
   navigator?.userAgent === "Cloudflare-Workers";
 
 /**
- * PrismaClient constructor for the current runtime. With `queryCompiler`
- * now default in Prisma 6.19.3, the regular client uses a pure JS query
- * compiler — no native binary is needed on any platform.
+ * PrismaClient constructor for the current runtime. With the query compiler
+ * default in Prisma 6.19.3 and `engineType = "client"`, no native engine is
+ * needed on any platform — the same client class is valid under plain Node,
+ * Vercel, and workerd.
  */
 function getClientConstructor(): typeof PrismaClientNode {
   return PrismaClientNode;
@@ -52,9 +53,7 @@ if (!IS_WORKERS_RUNTIME && process.platform === "linux" && !process.env.PRISMA_Q
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
-  // eslint-disable-next-line no-var
   var __prismaDb: PrismaClient | undefined;
 }
 

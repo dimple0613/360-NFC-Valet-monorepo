@@ -15,9 +15,9 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "pages:build": "opennextjs-cloudflare build && node scripts/patch-wasm-loader.js",
-    "pages:preview": "opennextjs-cloudflare build && node scripts/patch-wasm-loader.js && opennextjs-cloudflare preview",
-    "pages:deploy": "opennextjs-cloudflare build && node scripts/patch-wasm-loader.js && opennextjs-cloudflare deploy"
+    "pages:build": "opennextjs-cloudflare build && node scripts/apply-workerd-prisma-entry.mjs && node scripts/patch-prisma-compiler-wasm.mjs && node scripts/patch-hash-wasm-wasm.mjs",
+    "pages:preview": "opennextjs-cloudflare build && node scripts/apply-workerd-prisma-entry.mjs && node scripts/patch-prisma-compiler-wasm.mjs && node scripts/patch-hash-wasm-wasm.mjs && opennextjs-cloudflare preview",
+    "pages:deploy": "opennextjs-cloudflare build && node scripts/apply-workerd-prisma-entry.mjs && node scripts/patch-prisma-compiler-wasm.mjs && node scripts/patch-hash-wasm-wasm.mjs && opennextjs-cloudflare deploy"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

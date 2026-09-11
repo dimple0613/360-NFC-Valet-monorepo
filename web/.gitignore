@@ -45,3 +45,4 @@ next-env.d.ts
 .wrangler
 .cloudflare
 wrangler.toml
+wrangler.jsonc
