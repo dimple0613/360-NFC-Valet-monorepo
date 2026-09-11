@@ -1,25 +1,30 @@
 import type { Metadata } from "next";
-import { getBrandingSettings, getPageContentSettings } from "@saasclaude/db";
+import { getBrandingSettings, getPageContentSettings } from "../../lib/db";
 import { AuthLeftPanel, AuthLeftProvider, type AuthBranding } from "./auth-left";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [branding, content] = await Promise.all([getBrandingSettings(), getPageContentSettings()]);
   const siteName = content.brandName || branding.siteName || "360 NFC Valet";
-  return { title: siteName };
+  return {
+    title: siteName,
+    description: branding.siteDescription ?? undefined,
+  };
 }
 
 // Pixel-parity with the console (/console/login): the SAME navy brand panel +
 // white form panel, same class names (.login / .login-left / .login-right /
 // .login-form) as valet/styles/globals.css. One layout for every auth route —
 // the left panel text is page-driven (via <AuthLeftContent>), the identity
-// (name/logo/copyright) is platform-driven from Settings > Branding, and the
-// right renders `children`.
+// (name/logo/tagline/copyright/support) is platform-driven from Settings >
+// Branding + Pages & content, and the right renders `children`.
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const [branding, content] = await Promise.all([getBrandingSettings(), getPageContentSettings()]);
   const brandingProps: AuthBranding = {
     siteName: content.brandName || branding.siteName || "360 NFC Valet",
+    siteDescription: branding.siteDescription,
     logoLightUrl: branding.logoLightUrl,
     copyright: content.copyright,
+    supportEmail: content.supportEmail,
   };
   return (
     <AuthLeftProvider branding={brandingProps}>

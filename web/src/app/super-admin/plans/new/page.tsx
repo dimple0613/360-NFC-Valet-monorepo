@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import { getCurrentPlan, listActiveCurrencies, listFeatures, listResourceTypes } from "@saasclaude/db";
+import { getCurrentPlan, listActiveCurrencies, listFeatures, listResourceTypes } from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { PlanVersionForm, type PlanVersionDefaults } from "../plan-version-form";

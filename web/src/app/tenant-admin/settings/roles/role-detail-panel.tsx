@@ -4,7 +4,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";
 import { ActionForm } from "@/components/action-form";
 import { groupPermissions } from "@/lib/group-permissions";
-import { OWNER_ROLE_SLUG, type ListQueryResult, type RoleAssigneeRow } from "@saasclaude/db";
+import { OWNER_ROLE_SLUG, type ListQueryResult, type RoleAssigneeRow } from "../../../../lib/db";
 import { assignRoleAction } from "./actions";
 import { AddPermissionDialog } from "./add-permission-dialog";
 import { UnassignMemberButton } from "./unassign-member-button";

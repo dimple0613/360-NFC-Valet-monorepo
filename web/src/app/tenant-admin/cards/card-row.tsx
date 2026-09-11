@@ -404,7 +404,7 @@ export function CardTableRow({
           <label className="checkbox" aria-label={`Select ${card.uid}`} style={{ cursor: "pointer" }}>
             <input
               type="checkbox"
-              className="hidden"
+              className="checkbox-input"
               checked={!!selected}
               onChange={() => onToggleSelect?.(card.uid)}
               onClick={(e) => e.stopPropagation()}

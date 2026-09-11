@@ -4,7 +4,7 @@ import {
   OAuthAuthenticationError,
   RegistrationDisabledError,
   UnverifiedEmailConflictError,
-} from "@saasclaude/db";
+} from "../../../../../lib/db";
 import { resolveBaseUrl } from "@/lib/base-url";
 import { clearOAuthStateCookies, readOAuthStateCookies } from "@/lib/auth/oauth-cookies";
 import { finishOAuthSignIn } from "@/lib/auth/oauth-callback";

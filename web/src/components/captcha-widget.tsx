@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import type { CaptchaProvider } from "@saasclaude/db";
+import type { CaptchaProvider } from "../lib/db";
 
 export interface CaptchaWidgetHandle {
   /**

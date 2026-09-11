@@ -11,7 +11,7 @@ import {
   setSecurityDefaultSettings,
   type CaptchaProvider,
   type PageContentSettings,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_SETTINGS_PERMISSION = "core.platform.manage_settings";

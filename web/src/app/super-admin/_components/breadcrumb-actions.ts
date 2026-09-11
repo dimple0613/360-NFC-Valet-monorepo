@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentPlan, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { getCurrentPlan, prismaWithoutTenantScoping } from "../../../lib/db";
 
 export async function resolveBreadcrumbTrail(pathname: string): Promise<string[]> {
   // ---- Organizations ----

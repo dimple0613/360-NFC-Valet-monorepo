@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { PlusIcon, XIcon, TagIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { OfferForm } from "./offer-form";
 import type { OfferTableItem } from "../_lib/valet-data";
-import { PageHeader } from "@/components/page-header";
 import { connectAuthedWs } from "@/lib/ws";
 
 const GUEST_BASE = process.env.NEXT_PUBLIC_GUEST_BASE || "http://localhost:3001";
@@ -127,76 +126,56 @@ export function OffersManager({
   return (
     <div style={{ display: "flex", gap: 20 }}>
       <div style={{ flex: 1.5, minWidth: 0 }}>
-        <div className="flex items-center gap-4 flex-wrap" style={{ justifyContent: "space-between", minWidth: 0, overflow: "hidden" }}>
-          <PageHeader
-            icon={<TagIcon className="size-5" />}
-            title="Offers & promotions"
-            titleTrailing={
-              selectedPropertyName ? (
-                <span style={{ fontSize: 14, color: "#6C7A93", fontWeight: 700, whiteSpace: "nowrap" }}>
-                  · {selectedPropertyName}
-                </span>
-              ) : undefined
-            }
-            description={
-              <span style={{ fontSize: 11.5, fontWeight: 500 }}>
-                Create and manage guest-facing offers, deals, and outlet promotions.
-              </span>
-            }
-            actions={
-              <>
-                {connected && (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide"
-                    style={{ color: "#0C9D61" }}
-                  >
-                    <span className="size-1.5 rounded-full" style={{ background: "#0C9D61" }} />
-                    Live
-                  </span>
-                )}
-                <div className="flex items-center gap-2.5">
-                  <Select
-                    value={property}
-                    onValueChange={(v) => setProperty(v ?? "all")}
-                  >
-                    <SelectTrigger className="h-[34px] rounded-full border-[1.5px] border-[#e7eaf0] bg-white px-4 text-[12.5px] font-bold text-[#1c2b46]">
-                      <span className="font-semibold text-[#6c7a93]">Property:</span>
-                      <span className="font-bold text-[#1c2b46]">{selectedPropertyName || "All properties"}</span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All properties</SelectItem>
-                      {fields.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <button
-                    type="button"
-                    onClick={() => setShowNew(true)}
-                    className="inline-flex items-center gap-2"
-                    style={{
-                      background: "#f4531f",
-                      color: "#fff",
-                      borderRadius: 99,
-                      padding: "10px 20px",
-                      fontSize: 12.5,
-                      fontWeight: 800,
-                      whiteSpace: "nowrap",
-                      boxShadow: "0 4px 16px rgba(16,22,35,0.05)",
-                      transition: "background 0.15s ease",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <PlusIcon className="size-4" />
-                    New offer
-                  </button>
-                </div>
-              </>
-            }
-          />
+        <div className="flex items-center gap-4 flex-wrap" style={{ justifyContent: "flex-end", minWidth: 0, overflow: "hidden" }}>
+          {connected && (
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide"
+              style={{ color: "#0C9D61" }}
+            >
+              <span className="size-1.5 rounded-full" style={{ background: "#0C9D61" }} />
+              Live
+            </span>
+          )}
+          <div className="flex items-center gap-2.5">
+            <Select
+              value={property}
+              onValueChange={(v) => setProperty(v ?? "all")}
+            >
+              <SelectTrigger className="h-[34px] rounded-full border-[1.5px] border-[#e7eaf0] bg-white px-4 text-[12.5px] font-bold text-[#1c2b46]">
+                <span className="font-semibold text-[#6c7a93]">Property:</span>
+                <span className="font-bold text-[#1c2b46]">{selectedPropertyName || "All properties"}</span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All properties</SelectItem>
+                {fields.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              onClick={() => setShowNew(true)}
+              className="inline-flex items-center gap-2"
+              style={{
+                background: "#f4531f",
+                color: "#fff",
+                borderRadius: 99,
+                padding: "10px 20px",
+                fontSize: 12.5,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+                boxShadow: "0 4px 16px rgba(16,22,35,0.05)",
+                transition: "background 0.15s ease",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <PlusIcon className="size-4" />
+              New offer
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center" style={{ gap: 8, marginTop: 0 }}>

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { prismaWithoutTenantScoping, runWithTenant, writeAuditLog } from "@saasclaude/db";
+import { prismaWithoutTenantScoping, runWithTenant, writeAuditLog } from "../../../../lib/db";
 import { GET } from "../audit-logs/route";
 import { apiRequest, seedApiKey, seedOrganization, jsonOf } from "./test-helpers";
 

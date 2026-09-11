@@ -6,7 +6,7 @@ import {
   resolveSession,
   runWithTenant,
   setPlatformSetting,
-} from "@saasclaude/db";
+} from "../../db";
 import { RegistrationDisabledError, signUpNewOrganization } from "../signup-flow";
 
 const runId = Date.now().toString(36);

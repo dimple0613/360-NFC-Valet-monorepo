@@ -11,7 +11,7 @@ import {
   InvalidMfaCodeError,
   MfaNotPendingError,
   RateLimitExceededError,
-} from "@saasclaude/db";
+} from "../../../../../lib/db";
 import { clearPendingMfaCookie, getPendingMfaUserId } from "@/lib/auth/pending-mfa";
 import { setSessionCookie } from "@/lib/auth/session";
 import { setWsTokenCookie } from "@/lib/auth/ws-token";

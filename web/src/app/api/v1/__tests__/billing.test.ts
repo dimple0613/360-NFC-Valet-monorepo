@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDraftInvoice, createPlanVersion, createSubscription, issueInvoice, prismaWithoutTenantScoping, registerResourceTypes } from "@saasclaude/db";
+import { createDraftInvoice, createPlanVersion, createSubscription, issueInvoice, prismaWithoutTenantScoping, registerResourceTypes } from "../../../../lib/db";
 import { GET as GET_PLANS } from "../billing/plans/route";
 import { GET as GET_SUBSCRIPTION } from "../billing/subscription/route";
 import { GET as GET_INVOICES } from "../billing/invoices/route";

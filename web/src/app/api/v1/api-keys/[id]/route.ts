@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ApiKeyNotFoundError, revokeApiKey } from "@saasclaude/db";
+import { ApiKeyNotFoundError, revokeApiKey } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

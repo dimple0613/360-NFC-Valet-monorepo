@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getBrandingSettings } from "@saasclaude/db";
+import { getBrandingSettings } from "../../lib/db";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { requirePlatformIdentity } from "@/lib/auth/current-user";

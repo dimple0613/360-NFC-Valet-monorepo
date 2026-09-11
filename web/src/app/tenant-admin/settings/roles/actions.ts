@@ -10,7 +10,7 @@ import {
   setRolePermissions,
   unassignRoleFromUser,
   UserNotAMemberError,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 const MANAGE_ROLES_PERMISSION = "core.roles.manage";

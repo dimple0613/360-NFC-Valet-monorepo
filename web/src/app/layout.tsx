@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// The bundled favicon is the server-rendered default (can't import the DB into
+// the root layout without dragging node-only deps into the client graph). The
+// client-side <BrandFavicon> takes over when Settings > Branding has an
+// uploaded favicon: it removes this link and injects the configured one.
 export const metadata: Metadata = {
   title: {
     default: "360 Valet · SaaSclude",

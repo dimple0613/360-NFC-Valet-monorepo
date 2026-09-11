@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PercentIcon } from "lucide-react";
-import { getTaxSettings, listTaxRatesByCountry } from "@saasclaude/db";
+import { getTaxSettings, listTaxRatesByCountry } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { COUNTRIES } from "@/lib/countries";

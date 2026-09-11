@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { GlobalRoleRow } from "@saasclaude/db";
+import type { GlobalRoleRow } from "../../../lib/db";
 import { formatDateTime } from "@/lib/format";
 import { StatusBadge, MEMBERSHIP_STATUS_STYLES } from "@/components/status-badge";
 import { ConfirmDialog } from "@/components/confirm-dialog";

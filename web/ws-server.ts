@@ -31,7 +31,6 @@ import { WebSocketServer } from "ws";
 import { config as loadEnv } from "dotenv";
 import { verifyDriverToken } from "./src/lib/driver-jwt";
 
-loadEnv({ path: fileURLToPath(new URL("../packages/db/.env", import.meta.url)) });
 loadEnv({ path: fileURLToPath(new URL("./.env", import.meta.url)) });
 
 const PORT = Number(process.env.WS_PORT) || 3002;

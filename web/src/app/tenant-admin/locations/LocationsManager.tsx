@@ -9,7 +9,7 @@ import { PlusIcon, MapPinIcon, UploadIcon, EyeIcon } from "lucide-react";
 import { FormField, FormToggleField } from "@/components/console-form-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
-import { errorMessage } from "../_lib/valet-permissions";
+import { errorMessage } from "../_lib/valet-errors";
 
 const makeSchema = (configured: boolean) =>
   yup.object({
@@ -319,10 +319,6 @@ function CreateLocationForm({ onCreated }: { onCreated: () => void }) {
                 <FormField name="zones" label="Zones" type="number" />
                 <FormField name="slots" label="Slots" type="number" />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-                <FormField name="cards" label="Card pool" type="number" placeholder="e.g. 200" />
-                <div />
-              </div>
               <FormToggleField
                 name="validatesValet"
                 label="Validate with staff code"
@@ -435,11 +431,7 @@ function UpdateLocationForm({ location, onUpdated, onRemove }: { location: Prope
               <FormField name="zones" label="Zones" type="number" />
               <FormField name="slots" label="Slots" type="number" />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11 }}>
-              <FormField name="cards" label="Card pool" type="number" placeholder="e.g. 200" />
-              <div />
-            </div>
-            <FormToggleField
+<FormToggleField
               name="validatesValet"
               label="Validate with staff code"
               description="Guests get a staff validation box on this property's page while waiting."

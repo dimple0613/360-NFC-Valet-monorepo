@@ -86,6 +86,7 @@ export default function ErrorShell({
   brandName,
   copyright,
   logoLightUrl,
+  supportEmail,
 }: {
   status: string;
   title: string;
@@ -97,6 +98,8 @@ export default function ErrorShell({
   brandName?: string;
   copyright?: string;
   logoLightUrl?: string | null;
+  /** Settings > Pages & content — "Need help?" line in the footer. */
+  supportEmail?: string | null;
 }) {
   const portal = usePortal();
   const brand = PORTAL_BRAND[portal];
@@ -196,8 +199,23 @@ export default function ErrorShell({
           </div>
         </div>
 
-        <div style={{ fontSize: 11.5, color: "#5e6f8f", fontWeight: 600 }}>
-          {resolvedCopyright}
+        <div
+          style={{
+            fontSize: 11.5,
+            color: "#5e6f8f",
+            fontWeight: 600,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            alignItems: "flex-start",
+          }}
+        >
+          {supportEmail ? (
+            <a href={`mailto:${supportEmail}`} style={{ color: "#FF8A50", fontWeight: 700, textDecoration: "none" }}>
+              Need help? {supportEmail}
+            </a>
+          ) : null}
+          <span>{resolvedCopyright}</span>
         </div>
       </div>
 

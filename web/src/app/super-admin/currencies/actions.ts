@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { DuplicateCurrencyCodeError, createCurrency, deleteCurrency, updateCurrency } from "@saasclaude/db";
+import { DuplicateCurrencyCodeError, createCurrency, deleteCurrency, updateCurrency } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_PLANS_PERMISSION = "core.platform.manage_plans";

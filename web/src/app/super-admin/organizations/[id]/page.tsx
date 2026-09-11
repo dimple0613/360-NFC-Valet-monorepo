@@ -8,7 +8,7 @@ import {
   listOrganizationMembersSearch,
   listRolesVisibleToOrganization,
   prismaWithoutTenantScoping,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 
 import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

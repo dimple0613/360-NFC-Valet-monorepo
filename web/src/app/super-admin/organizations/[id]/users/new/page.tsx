@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PlusIcon } from "lucide-react";
-import { listRolesVisibleToOrganization, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { listRolesVisibleToOrganization, prismaWithoutTenantScoping } from "../../../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { NewMemberForm } from "./new-member-form";

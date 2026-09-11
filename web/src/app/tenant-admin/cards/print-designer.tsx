@@ -330,7 +330,7 @@ function SiteCheckbox({
 }) {
   return (
     <label className="checkbox" style={{ cursor: "pointer" }}>
-      <input type="checkbox" className="hidden" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="checkbox-input" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span className={`checkbox-box${checked ? " checked" : ""}`}>
         <Check size={12} strokeWidth={3.5} color="#ffffff" />
       </span>

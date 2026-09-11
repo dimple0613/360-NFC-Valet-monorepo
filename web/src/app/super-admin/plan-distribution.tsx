@@ -1,4 +1,4 @@
-import type { PlanDistributionEntry } from "@saasclaude/db";
+import type { PlanDistributionEntry } from "../../lib/db";
 
 export function PlanDistribution({ entries }: { entries: PlanDistributionEntry[] }) {
   if (entries.length === 0) {

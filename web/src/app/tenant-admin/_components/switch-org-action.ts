@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { switchSessionOrganization } from "@saasclaude/db";
+import { switchSessionOrganization } from "../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 // FR-105: switching the session's active organization. Nothing previously

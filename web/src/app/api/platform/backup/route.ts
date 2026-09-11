@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserPlatformPermissions } from "@saasclaude/db";
+import { getUserPlatformPermissions } from "../../../../lib/db";
 import { getCurrentSession } from "@/lib/auth/session";
 import { runBackup } from "@/lib/backup/backup";
 import {

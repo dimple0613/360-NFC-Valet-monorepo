@@ -10,6 +10,12 @@ export interface SettingFormDefaults {
   category: string;
   key: string;
   isSensitive: boolean;
+  /**
+   * Serialized form of the current value, pre-filled into the field so editing
+   * preserves the existing value. Deliberately never supplied for sensitive
+   * settings — their current value is never shown in the UI.
+   */
+  value?: string;
 }
 
 const schema = yup.object({
@@ -34,7 +40,7 @@ export function SettingForm({
       initialValues={{
         category: defaults?.category ?? "",
         key: defaults?.key ?? "",
-        value: "",
+        value: defaults?.isSensitive ? "" : (defaults?.value ?? ""),
         isSensitive: defaults?.isSensitive ?? false,
       }}
       validationSchema={schema}

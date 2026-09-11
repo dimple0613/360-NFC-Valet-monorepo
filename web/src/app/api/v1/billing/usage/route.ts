@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getResourceUsageSummary } from "@saasclaude/db";
+import { getResourceUsageSummary } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 // One request instead of one per resource type: every registered resource

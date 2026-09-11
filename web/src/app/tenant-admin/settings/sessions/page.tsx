@@ -1,5 +1,5 @@
 import { KeyRoundIcon } from "lucide-react";
-import { listUserSessionsSearch } from "@saasclaude/db";
+import { listUserSessionsSearch } from "../../../../lib/db";
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";

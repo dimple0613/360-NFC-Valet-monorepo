@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getOAuthAdapter, setOAuthProviderConfigValue, setOAuthProviderEnabled } from "@saasclaude/db";
+import { getOAuthAdapter, setOAuthProviderConfigValue, setOAuthProviderEnabled } from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_AUTH_PROVIDERS_PERMISSION = "core.platform.manage_auth_providers";

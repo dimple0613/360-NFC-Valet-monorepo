@@ -11,7 +11,7 @@ import {
   runWithTenant,
   seedDefaultRoles,
   signUp,
-} from "@saasclaude/db";
+} from "../db";
 
 // RegistrationDisabledError lives in packages/db (auth/oauth-provider.ts) so
 // both self-serve account-creation paths — email signup here and OAuth

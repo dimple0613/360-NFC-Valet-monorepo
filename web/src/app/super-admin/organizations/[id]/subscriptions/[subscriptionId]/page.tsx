@@ -6,7 +6,7 @@ import {
   listSubscriptionEventsForSubscriptionSearch,
   listWebhookEventsSearch,
   prismaWithoutTenantScoping,
-} from "@saasclaude/db";
+} from "../../../../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

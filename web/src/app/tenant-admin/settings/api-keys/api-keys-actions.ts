@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createApiKey, ForbiddenError, requireOrganizationPermission, revokeApiKey } from "@saasclaude/db";
+import { createApiKey, ForbiddenError, requireOrganizationPermission, revokeApiKey } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 const MANAGE_API_KEYS_PERMISSION = "core.api_keys.manage";

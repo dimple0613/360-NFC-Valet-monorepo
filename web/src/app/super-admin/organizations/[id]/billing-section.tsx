@@ -1,4 +1,4 @@
-import { listSubscriptionsForOrganizationSearch } from "@saasclaude/db";
+import { listSubscriptionsForOrganizationSearch } from "../../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";
 import { SubscriptionRow } from "../subscription-row";

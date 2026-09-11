@@ -24,7 +24,7 @@ export function NotificationForm({ enabled }: { enabled: Record<string, boolean>
               name={category.key}
               type="checkbox"
               defaultChecked={enabled[category.key] ?? true}
-              className="hidden"
+              className="checkbox-input"
             />
             <span className="checkbox-box">
               <Check size={12} strokeWidth={3.5} color="#ffffff" />

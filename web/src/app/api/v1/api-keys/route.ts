@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { apiKeyHasScope, createApiKey, listApiKeys } from "@saasclaude/db";
+import { apiKeyHasScope, createApiKey, listApiKeys } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 export const GET = withApiTenantContext(async (_req, _ctx, apiKey) => {

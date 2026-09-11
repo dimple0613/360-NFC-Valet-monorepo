@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PlusIcon, ShieldIcon } from "lucide-react";
-import { listGlobalRolesSearch } from "@saasclaude/db";
+import { listGlobalRolesSearch } from "../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

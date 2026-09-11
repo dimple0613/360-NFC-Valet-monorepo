@@ -7,7 +7,7 @@ import {
   runWithTenant,
   verifyApiKey,
   type ResolvedApiKey,
-} from "@saasclaude/db";
+} from "../db";
 import { extractBearerToken } from "./resolve-tenant";
 
 const API_KEY_RATE_LIMIT = { limit: 100, windowSeconds: 60 };

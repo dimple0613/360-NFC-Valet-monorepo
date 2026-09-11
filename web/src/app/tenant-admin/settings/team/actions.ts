@@ -11,7 +11,7 @@ import {
   resolveEmailSender,
   revokeInvite,
   RoleNotFoundError,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { resolveBaseUrl } from "@/lib/base-url";
 

@@ -10,7 +10,7 @@ import {
   login,
   RateLimitExceededError,
   verifyCaptcha,
-} from "@saasclaude/db";
+} from "../../../lib/db";
 import { setSessionCookie } from "@/lib/auth/session";
 import { setWsTokenCookie } from "@/lib/auth/ws-token";
 import { setPendingMfaCookie } from "@/lib/auth/pending-mfa";

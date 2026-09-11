@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEnabledFeaturesForContext } from "@saasclaude/db";
+import { getEnabledFeaturesForContext } from "../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 // FR-192's "available to ... frontend" bootstrap payload, exposed to an

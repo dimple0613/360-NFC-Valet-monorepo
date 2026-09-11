@@ -13,7 +13,7 @@ import {
   resolveEmailSender,
   runWithTenant,
   signUp,
-} from "@saasclaude/db";
+} from "../../../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_ORGS_PERMISSION = "core.platform.manage_organizations";

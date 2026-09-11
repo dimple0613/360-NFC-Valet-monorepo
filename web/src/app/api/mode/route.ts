@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAccessSettings } from "@saasclaude/db";
+import { getAccessSettings } from "../../../lib/db";
 
 // Edge-safe public flag endpoint consumed by proxy.ts (the single Next 16
 // proxy file) to decide whether to serve the maintenance page. It must stay

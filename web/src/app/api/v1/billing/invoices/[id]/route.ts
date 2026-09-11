@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getInvoice } from "@saasclaude/db";
+import { getInvoice } from "../../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

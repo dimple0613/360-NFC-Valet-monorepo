@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileTextIcon } from "lucide-react";
-import { listAllInvoicesSearch, listAllWebhookEventsSearch } from "@saasclaude/db";
+import { listAllInvoicesSearch, listAllWebhookEventsSearch } from "../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

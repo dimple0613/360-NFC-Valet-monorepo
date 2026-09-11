@@ -78,6 +78,13 @@ export function ForgotPasswordForm({
         <div className="login-desc">
           If an account exists for that email, we&apos;ve sent a password reset link.
         </div>
+        <Link
+          className="btn-sso back-link"
+          href="/login"
+          style={{ display: "block", marginTop: 26, textDecoration: "none" }}
+        >
+          ← Back to sign in
+        </Link>
       </div>
     );
   }

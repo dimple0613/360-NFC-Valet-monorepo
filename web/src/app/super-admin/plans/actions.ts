@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createPlanVersion, setPlanVisibility, UnknownFeatureError, type PlanType, type PlanVisibility, type BillingCycle } from "@saasclaude/db";
+import { createPlanVersion, setPlanVisibility, UnknownFeatureError, type PlanType, type PlanVisibility, type BillingCycle } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_PLANS_PERMISSION = "core.platform.manage_plans";

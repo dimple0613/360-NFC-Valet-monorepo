@@ -12,6 +12,7 @@ export default async function Unauthorized() {
       brandName={identity.brandName}
       copyright={identity.copyright}
       logoLightUrl={identity.logoLightUrl}
+      supportEmail={identity.supportEmail}
       actions={[
         { href: "/login", label: "Sign in", variant: "navy" },
         { href: "/super-admin", label: "Back to platform", variant: "outline" },

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { InvalidOrExpiredTokenError, resetPassword, verifyCaptcha, WeakPasswordError } from "@saasclaude/db";
+import { InvalidOrExpiredTokenError, resetPassword, verifyCaptcha, WeakPasswordError } from "../../../lib/db";
 
 export interface ResetPasswordFormState {
   error: string | null;

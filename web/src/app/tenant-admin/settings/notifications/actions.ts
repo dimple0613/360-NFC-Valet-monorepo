@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { setUserSetting } from "@saasclaude/db";
+import { setUserSetting } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { NOTIFICATION_CATEGORIES } from "./categories";
 

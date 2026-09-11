@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { verifyEmail } from "@saasclaude/db";
+import { verifyEmail } from "../../../lib/db";
 import { AuthLeftContent } from "../auth-left";
 
 export default async function VerifyEmailPage({

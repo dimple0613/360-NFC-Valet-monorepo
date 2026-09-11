@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { completeAppleAuth, OAuthAuthenticationError, RegistrationDisabledError, UnverifiedEmailConflictError } from "@saasclaude/db";
+import { completeAppleAuth, OAuthAuthenticationError, RegistrationDisabledError, UnverifiedEmailConflictError } from "../../../../../lib/db";
 import { resolveBaseUrl } from "@/lib/base-url";
 import { clearOAuthStateCookies, readOAuthStateCookies } from "@/lib/auth/oauth-cookies";
 import { finishOAuthSignIn } from "@/lib/auth/oauth-callback";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PackageIcon, PlusIcon } from "lucide-react";
-import { listPlansSearch } from "@saasclaude/db";
+import { listPlansSearch } from "../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable, type DataTableFilter } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

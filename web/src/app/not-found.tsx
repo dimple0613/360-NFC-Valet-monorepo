@@ -12,6 +12,7 @@ export default async function NotFound() {
       brandName={identity.brandName}
       copyright={identity.copyright}
       logoLightUrl={identity.logoLightUrl}
+      supportEmail={identity.supportEmail}
       actions={[
         { href: "/super-admin", label: "Go to dashboard", variant: "navy" },
         { href: "/login", label: "Back to login", variant: "outline" },

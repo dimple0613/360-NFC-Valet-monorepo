@@ -2,7 +2,7 @@ import { config } from "dotenv";
 import * as path from "path";
 import { Pool } from "pg";
 
-config({ path: path.resolve(__dirname, "../../packages/db/.env") });
+config({ path: path.resolve(__dirname, "../.env") });
 
 import { signUpNewOrganization } from "../src/lib/auth/signup-flow";
 

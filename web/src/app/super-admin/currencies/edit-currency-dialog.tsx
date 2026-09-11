@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PencilIcon, XIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Currency } from "@saasclaude/db";
+import type { Currency } from "../../../lib/db";
 import { CurrencyForm } from "./currency-form";
 
 export function EditCurrencyDialog({ currency }: { currency: Currency }) {

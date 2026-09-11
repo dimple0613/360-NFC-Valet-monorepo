@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { exportOrganizationData } from "@saasclaude/db";
+import { exportOrganizationData } from "../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 // FR-132/GDPR data portability: a real, if not GDPR-complete, snapshot of

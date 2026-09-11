@@ -1,4 +1,4 @@
-import { getUserPlatformPermissions } from "@saasclaude/db";
+import { getUserPlatformPermissions } from "../../../../lib/db";
 import { CardsTable } from "@/app/tenant-admin/cards/cards-table";
 
 // #48: Super Admin's per-organization NFC card surface, rendered as the

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prismaWithoutTenantScoping, revokeSession } from "@saasclaude/db";
+import { prismaWithoutTenantScoping, revokeSession } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 export async function revokeSessionAction(sessionId: string): Promise<void> {

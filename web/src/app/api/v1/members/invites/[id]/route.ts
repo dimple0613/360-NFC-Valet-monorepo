@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cancelInvite, InviteNotFoundError } from "@saasclaude/db";
+import { cancelInvite, InviteNotFoundError } from "../../../../../../lib/db";
 import { requireApiScope, withApiTenantContext } from "@/lib/tenant/api";
 
 type RouteContext = { params: Promise<{ id: string }> };

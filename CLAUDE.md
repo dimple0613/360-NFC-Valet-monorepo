@@ -14,9 +14,9 @@ This Turborepo + pnpm workspace consolidates the whole **360 NFC Valet** platfor
 
 Ground rules that govern the current code:
 
-- **One database, always** — the platform and the valet business data share a single PostgreSQL database behind `DATABASE_URL` (the source of truth is `packages/db/.env`, loaded by `web/next.config.ts`; valet-specific vars live in `web/.env`). There is **no** second `VALET_DATABASE_URL` in this code — the old two-DB `roles`/`role_permissions` collision is gone, so the legacy split does not apply. Never reintroduce a second DB connection string.
+- **One database, always** — the platform and the valet business data share a single PostgreSQL database behind `DATABASE_URL` (the source of truth is `web/.env`, loaded by `web/next.config.ts`; valet-specific vars live in the same file). There is **no** second `VALET_DATABASE_URL` in this code — the old two-DB `roles`/`role_permissions` collision is gone, so the legacy split does not apply. Never reintroduce a second DB connection string.
 - **Route namespacing** — App Router owns `/`, `/login`, `/signup`, `/api/v1/*`, `/super-admin/**`, `/tenant-admin/**`, `/api/platform/valet/*`, `/api/cron/*`, `/api/webhooks/*`. `apps/mobile-web` is its own Next app (Pages Router) on port 3001 with its own `/api/*` public surface calling back into the super admin on :3000.
-- **Aliases** — `@/*` → `web/src/*` (super admin) and `@saasclaude/db` → `packages/db`. Standalone Node scripts must use relative imports (bundler aliases don't resolve outside it).
+- **Aliases** — `@/*` → `web/src/*`. There is **no** `@saasclaude/db` alias anymore — the `packages/db` workspace package was deleted; the Prisma client, schema, and all DB services live in a single full app at `web/` (`web/prisma/schema.prisma`, services under `web/src/lib/db/`), imported with relative imports. Standalone Node scripts must use relative imports (bundler aliases don't resolve outside the app).
 - **CORS proxy** — Next 16 uses `web/proxy.ts` (middleware is deprecated) so the guest app / mobile app can call the super admin API cross-origin.
 - **Lint** — `eslint.config.mjs` global-ignores the legacy subtrees (`apps/`, `web/src/pages/**`); the legacy code is exempt from the core's strict TS lint.
 
@@ -24,7 +24,7 @@ Valet env (in `web/.env`): `JWT_SECRET`, `ADMIN_EMAIL`/`ADMIN_PASSWORD` (legacy 
 
 ## Project status
 
-Phase 0 (scaffold) and all of Phase 1 (1A multi-tenancy/RBAC, 1B auth/MFA/sessions, 1C billing) are done, including the post-Phase-1 gaps (MFA enrollment UI, real API-key auth + first `/api/v1` routes, Stripe checkout/webhook wiring), Phase 1 closeout (a real interactive click-through of the full Definition of Done scenario, plus wiring the two previously-unscheduled lifecycle sweeps to a real Vercel Cron endpoint), and a further post-Phase-1 round covering three brainstormed changes: **Organization membership is now flat** (Team/Workspace nesting was built in Phase 1A and later removed as unnecessary complexity — FR-106 amended; users belong directly to an org), **Tenant Admin has a two-tier nav** (a placeholder main sidebar reserved for a real deployment's own product nav + a separate `/tenant-admin/settings/**` area for Account/Security/Notifications/Sessions/API Keys/Settings/Billing/Team/Roles), and **Super Admin has a view-only cross-org Billing surface** (`/super-admin/billing` + a per-org detail section, gated on a new `core.platform.view_billing` permission). `saasclaude/` is its own git repo (see Git note below), a working Turborepo + pnpm monorepo: `web/` (Next.js App Router + TypeScript + Tailwind + shadcn/ui, Super Admin + Tenant Admin portals), `packages/config`, `packages/types`, `packages/db` (Prisma, full Phase 1 schema + services), `plugins/` and `mobile/` (placeholders only, no code). `pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm test`, and `pnpm dev` all run clean from the repo root (166 tests). Deployed to Vercel (`saasclaude-web`) against Neon Postgres + Upstash Redis.
+Phase 0 (scaffold) and all of Phase 1 (1A multi-tenancy/RBAC, 1B auth/MFA/sessions, 1C billing) are done, including the post-Phase-1 gaps (MFA enrollment UI, real API-key auth + first `/api/v1` routes, Stripe checkout/webhook wiring), Phase 1 closeout (a real interactive click-through of the full Definition of Done scenario, plus wiring the two previously-unscheduled lifecycle sweeps to a real Vercel Cron endpoint), and a further post-Phase-1 round covering three brainstormed changes: **Organization membership is now flat** (Team/Workspace nesting was built in Phase 1A and later removed as unnecessary complexity — FR-106 amended; users belong directly to an org), **Tenant Admin has a two-tier nav** (a placeholder main sidebar reserved for a real deployment's own product nav + a separate `/tenant-admin/settings/**` area for Account/Security/Notifications/Sessions/API Keys/Settings/Billing/Team/Roles), and **Super Admin has a view-only cross-org Billing surface** (`/super-admin/billing` + a per-org detail section, gated on a new `core.platform.view_billing` permission). `saasclaude/` is its own git repo (see Git note below). Since the merge the repo is a **single-package pnpm app at `web/`** (Next.js App Router + TypeScript + Tailwind + shadcn/ui, Super Admin + Tenant Admin portals; Prisma schema under `web/prisma`, DB services under `web/src/lib/db`). `apps/app`, `apps/mobile-web`, `apps/landing` are standalone legacy subtrees with their own installs. There is no root/`packages/*` Turborepo workspace anymore — all commands run inside `web/`. Deployed to Vercel (`saasclaude-web`) against Neon Postgres + Upstash Redis.
 
 Read these in order before writing more code:
 1. `REQUIREMENTS.md` — the full spec (FR-100–FR-322), authoritative for *what* to build.
@@ -38,15 +38,13 @@ Local dev note: Laragon's Postgres/Redis do not auto-start with the machine — 
 
 ## Build & dev commands
 
-Run from the repo root (Turborepo fans these out to every package):
-- `pnpm install` — install all workspace deps (root, `web/`, `packages/*`)
-- `pnpm dev` — start `web/`'s Next.js dev server
-- `pnpm build` — `prisma generate` in `packages/db` + `next build` in `web/`
-- `pnpm lint` / `pnpm typecheck` / `pnpm test` — fan out across all packages
+`web/` is the only app package — run commands from `web/` (there is no root `package.json`/`packages/*` workspace anymore):
+- `cd web && pnpm install` — install dependencies
+- `cd web && pnpm dev` — start `web/`'s Next.js dev server
+- `cd web && pnpm build` — `prisma generate` + `next build`
+- `cd web && pnpm lint` / `pnpm typecheck` / `pnpm test` — lint / typecheck / test
 
-`packages/db` needs `DATABASE_URL` to run `prisma generate` (schema references it even without a live connection) — it reads `packages/db/.env`, copied from the root `.env.example`, not a root-level `.env`. Prisma's postinstall/build scripts are explicitly allowlisted via `pnpm.onlyBuiltDependencies` in the root `package.json` (pnpm blocks unknown packages' install scripts by default) — add any future package needing install scripts there rather than running the interactive `pnpm approve-builds`.
-
-The `@saasclaude/db` package overrides `lint`/`typecheck`/`test` in `turbo.json` to depend on its own `build` task (`prisma generate`) — every other package's `typecheck`/`lint`/`test` only depends on `^build` (its dependencies' build), not its own, so don't copy that same-package override elsewhere unless a package similarly needs codegen before typechecking itself.
+`pnpm exec prisma generate` (in `web/`) needs `DATABASE_URL` even without a live connection (the schema references it) — it reads `web/.env`, not a root-level `.env`. Because `web/` is the only package, `pnpm.onlyBuiltDependencies` is irrelevant — Prisma's install scripts run normally.
 
 **Git root caution:** the outer `.git` at `D:\` (three levels up) still exists and is unrelated to this project — this repo's own `.git` lives at `D:\laragon\www\saasclaude`. Run git commands from inside `saasclaude/` (or with `-C`) so they hit the right repo.
 

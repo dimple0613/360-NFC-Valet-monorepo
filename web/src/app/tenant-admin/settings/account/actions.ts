@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prismaWithoutTenantScoping } from "@saasclaude/db";
+import { prismaWithoutTenantScoping } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 export interface UpdateAccountFormState {

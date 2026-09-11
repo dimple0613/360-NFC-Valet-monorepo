@@ -5,7 +5,7 @@ import { Formik, Form } from "formik";
 import { toast } from "sonner";
 import { FormField, FormCheckboxField } from "@/components/console-form-field";
 import { saveOAuthProviderConfigAction } from "./actions";
-import type { OAuthProviderFieldStatus } from "@saasclaude/db";
+import type { OAuthProviderFieldStatus } from "../../../../lib/db";
 
 export function ProviderConfigForm({
   adapterId,

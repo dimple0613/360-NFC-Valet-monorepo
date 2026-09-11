@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { removeTaxRateForCountry, setTaxRateForCountry, setTaxSettings } from "@saasclaude/db";
+import { removeTaxRateForCountry, setTaxRateForCountry, setTaxSettings } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 
 const MANAGE_PLANS_PERMISSION = "core.platform.manage_plans";

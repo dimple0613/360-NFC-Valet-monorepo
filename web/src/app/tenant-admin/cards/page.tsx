@@ -1,6 +1,6 @@
 import { requireValetPage } from "../_lib/valet-permissions";
 import { PageHeader } from "@/components/page-header";
-import { getUserPlatformPermissions } from "@saasclaude/db";
+import { getUserPlatformPermissions } from "../../../lib/db";
 import { listCardsForTable } from "../_lib/valet-data";
 import { CardsTable } from "./cards-table";
 import { NfcIcon } from "lucide-react";

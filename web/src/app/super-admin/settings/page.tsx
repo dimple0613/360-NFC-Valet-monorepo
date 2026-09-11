@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { listPlatformSettings } from "@saasclaude/db";
+import { listPlatformSettings } from "../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { parseListQueryParams } from "@/lib/list-query-params";
 import { PlatformSettingsTable } from "./platform-settings-table";

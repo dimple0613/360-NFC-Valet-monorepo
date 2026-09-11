@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSession, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { createSession, prismaWithoutTenantScoping } from "../../../../lib/db";
 import { GET } from "../sessions/route";
 import { DELETE } from "../sessions/[id]/route";
 import { apiRequest, routeCtx, seedApiKey, seedOrganization, jsonOf } from "./test-helpers";

@@ -1,5 +1,5 @@
 import { UserIcon } from "lucide-react";
-import { prismaWithoutTenantScoping } from "@saasclaude/db";
+import { prismaWithoutTenantScoping } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";
 import { AccountForm } from "./account-form";

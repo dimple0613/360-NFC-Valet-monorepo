@@ -1,4 +1,4 @@
-import { getPageContentSettings, getSecurityDefaultSettings, isAppleConfigured, isGoogleConfigured, listOAuthProviderStatuses } from "@saasclaude/db";
+import { getPageContentSettings, getSecurityDefaultSettings, isAppleConfigured, isGoogleConfigured, isRegistrationEnabled, listOAuthProviderStatuses } from "../../../lib/db";
 import { AuthLeftContent } from "../auth-left";
 import { LoginForm } from "./login-form";
 
@@ -23,6 +23,10 @@ export default async function LoginPage({
   // site key is the only part that makes it to the browser; the secret stays
   // server-side for verifyCaptcha() in the login action.
   const security = await getSecurityDefaultSettings();
+  // When Settings > General > "Allow public sign-up" is off, the login form
+  // hides its "Create one" link — invite-only platforms shouldn't advertise
+  // self-serve signup (the sandbox flag also gates the /signup submission).
+  const allowSignup = await isRegistrationEnabled();
 
   return (
     <>
@@ -39,6 +43,7 @@ export default async function LoginPage({
         title={content.loginTitle}
         subtitle={content.loginSubtitle}
         captcha={{ provider: security.captchaProvider, siteKey: security.captchaSiteKey }}
+        allowSignup={allowSignup}
       />
     </>
   );

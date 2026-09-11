@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ForbiddenError, prismaWithoutTenantScoping, requireOrganizationPermission } from "@saasclaude/db";
+import { ForbiddenError, prismaWithoutTenantScoping, requireOrganizationPermission } from "../../../../lib/db";
 import { requireIdentity } from "@/lib/auth/current-user";
 
 const MANAGE_PROFILE_PERMISSION = "core.organization.manage_profile";

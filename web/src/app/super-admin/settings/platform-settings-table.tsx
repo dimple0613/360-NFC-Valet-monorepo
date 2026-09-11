@@ -80,7 +80,7 @@ export function PlatformSettingsTable({
                     Sensitive — redacted
                   </span>
                 ) : (
-                  <span className="text-[13px] font-bold text-[#1c2b46]">{JSON.stringify(setting.value)}</span>
+                  <FormatSettingValue raw={setting.value} />
                 )}
               </td>
               <td className="px-4 py-3 text-right">
@@ -88,6 +88,7 @@ export function PlatformSettingsTable({
                   category={setting.category}
                   keyName={setting.key}
                   isSensitive={setting.isSensitive}
+                  value={setting.isSensitive ? undefined : JSON.stringify(setting.value) ?? ""}
                 />
               </td>
             </tr>
@@ -105,14 +106,50 @@ export function PlatformSettingsTable({
   );
 }
 
+const VALUE_THRESHOLD = 120;
+
+/**
+ * Renders a stored platform-setting value in the table. Large values (e.g. an
+ * inline base64 logo/favicon data URL stored in the branding keys) would
+ * otherwise render as one unbroken, hundreds-of-thousands-of-characters line
+ * and stretch the table far past the right edge of the screen. Short values
+ * are shown in full; long ones are clipped to a `max-width` cell that
+ * ellipsizes without wrapping the row taller, and the full value stays
+ * available in the edit dialog opened by the pencil button.
+ */
+function FormatSettingValue({ raw }: { raw: unknown }) {
+  const text = JSON.stringify(raw);
+  if (text.length <= VALUE_THRESHOLD) {
+    return <span className="text-[13px] font-bold text-[#1c2b46]">{text}</span>;
+  }
+  return (
+    <span
+      title={text}
+      style={{
+        display: "block",
+        maxWidth: 420,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        padding: "2px 0",
+      }}
+      className="text-[13px] font-bold text-[#1c2b46]"
+    >
+      {text}
+    </span>
+  );
+}
+
 function EditSettingDialog({
   category,
   keyName,
   isSensitive,
+  value,
 }: {
   category: string;
   keyName: string;
   isSensitive: boolean;
+  value?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -147,7 +184,7 @@ function EditSettingDialog({
       <AddSettingDialog
         open={open}
         onOpenChange={setOpen}
-        defaults={{ category, key: keyName, isSensitive }}
+        defaults={{ category, key: keyName, isSensitive, value }}
         keyLocked
       />
     </>

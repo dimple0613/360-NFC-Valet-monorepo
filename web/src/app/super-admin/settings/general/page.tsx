@@ -4,7 +4,7 @@ import {
   getInvoiceNumberFormat,
   getPageContentSettings,
   getSecurityDefaultSettings,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { requirePlatformAccess } from "@/lib/auth/current-user";
 import { GeneralSettingsForms } from "./general-settings-forms";
 

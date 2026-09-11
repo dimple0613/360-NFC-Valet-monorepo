@@ -7,7 +7,7 @@ import {
   InvalidOrExpiredInviteError,
   ResourceQuotaExceededError,
   WeakPasswordError,
-} from "@saasclaude/db";
+} from "../../../../lib/db";
 import { setSessionCookie } from "@/lib/auth/session";
 
 export interface AcceptInviteFormState {

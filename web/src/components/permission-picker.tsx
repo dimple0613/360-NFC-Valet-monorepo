@@ -78,9 +78,9 @@ export function PermissionPicker({
                       value={value}
                       checked={checked}
                       onChange={() => toggle(value)}
-                      className="hidden"
+                      className="checkbox-input"
                     />
-                    <span className={`checkbox-box${checked ? " checked" : ""}`} onClick={() => toggle(value)}>
+                    <span className={`checkbox-box${checked ? " checked" : ""}`}>
                       <Check size={12} strokeWidth={3.5} color="#ffffff" />
                     </span>
                     <span className="checkbox-label">

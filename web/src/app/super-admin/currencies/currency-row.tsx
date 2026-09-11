@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Trash2Icon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Currency } from "@saasclaude/db";
+import type { Currency } from "../../../lib/db";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDateTime } from "@/lib/format";

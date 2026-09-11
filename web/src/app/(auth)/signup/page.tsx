@@ -1,4 +1,4 @@
-import { getPageContentSettings, getSecurityDefaultSettings } from "@saasclaude/db";
+import { getPageContentSettings, getSecurityDefaultSettings } from "../../../lib/db";
 import { AuthLeftContent } from "../auth-left";
 import { SignupForm } from "./signup-form";
 

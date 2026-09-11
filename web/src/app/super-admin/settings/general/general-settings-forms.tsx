@@ -15,9 +15,9 @@ const CAPTCHA_OPTIONS = [
   { value: "hcaptcha", label: "hCaptcha" },
 ];
 
-// Mirrors MAX_BRAND_IMAGE_DATA_URL_LENGTH in @saasclaude/db (700_000 chars of
+// Mirrors MAX_BRAND_IMAGE_DATA_URL_LENGTH in src/lib/db (700_000 chars of
 // base64 ≈ 525 KB binary). Kept local so this client component never imports
-// the db package — that module is server-only.
+// the db module — that module is server-only.
 const MAX_IMAGE_DATA_URL_LENGTH = 700_000;
 const MAX_IMAGE_FILE_BYTES = 500_000;
 const ALLOWED_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"];
@@ -130,28 +130,24 @@ const HIDDEN_FILE: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-// File-picker + hosted-URL image input for the branding logos/favicon, styled to
-// match the location/offer uploaders elsewhere in the console (read-only field row
-// with an eye toggle, dashed preview box, Remove pill). Picked files are read to an
-// inline data URL and saved straight into the platform settings row — nothing hits
-// the filesystem, so the stored image can never 404 in production (the classic
-// "works in dev, URL breaks deployment" issue).
+// File-picker image input for the branding logos/favicon, styled to match the
+// location/offer uploaders elsewhere in the console (read-only field row with an
+// eye toggle, dashed preview box, Remove pill). Picked files are read to an
+// inline data URL and saved straight into the platform settings row — nothing
+// hits the filesystem, so the stored image can never 404 in production (the
+// classic "works in dev, URL breaks deployment" issue).
 function ImageUploadField({
   name,
   label,
-  hint,
 }: {
   name: string;
   label: string;
-  hint?: string;
 }) {
   const formik = useFormikContext();
   const fileId = useId();
   const value = (formik.values as Record<string, string>)[name] ?? "";
   const meta = formik.getFieldMeta(name);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [urlMode, setUrlMode] = useState(false);
-  const [urlDraft, setUrlDraft] = useState("");
 
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,27 +170,15 @@ function ImageUploadField({
       }
       formik.setFieldValue(name, dataUrl);
       formik.setFieldError(name, undefined);
-      setUrlMode(false);
       setPreviewOpen(true);
     };
     reader.onerror = () => formik.setFieldError(name, "Couldn't read that file. Try another image.");
     reader.readAsDataURL(file);
   };
 
-  const toggleUrl = () => {
-    const next = !urlMode;
-    setUrlMode(next);
-    if (next) {
-      setUrlDraft(value.startsWith("data:") ? "" : value);
-      setPreviewOpen(false);
-    }
-  };
-
   const clear = () => {
     formik.setFieldValue(name, "");
     formik.setFieldError(name, undefined);
-    setUrlDraft("");
-    setUrlMode(false);
     setPreviewOpen(false);
   };
 
@@ -210,7 +194,7 @@ function ImageUploadField({
             className="field-value input"
             readOnly
             placeholder="Upload image (PNG/JPEG/SVG/ICO)"
-            value={value ? (value.startsWith("data:") ? "Image attached" : value) : urlDraft}
+            value={value ? (value.startsWith("data:") ? "Image attached" : value) : ""}
             style={{ flex: 1, minWidth: 0, paddingRight: 40, cursor: value ? "default" : "pointer", pointerEvents: "none" }}
           />
           {value ? (
@@ -281,19 +265,6 @@ function ImageUploadField({
           </button>
         </>
       ) : null}
-      {hint ? (
-        <div
-          style={{
-            marginTop: 6,
-            fontSize: 11,
-            fontWeight: 500,
-            color: "#6c7a93",
-            lineHeight: "16px",
-          }}
-        >
-          {hint}
-        </div>
-      ) : null}
       {meta.touched && meta.error ? <div className="field-error">{meta.error}</div> : null}
       <input
         id={fileId}
@@ -304,40 +275,6 @@ function ImageUploadField({
         aria-hidden="true"
         style={HIDDEN_FILE}
       />
-      <div style={{ marginTop: 8 }}>
-        {urlMode ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input
-              className="field-value input"
-              style={{ flex: 1, minWidth: 0 }}
-              placeholder="https://…/logo.svg"
-              value={urlDraft}
-              onChange={(e) => {
-                setUrlDraft(e.target.value);
-                formik.setFieldValue(name, e.target.value);
-              }}
-              onBlur={() => formik.setFieldTouched(name, true)}
-            />
-            <button
-              type="button"
-              onClick={toggleUrl}
-              className="btn-primary"
-              style={{ fontSize: 12, padding: "8px 14px" }}
-            >
-              Done
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={toggleUrl}
-            className="text-xs underline"
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#6c7a93" }}
-          >
-            or paste a hosted image URL instead…
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -360,10 +297,6 @@ export function GeneralSettingsForms({
       {/* Branding */}
       <div className="rounded-xl border border-[#e7eaf0] bg-white p-6 shadow-[0_20px_50px_rgba(16,22,35,0.06)]">
         <div className="mb-1 text-[15px] font-extrabold">Branding</div>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Platform name and imagery. Logos and the favicon are stored directly in the settings — upload a file and
-          it is served from the database, so it never 404s in production. Or paste a hosted image URL instead.
-        </p>
         <Formik
           initialValues={{
             siteName: branding.siteName ?? "",
@@ -391,9 +324,9 @@ export function GeneralSettingsForms({
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField name="siteName" label="Site name" placeholder="saasclaude" />
                 <FormField name="siteDescription" label="Site description" placeholder="A short tagline" />
-                <ImageUploadField name="logoLightUrl" label="Logo (light background)" hint="Shown on the dark sign-in panel and error pages." />
-                <ImageUploadField name="logoDarkUrl" label="Logo (dark background)" hint="For light surfaces — most portals today use the light-bg logo." />
-                <ImageUploadField name="faviconUrl" label="Favicon" hint="Browser tab icon. ICO or PNG recommended." />
+                <ImageUploadField name="logoLightUrl" label="Logo (light background)" />
+                <ImageUploadField name="logoDarkUrl" label="Logo (dark background)" />
+                <ImageUploadField name="faviconUrl" label="Favicon" />
               </div>
               <button type="submit" className="btn-primary w-fit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving…" : "Save branding"}

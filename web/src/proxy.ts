@@ -15,7 +15,7 @@ import type { NextRequest } from "next/server";
 //
 // Proxy defaults to the Node.js runtime in Next 16, but we deliberately keep
 // this file dependency-free and read the flag through a lightweight internal
-// fetch to /api/mode (which queries the DB) rather than importing @saasclaude/db
+// fetch to /api/mode (which queries the DB) rather than importing the db module
 // here — the gate stays simple, fast, and can never couple the proxy to Prisma
 // init. The maintenance flag is memoized briefly in the proxy instance to avoid
 // a DB round-trip on every navigation.

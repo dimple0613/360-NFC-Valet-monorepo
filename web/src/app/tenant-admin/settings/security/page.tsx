@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldIcon } from "lucide-react";
-import { isAppleConfigured, isGoogleConfigured, listLinkedOAuthAccounts, prismaWithoutTenantScoping } from "@saasclaude/db";
+import { isAppleConfigured, isGoogleConfigured, listLinkedOAuthAccounts, prismaWithoutTenantScoping } from "../../../../lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireIdentity } from "@/lib/auth/current-user";

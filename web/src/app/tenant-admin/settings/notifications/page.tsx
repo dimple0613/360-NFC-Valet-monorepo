@@ -1,5 +1,5 @@
 import { BellIcon } from "lucide-react";
-import { listUserSettings } from "@saasclaude/db";
+import { listUserSettings } from "../../../../lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireIdentity } from "@/lib/auth/current-user";
 import { PageHeader } from "@/components/page-header";

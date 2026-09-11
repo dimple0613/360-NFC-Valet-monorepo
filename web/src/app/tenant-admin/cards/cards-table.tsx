@@ -143,7 +143,7 @@ export function CardsTable({
       <label className="checkbox" aria-label="Select all on this page" style={{ cursor: "pointer" }}>
         <input
           type="checkbox"
-          className="hidden"
+          className="checkbox-input"
           checked={items.every((c) => selected.has(c.uid))}
           onChange={toggleAll}
           onClick={(e) => e.stopPropagation()}

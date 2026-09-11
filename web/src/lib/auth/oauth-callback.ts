@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSession, getDefaultOrganizationId, resolveOAuthSignIn, type OAuthProfile } from "@saasclaude/db";
+import { createSession, getDefaultOrganizationId, resolveOAuthSignIn, type OAuthProfile } from "../db";
 import { setSessionCookie } from "./session";
 import { setWsTokenCookie } from "./ws-token";
 import { setPendingMfaCookie } from "./pending-mfa";
@@ -40,5 +40,8 @@ export async function finishOAuthSignIn(profile: OAuthProfile, baseUrl: string):
   const { rawToken, session } = await createSession({ userId: result.userId, organizationId });
   await setSessionCookie(rawToken);
   await setWsTokenCookie(session.id);
-  return NextResponse.redirect(`${baseUrl}/`);
+  // New users who just created their org go to onboarding to pick a plan;
+  // existing users or those who joined via invite go straight to the dashboard.
+  const destination = result.isNewUser && !result.joinedOrganizationId ? "/select-plan" : "/";
+  return NextResponse.redirect(`${baseUrl}${destination}`);
 }

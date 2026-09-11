@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2Icon, PlusIcon } from "lucide-react";
-import { getUserPlatformPermissions, listOrganizationsWithSummarySearch, listPlans } from "@saasclaude/db";
+import { getUserPlatformPermissions, listOrganizationsWithSummarySearch, listPlans } from "../../../lib/db";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { DataTable } from "@/components/data-table";
 import { parseListQueryParams } from "@/lib/list-query-params";

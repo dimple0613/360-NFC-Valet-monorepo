@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getAccessSettings } from "@saasclaude/db";
+import { getAccessSettings } from "../../lib/db";
 import { MaintenanceShell } from "./maintenance-shell";
 
 export const metadata: Metadata = {

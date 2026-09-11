@@ -6,7 +6,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { toast } from "sonner";
 import { CheckIcon } from "lucide-react";
-import type { CaptchaProvider } from "@saasclaude/db";
+import type { CaptchaProvider } from "../../../lib/db";
 import { loginAction } from "./actions";
 import { CaptchaWidget, type CaptchaWidgetHandle } from "@/components/captcha-widget";
 import { PasswordInput } from "@/components/password-input";
@@ -34,6 +34,7 @@ export function LoginForm({
   title = "Welcome back",
   subtitle = "Sign in to your saasclaude account",
   captcha,
+  allowSignup = true,
 }: {
   oauthError: string | null;
   showGoogle: boolean;
@@ -45,6 +46,8 @@ export function LoginForm({
   subtitle?: string;
   /** CAPTCHA config from Settings > General > Security defaults; renders the widget and verifies the token when a provider is configured. */
   captcha?: AuthCaptchaConfig;
+  /** False hides the "Create one" signup link when Settings > General > "Allow public sign-up" is off — the switch gates sign-in of unknown accounts too (oauth-provider.ts), and an invite-only platform shouldn't advertise self-serve signup. */
+  allowSignup?: boolean;
 }) {
 const [keep, setKeep] = useState(true);
   const captchaRef = useRef<CaptchaWidgetHandle>(null);
@@ -106,38 +109,6 @@ const [keep, setKeep] = useState(true);
       <div className="login-title">{title}</div>
       <div className="login-desc">{subtitle}</div>
       <form className="login-form" onSubmit={formik.handleSubmit} noValidate>
-        {hasOAuthOptions ? (
-          <>
-            {/* Real <a> tags, not next/link, are deliberate here: these hit
-                GET Route Handlers (login/google, login/apple,
-                login/[provider]) that 307-redirect to the provider's own
-                authorize endpoint — a genuine full navigation, not an
-                internal page transition. next/link's client-side router
-                expects an RSC payload back and isn't the right tool for
-                triggering a plain HTTP redirect. */}
-            {showGoogle ? (
-              // eslint-disable-next-line @next/next/no-html-link-for-pages
-              <a href="/login/google" className="btn-sso" style={{ display: "block" }}>
-                Continue with Google
-              </a>
-            ) : null}
-            {showApple ? (
-              // eslint-disable-next-line @next/next/no-html-link-for-pages
-              <a href="/login/apple" className="btn-sso" style={{ display: "block" }}>
-                Continue with Apple
-              </a>
-            ) : null}
-            {adapterProviders.map((provider) => (
-              <a key={provider.id} href={`/login/${provider.id}`} className="btn-sso" style={{ display: "block" }}>
-                Continue with {provider.displayName}
-              </a>
-            ))}
-            <div className="login-divider">
-              <span>or</span>
-            </div>
-          </>
-        ) : null}
-
         <div className="login-fields">
           <div>
             <div className={`login-field${showEmailError ? " login-field-error" : ""}`}>
@@ -207,12 +178,46 @@ const [keep, setKeep] = useState(true);
           {formik.isSubmitting ? "Signing in…" : "Sign in"}
         </button>
 
-        <div className="login-create">
-          Don&apos;t have an organization yet?{" "}
-          <Link className="forgot" href="/signup">
-            Create one
-          </Link>
-        </div>
+        {hasOAuthOptions ? (
+          <>
+            {/* Real <a> tags, not next/link, are deliberate here: these hit
+                GET Route Handlers (login/google, login/apple,
+                login/[provider]) that 307-redirect to the provider's own
+                authorize endpoint — a genuine full navigation, not an
+                internal page transition. next/link's client-side router
+                expects an RSC payload back and isn't the right tool for
+                triggering a plain HTTP redirect. */}
+            <div className="login-divider">
+              <span>or</span>
+            </div>
+            {showGoogle ? (
+              // eslint-disable-next-line @next/next/no-html-link-for-pages
+              <a href="/login/google" className="btn-sso" style={{ display: "block" }}>
+                Continue with Google
+              </a>
+            ) : null}
+            {showApple ? (
+              // eslint-disable-next-line @next/next/no-html-link-for-pages
+              <a href="/login/apple" className="btn-sso" style={{ display: "block" }}>
+                Continue with Apple
+              </a>
+            ) : null}
+            {adapterProviders.map((provider) => (
+              <a key={provider.id} href={`/login/${provider.id}`} className="btn-sso" style={{ display: "block" }}>
+                Continue with {provider.displayName}
+              </a>
+            ))}
+          </>
+        ) : null}
+
+        {allowSignup ? (
+          <div className="login-create">
+            Don&apos;t have an organization yet?{" "}
+            <Link className="forgot" href="/signup">
+              Create one
+            </Link>
+          </div>
+        ) : null}
       </form>
     </div>
   );

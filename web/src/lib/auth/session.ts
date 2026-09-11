@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { resolveSession, type ResolvedSession } from "@saasclaude/db";
+import { resolveSession, type ResolvedSession } from "../db";
 
 // FR-105/FR-103: the session cookie is the web surface's actual credential —
 // resolveSession (packages/db) looks it up against the real Session model

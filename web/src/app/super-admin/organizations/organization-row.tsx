@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { OrganizationSummaryRow } from "@saasclaude/db";
+import type { OrganizationSummaryRow } from "../../../lib/db";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, ORG_STATUS_STYLES } from "@/components/status-badge";
 import { AssignPlanDialog } from "./assign-plan-dialog";
@@ -67,6 +67,18 @@ export function OrganizationTableRow({
       try {
         await loginAsOrganizationAction(organization.id);
       } catch (error) {
+        // loginAsOrganizationAction redirect("/tenant-admin")s on success —
+        // Next's redirect() throws NEXT_REDIRECT, which the framework turns
+        // into the navigation. It is NOT a failure, so it must not surface in
+        // a toast (same collision action-button.tsx documents). Genuine
+        // errors (e.g. "no active member to log in as") still do.
+        if (
+          error instanceof Error &&
+          (error.message === "NEXT_REDIRECT" ||
+            String((error as { digest?: string }).digest ?? "").startsWith("NEXT_REDIRECT"))
+        ) {
+          return;
+        }
         toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
       }
     });

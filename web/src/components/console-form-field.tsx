@@ -161,14 +161,11 @@ export function FormCheckboxField({
   description?: string;
   disabled?: boolean;
 }) {
-  const [field, meta, helpers] = useField({ name, type: "checkbox" });
+  const [field, meta] = useField({ name, type: "checkbox" });
   const checked = Boolean(field.value);
   return (
     <div>
-      <label
-        className="checkbox"
-        style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}
-      >
+      <label className="checkbox" style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}>
         <input
           type="checkbox"
           name={field.name}
@@ -176,12 +173,9 @@ export function FormCheckboxField({
           onChange={field.onChange}
           onBlur={field.onBlur}
           disabled={disabled}
-          className="hidden"
+          className="checkbox-input"
         />
-        <span
-          className={`checkbox-box${checked ? " checked" : ""}`}
-          onClick={() => helpers.setValue(!checked)}
-        >
+        <span className={`checkbox-box${checked ? " checked" : ""}`}>
           <Check size={12} strokeWidth={3.5} color="#ffffff" />
         </span>
         <span className="checkbox-label">
@@ -213,7 +207,18 @@ export function FormToggleField({
   const on = Boolean(field.value);
   return (
     <div>
-      <label className="checkbox" style={{ opacity: disabled ? 0.6 : 1 }}>
+      <label
+        className="checkbox"
+        style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}
+        onClick={
+          disabled
+            ? undefined
+            : (event) => {
+                event.preventDefault();
+                helpers.setValue(!on);
+              }
+        }
+      >
         <input
           type="checkbox"
           name={field.name}
@@ -229,7 +234,7 @@ export function FormToggleField({
           aria-checked={on}
           aria-label={label}
           className={`toggle ${on ? "on" : "off"}`}
-          onClick={() => helpers.setValue(!on)}
+          tabIndex={disabled ? -1 : 0}
         >
           <div className="toggle-knob" />
         </button>
