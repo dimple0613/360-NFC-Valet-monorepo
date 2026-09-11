@@ -120,7 +120,7 @@ export function useNfc() {
       setReading(true);
       await NfcManager.requestTechnology([NfcTech.Ndef]);
       const bytes = Ndef.encodeMessage([Ndef.textRecord(number)]);
-      await NfcManager.ndefHandler.writeNdefMessage(bytes, { reconnectAfterWrite: false });
+      await NfcManager.ndefHandler.writeNdefMessage(bytes);
       return true;
     } catch (err) {
       console.log("[NFC] Write failed", err);
