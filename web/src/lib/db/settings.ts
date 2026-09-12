@@ -2,13 +2,6 @@ import { db, prismaWithoutTenantScoping } from "./client";
 import { runWithTenant } from "./tenant-context";
 import { decrypt, encrypt } from "./encryption";
 
-import { appendFileSync } from "node:fs";
-function DBG(msg: string) {
-  try {
-    appendFileSync("C:\\Users\\Dell\\AppData\\Local\\Temp\\opencode\\dbg.log", `${msg}\n`);
-  } catch {}
-}
-
 // FR-270/FR-271: centralized settings with platform/organization/user scope,
 // inheritance (resolveSetting below), and encryption at rest for sensitive
 // values. See schema.prisma for why this is three models, not one.
@@ -46,20 +39,12 @@ function deserialize<T>(row: { value: string; isSensitive: boolean }): T {
 // --- Platform scope ---
 
 export async function setPlatformSetting(input: SetSettingInput): Promise<void> {
-  DBG(`setPlatformSetting ENTER key=${input.key} value=${JSON.stringify(input.value)} ENCRYPTION_KEY_SET=${!!process.env.ENCRYPTION_KEY}`);
   const { value, isSensitive } = serialize(input);
-  DBG(`setPlatformSetting serialized key=${input.key} value=${value} isSensitive=${isSensitive} DATABASE_URL=${process.env.DATABASE_URL}`);
-  try {
-    const r = await prismaWithoutTenantScoping.platformSetting.upsert({
-      where: { key: input.key },
-      create: { category: input.category, key: input.key, value, isSensitive },
-      update: { category: input.category, value, isSensitive },
-    });
-    DBG(`setPlatformSetting OK key=${input.key} id=${r.id}`);
-  } catch (e) {
-    DBG(`setPlatformSetting THREW key=${input.key} err=${(e as Error).message}`);
-    throw e;
-  }
+  await prismaWithoutTenantScoping.platformSetting.upsert({
+    where: { key: input.key },
+    create: { category: input.category, key: input.key, value, isSensitive },
+    update: { category: input.category, value, isSensitive },
+  });
 }
 
 export async function getPlatformSetting<T = unknown>(key: string): Promise<T | undefined> {
