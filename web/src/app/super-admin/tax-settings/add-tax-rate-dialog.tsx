@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ export function AddTaxRateDialog({
   availableCountries: { code: string; name: string }[];
   onSuccess: () => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   return (
@@ -95,6 +97,7 @@ export function AddTaxRateDialog({
                 await addTaxRateAction(fd);
                 toast.success("Tax rate saved.");
                 resetForm();
+                router.refresh();
                 setOpen(false);
                 onSuccess();
               } catch (e) {

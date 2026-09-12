@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PencilIcon, XIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,6 +10,7 @@ import { CurrencyForm } from "./currency-form";
 
 export function EditCurrencyDialog({ currency }: { currency: Currency }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -85,6 +87,7 @@ export function EditCurrencyDialog({ currency }: { currency: Currency }) {
               isActive: currency.isActive,
             }}
             onSuccess={() => {
+              router.refresh();
               setOpen(false);
             }}
           />

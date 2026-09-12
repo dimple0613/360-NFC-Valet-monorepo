@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { XIcon, PlusIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -18,17 +19,21 @@ export function AddPermissionDialog({
   catalog: { id: string; key: string; description: string | null }[];
   selected: Set<string>;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
-  function handleSave(formData: FormData) {
+  async function handleSave(formData: FormData) {
     setPending(true);
     try {
-      updateRolePermissionsAction(roleId, formData);
+      await updateRolePermissionsAction(roleId, formData);
       toast.success("Permissions saved.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setPending(false);
       setOpen(false);
+      router.refresh();
     }
   }
 

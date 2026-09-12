@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ export function TaxSettingsForms({
   countryFilterOptions: { value: string; label: string }[];
   availableCountries: { code: string; name: string }[];
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<"default" | "bycountry">("default");
 
   return (
@@ -87,6 +89,7 @@ export function TaxSettingsForms({
                 if (values.enabled) fd.append("enabled", "on");
                 fd.append("defaultRatePercent", String(values.defaultRatePercent));
                 await setTaxSettingsAction(fd);
+                router.refresh();
                 toast.success("Tax settings saved.");
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Something went wrong.");
@@ -159,6 +162,7 @@ export function TaxSettingsForms({
                     onSubmit={async (_, { setSubmitting }) => {
                       try {
                         await removeTaxRateAction(rate.countryCode);
+                        router.refresh();
                         toast.success("Tax rate removed.");
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : "Something went wrong.");

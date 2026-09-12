@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2Icon } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -18,6 +19,7 @@ const CURRENCY_STATUS_STYLES = {
 };
 
 export function CurrencyTableRow({ currency }: { currency: Currency }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -25,6 +27,7 @@ export function CurrencyTableRow({ currency }: { currency: Currency }) {
     startTransition(async () => {
       try {
         await deleteCurrencyAction(currency.id);
+        router.refresh();
         toast.success("Currency deleted.");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");

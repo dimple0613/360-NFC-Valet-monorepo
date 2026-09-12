@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UserXIcon } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -16,6 +17,7 @@ export function UnassignMemberButton({
   userId: string;
   email: string;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -23,6 +25,7 @@ export function UnassignMemberButton({
     startTransition(async () => {
       try {
         await unassignRoleAction(roleId, userId);
+        router.refresh();
         toast.success("Member unassigned.");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");

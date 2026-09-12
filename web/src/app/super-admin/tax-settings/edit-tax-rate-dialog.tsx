@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Formik, Form } from "formik";
 import * as yup from "yup";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ export function EditTaxRateDialog({
   countryName: string | undefined;
   ratePercent: number;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   return (
@@ -102,6 +104,7 @@ export function EditTaxRateDialog({
                 fd.append("ratePercent", String(values.ratePercent));
                 await addTaxRateAction(fd);
                 toast.success("Tax rate updated.");
+                router.refresh();
                 setOpen(false);
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "Something went wrong.");

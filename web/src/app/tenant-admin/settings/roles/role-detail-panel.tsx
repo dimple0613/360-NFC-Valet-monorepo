@@ -106,7 +106,7 @@ export function RoleDetailPanel({
             rightSlot={
               <>
                 {assignableMembers.length > 0 ? (
-                  <ActionForm action={assign} successMessage="Member assigned.">
+                  <ActionForm action={assign} successMessage="Member assigned." refreshOnSuccess>
                     <div className="flex items-center gap-2">
                       <Select
                         name="userId"

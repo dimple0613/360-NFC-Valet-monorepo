@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PlusIcon, XIcon } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CurrencyForm } from "./currency-form";
 
 export function CreateCurrencyDialog() {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -70,6 +72,7 @@ export function CreateCurrencyDialog() {
         <div className="super-console">
           <CurrencyForm
             onSuccess={() => {
+              router.refresh();
               setOpen(false);
             }}
           />

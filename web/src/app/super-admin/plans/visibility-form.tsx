@@ -2,6 +2,7 @@
 
 import { Formik, Form } from "formik";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { FormSelectField } from "@/components/console-form-field";
 import { setPlanVisibilityAction } from "./actions";
 
@@ -13,6 +14,7 @@ const VISIBILITIES = [
 ];
 
 export function VisibilityForm({ planId, currentVisibility }: { planId: string; currentVisibility: string }) {
+  const router = useRouter();
   return (
     <Formik
       initialValues={{ visibility: currentVisibility }}
@@ -21,6 +23,7 @@ export function VisibilityForm({ planId, currentVisibility }: { planId: string; 
           const fd = new FormData();
           fd.append("visibility", values.visibility);
           await setPlanVisibilityAction(planId, fd);
+          router.refresh();
           toast.success("Visibility updated.");
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "Something went wrong.");
