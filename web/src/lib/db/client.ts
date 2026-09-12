@@ -84,19 +84,61 @@ function resolveConnectionString(): string {
 }
 
 /**
- * Prisma's driver adapter. `maxUses: 1` is the documented Workers-safe
- * setting — a connection is used for at most one query cycle so the pool
- * never hands out a stale/socket-migrated connection between the isolate's
- * sequential requests. That same setting is a footgun everywhere else:
- * every query opens a fresh TLS connection, which against a pooled host like
- * Neon's pgbouncer (and Hyperdrive's proxy) turns each query into a full
- * connect+SSL handshake and makes bulk work (seeds, imports) take minutes.
- * Plain Node/Vercel reuse the pool.
+ * Prisma's driver adapter.
+ *
+ * On Workers the pool is a tiny persistent pool that follows Cloudflare's
+ * Hyperdrive+Prisma guidance (no fresh connections per query). Everything
+ * else follows from that being the only way this platform's data plane stays
+ * reliable under workerd:
+ *
+ * - A bigger pool (and the old `maxUses: 1`) meant every query opened a
+ *   fresh raw TLS connection. In dev the Hyperdrive binding's
+ *   `localConnectionString` points straight at the Neon pooler, and workerd's
+ *   outbound connect to that host is flaky (its IPv6/Happy-Eyeballs path on a
+ *   NAT'd Windows box stalls with neither a resolve nor an error). Throw
+ *   concurrent requests at that and you get a connection storm: stalls pile
+ *   up, the runtime cancels the hung requests ("code had hung"), and the
+ *   orphaned sockets' late data events fire inside whatever new request
+ *   happens to be running (the cross-request promise warnings + ECONNRESETs).
+ *   pg-pool's connect timeout only destroys the stuck socket; workerd never
+ *   delivers the connect callback, so the pool just starts another stalled
+ *   connect for the next queued caller (retry churn).
+ * - `max: 2` caps concurrent connect attempts (and stays far below even a
+ *   single Worker's fair share of a real Hyperdrive edge pool in production).
+ *   Concurrent requests share the two persistent connections instead of
+ *   racing to open sockets, so there is no storm once connections exist, while
+ *   two sockets give heavy pages enough headroom that a burst of concurrent
+ *   loads doesn't serialize into queue timeouts.
+ * - `max: 2` connections that sit idle get reaped by pg-pool's default 10s
+ *   idle timeout, by NAT, or by the pgBouncer idle timeout — and the next
+ *   request would then have to do another flaky fresh connect.
+ *   `idleTimeoutMillis: 300_000` stops pg-pool from tearing them down, and
+ *   `startKeepaliveIfWorkers()` pings every 20s so external idles can't reap
+ *   the sockets either. The flaky connect path therefore only runs once per
+ *   isolate cold start.
+ * - `connectionTimeoutMillis` bounds the flaky connect so a genuine stall
+ *   surfaces as a normal query error instead of a request that hangs forever.
+ *
+ * Plain Node/Vercel keep the default pool (no cap, connection reuse, no
+ * keepalive).
  */
 function buildAdapter(): PrismaPg {
   return new PrismaPg({
     connectionString: resolveConnectionString(),
-    maxUses: IS_WORKERS_RUNTIME ? 1 : undefined,
+    max: IS_WORKERS_RUNTIME ? 2 : undefined,
+    // Bounded but generous: measured workerd→Neon connects (dev Hyperdrive
+    // passthrough) can take several seconds, and concurrent pages serialize
+    // through the 2 sockets (each page is several Neon round-trips). A short
+    // timeout would kill legitimate slow connects / queues and turn pages
+    // into 500s; 45s only fires for a genuinely dead/stalled connection.
+    connectionTimeoutMillis: 45_000,
+    // pg-pool defaults to tearing an idle client down after 10s (see
+    // pg-pool/index.js, `_release`). With `max: 2` on Workers that would
+    // destroy the pooled socket constantly — every pause between pages forces
+    // the flaky fresh connect again. Keep idle clients around for 5 minutes;
+    // the keepalive below additionally carries traffic every 20s so external
+    // idles (NAT, pgBouncer) never reap it either.
+    idleTimeoutMillis: IS_WORKERS_RUNTIME ? 300_000 : undefined,
   });
 }
 
@@ -111,6 +153,37 @@ function buildAdapter(): PrismaPg {
  * UPDATE/DELETE on audit_logs from the app role) is real hardening worth doing before
  * production, not done here — treat this export as trusted-code-only in the meantime.
  */
+/**
+ * Keeps the Workers-only persistent connections alive. Pooled connections that
+ * go idle get reaped by the network (NAT) or the proxy (pgBouncer session
+ * idle timeout), and the reconnect path is the flaky workerd→Neon connect
+ * described in `buildAdapter`. Pinging every 20s means both sockets carry
+ * traffic well before anything prunes them, so a running session never needs
+ * a fresh remote connect after its initial one.
+ *
+ * The interval MUST be registered at module scope, NOT while handling a
+ * request: workerd cancels timers created inside a request when that request
+ * completes, so a keepalive started during the first lazy client init would
+ * stop after that first page and the sockets would die between requests. The
+ * client itself is still created lazily inside requests (the Hyperdrive
+ * binding only exists there), so the ping resolves the current client on each
+ * tick and no-ops until one exists.
+ *
+ * The timer's query completes in a later request context — that is exactly
+ * the `no_handle_cross_request_promise_resolution` case the compat flag
+ * exists for (see wrangler.jsonc), so the keepalive runs without emitting
+ * cross-request promise warnings.
+ */
+if (IS_WORKERS_RUNTIME) {
+  setInterval(() => {
+    const client = globalThis.__prisma;
+    if (!client) return;
+    Promise.resolve(client.$queryRawUnsafe("SELECT 1"))
+      .then(() => console.warn("[KA] ok"))
+      .catch((e) => console.warn("[KA] fail", String(e.message ?? e).slice(0, 120)));
+  }, 20_000).unref?.();
+}
+
 function getRawClient(): PrismaClient {
   if (!globalThis.__prisma) {
     const Constructor = getClientConstructor();
